@@ -48,7 +48,8 @@ MODIS_DIFF_THRESHOLDS = {
 		NEW_ORLEANS    : 1200,
 		SLIDELL        : 1200,
 		BAY_AREA       : 650,
-		BERKELEY       : 650 }
+		BERKELEY       : 650,
+		NIGER          : 1200}
 
 def modis_diff(domain, b, threshold=None):
 	if threshold == None:
