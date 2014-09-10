@@ -1,6 +1,8 @@
 import ee
 import ee.geometry
 
+from pprint import pprint
+
 BORDER           = 1
 BORDER_JUNE      = 2
 ARKANSAS_CITY    = 3
@@ -33,8 +35,8 @@ __ALL_DOMAINS = [None, \
 			'18108519531116889794-12847023993615557481', 'ned_13', None, [1.8, 1.5, 1.0]),
 	( 'Berkeley',        (-122.54, 37.85, -122.126, 37.926), ('2011-04-27', '2011-04-28'), ('2011-04-27', '2011-04-28'), \
 			'18108519531116889794-13496919088645259843', 'ned_13', None, [1.8, 1.5, 1.0]),
-	( 'Niger',        (0.7, 1.7, 6.9, 7.9),                  ('2012-10-18', '2012-10-28'), ('2012-10-18', '2012-12-28'), \
-			'18108519531116889794-13496919088645259843', None, None, None)
+	( 'Niger',        (6.6, 7.75, 7.1, 8.15),                  ('2012-09-15', '2012-11-08'), ('2012-10-20', '2012-10-27'), \
+			'18108519531116889794-13496919088645259843', None, 'L7_L1T', None)
 ]
 
 TRAINING_DOMAINS = {
@@ -50,7 +52,7 @@ TRAINING_DOMAINS = {
 
 class FloodDomain(object):
 	def __init__(self, id, name, bounds, date, high_res_image, low_res_image, landsat, ground_truth, \
-			dem, landsat_type = 'LF_L1T', landsat_gain = [1.9, 1.8, 1.0], water_mask = None):
+			dem, landsat_type = 'L5_L1T', landsat_gain = [1.9, 1.8, 1.0], water_mask = None):
 		self.id = id
 		self.name = name
 		self.bounds = bounds
@@ -81,7 +83,11 @@ def retrieve_domain(index):
 	landsat_gains = ([1.9, 1.8, 1.0] if tup[7] == None else tup[7])
   
 	landsat = ee.ImageCollection(landsat_type).filterDate(landsat_dates[0], landsat_dates[1]).filterBounds(bounds).limit(1).mean();
-	print ee.ImageCollection(landsat_type).filterDate(landsat_dates[0], landsat_dates[1]).filterBounds(bounds).getInfo()
+	if landsat_type == 'L7_L1T':
+		landsat = landsat.select(['10', '20', '30', '40', '50', '62', '70', '80'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8'])
+	else:
+		landsat = landsat.select(['10', '20', '30', '40', '50', '60', '70'],       ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'])
+	#pprint(ee.ImageCollection(landsat_type).filterDate(landsat_dates[0], landsat_dates[1]).filterBounds(bounds).getInfo())
 	high_res_modis = ee.ImageCollection('MOD09GQ').filterBounds(bounds).filterDate(modis_dates[0], modis_dates[1]).limit(1).mean();
 	low_res_modis  = ee.ImageCollection('MOD09GA').filterBounds(bounds).filterDate(modis_dates[0], modis_dates[1]).limit(1).mean();
     #print(ee.ImageCollection(landsat).filterDate(landsatFloodDateStart, landsatFloodDateEnd).filterBounds(polygon).getInfo());

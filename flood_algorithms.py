@@ -10,6 +10,7 @@ RANDOM_FORESTS     = 6
 DNNS               = 7
 DNNS_DEM           = 8
 DIFFERENCE_HISTORY = 9
+DARTMOUTH          = 10
 
 def __compute_indices(domain):
 	band1 = domain.high_res_modis.select(['sur_refl_b01']) # pRED
@@ -171,6 +172,23 @@ def history_diff(domain, b):
 	waterPixels = modis_diff(domain, b, waterThreshold)
 	return waterPixels.Or(changeFlood).select(['sur_refl_b02'], ['b1']);
 
+DARTMOUTH_THRESHOLDS = {
+		BORDER         : 0.75,
+		BORDER_JUNE    : 0.75,
+		ARKANSAS_CITY  : 0.75,
+		KASHMORE       : 0.65,
+		KASHMORE_NORTH : 0.65,
+		NEW_ORLEANS    : 0.75,
+		SLIDELL        : 0.75,
+		BAY_AREA       : 0.55,
+		BERKELEY       : 0.55
+	}
+
+def dartmouth(domain, b):
+	A = 500
+	B = 2500
+	return b['b2'].add(A).divide(b['b1'].add(B)).lte(DARTMOUTH_THRESHOLDS[domain.id])
+
 __ALGORITHMS = {
 		EVI :  ('EVI',  evi),
 		XIAO : ('XIAO', xiao),
@@ -180,7 +198,8 @@ __ALGORITHMS = {
 		RANDOM_FORESTS : ('Random Forests', random_forests),
 		DNNS : ('DNNS', dnns),
 		DNNS_DEM : ('DNNS with DEM', dnns_dem),
-		DIFFERENCE_HISTORY : ('Difference with History', history_diff)
+		DIFFERENCE_HISTORY : ('Difference with History', history_diff),
+		DARTMOUTH : ('Dartmouth', dartmouth)
 }
 
 def detect_flood(domain, algorithm):
