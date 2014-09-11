@@ -71,14 +71,14 @@ DEFAULT_MAP_URL_PATTERN = ('http://mt1.google.com/vt/lyrs=m@176000000&hl=en&'
 													 'src=app&z=%d&x=%d&y=%d')
 
 class WaitForEEResult(threading.Thread):
-	def __init__(self, eeobject, function):
+	def __init__(self, eefunction, function):
 		threading.Thread.__init__(self)
-		self.eeobject = eeobject
+		self.eefunction = eefunction
 		self.function = function
 		self.setDaemon(True)
 		self.start()
 	def run(self):
-		self.function(self.eeobject.getInfo())
+		self.function(self.eefunction())
 
 class MapGui(QtGui.QMainWindow):
 	def __init__(self, parent=None):
@@ -137,7 +137,7 @@ class MapOverlayMenuWidget(QtGui.QWidget):
 		self.value = QtGui.QLabel('...', self)
 		self.value.setMinimumSize(200, 10)
 
-		self.pixel_loader = WaitForEEResult(self.parent.getPixel(layer, x, y), self.set_pixel_value)
+		self.pixel_loader = WaitForEEResult(self.parent.getPixel(layer, x, y).getInfo, self.set_pixel_value)
 
 		hbox = QtGui.QHBoxLayout()
 		hbox.addWidget(self.check_box)
@@ -599,6 +599,11 @@ def addToMap(eeobject, vis_params=None, name="", show=True):
 	It uses a global MapInstance to hang on to "the map".	If the MapInstance
 	isn't initializd, this creates a new one.
 	"""
+	
+	global map_instance
+	if not map_instance:
+		map_instance = MapClient()
+
 	# Flatten any lists to comma separated strings.
 	if vis_params:
 		vis_params = dict(vis_params)
@@ -608,13 +613,7 @@ def addToMap(eeobject, vis_params=None, name="", show=True):
 					not isinstance(item, basestring)):
 				vis_params[key] = ','.join([str(x) for x in item])
 
-	overlay = MakeOverlay(eeobject.getMapId(vis_params))
-
-	global map_instance
-	if not map_instance:
-		map_instance = MapClient()
-	map_instance.addOverlay(overlay, eeobject, name, show)
-
+	WaitForEEResult(lambda: eeobject.getMapId(vis_params), lambda a : map_instance.addOverlay(MakeOverlay(a), eeobject, name, show))
 
 def centerMap(lng, lat, zoom):	# pylint: disable=g-bad-name
 	"""Center the default map instance at the given lat, lon and zoom values."""

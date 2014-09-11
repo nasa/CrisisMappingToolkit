@@ -187,19 +187,19 @@ DARTMOUTH_THRESHOLDS = {
 def dartmouth(domain, b):
 	A = 500
 	B = 2500
-	return b['b2'].add(A).divide(b['b1'].add(B)).lte(DARTMOUTH_THRESHOLDS[domain.id])
+	return b['b2'].add(A).divide(b['b1'].add(B)).lte(DARTMOUTH_THRESHOLDS[domain.id]).select(['sur_refl_b02'], ['b1'])
 
 __ALGORITHMS = {
-		EVI :  ('EVI',  evi, 'FF00FF'),
-		XIAO : ('XIAO', xiao, 'FFFF00'),
-		DIFFERENCE : ('Difference', modis_diff, '00FFFF'),
-		CART : ('CART', cart, 'CC6600'),
-		SVM : ('SVM', svm, 'FFAA33'),
-		RANDOM_FORESTS : ('Random Forests', random_forests, 'CC33FF'),
-		DNNS : ('DNNS', dnns, '0000FF'),
-		DNNS_DEM : ('DNNS with DEM', dnns_dem, '9900FF'),
-		DIFFERENCE_HISTORY : ('Difference with History', history_diff, '0099FF'),
-		DARTMOUTH : ('Dartmouth', dartmouth, '33CCFF')
+		EVI :  ('EVI',  evi, False, 'FF00FF'),
+		XIAO : ('XIAO', xiao, False, 'FFFF00'),
+		DIFFERENCE : ('Difference', modis_diff, False, '00FFFF'),
+		CART : ('CART', cart, False, 'CC6600'),
+		SVM : ('SVM', svm, False, 'FFAA33'),
+		RANDOM_FORESTS : ('Random Forests', random_forests, False,'CC33FF'),
+		DNNS : ('DNNS', dnns, False, '0000FF'),
+		DNNS_DEM : ('DNNS with DEM', dnns_dem, False, '9900FF'),
+		DIFFERENCE_HISTORY : ('Difference with History', history_diff, False, '0099FF'),
+		DARTMOUTH : ('Dartmouth', dartmouth, False, '33CCFF')
 }
 
 def detect_flood(domain, algorithm):
@@ -209,7 +209,19 @@ def detect_flood(domain, algorithm):
 		return None
 	return (approach[0], approach[1](domain, __compute_indices(domain)))
 
+def get_algorithm_name(algorithm):
+	try:
+		return __ALGORITHMS[algorithm][0]
+	except:
+		return None
+
 def get_algorithm_color(algorithm):
+	try:
+		return __ALGORITHMS[algorithm][3]
+	except:
+		return None
+
+def is_algorithm_fractional(algorithm):
 	try:
 		return __ALGORITHMS[algorithm][2]
 	except:
