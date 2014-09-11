@@ -262,7 +262,7 @@ class MapView(QtGui.QWidget):
 		"""
 		# TODO(user): This function is called from multiple threads, and
 		# could use some synchronization, but it seems to work.
-		if self.level == key[0]:			# Don't add late tiles from another level.
+		if self.level == key[0] and overlay.show:	# Don't add late tiles from another level.
 			self.tiles[key] = self.tiles.get(key, {})
 			self.tiles[key][layer] = image
 

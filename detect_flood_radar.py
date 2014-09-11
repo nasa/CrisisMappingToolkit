@@ -1,17 +1,20 @@
 import logging
 logging.basicConfig(level=logging.ERROR)
-import ee_authenticate
-ee_authenticate.initialize()
+import util.ee_authenticate
+util.ee_authenticate.initialize()
 
 from pprint import pprint
 import os
 import ee
-from mapclient_qt import centerMap, addToMap
+from util.mapclient_qt import centerMap, addToMap
 
+# radar data sources
 RADARSAT  = 1
 TERRASAR  = 2
 UAVSAR    = 3
 SENTINEL1 = 4
+
+# image ids
 
 VISUALIZATION_MAXIMUMS = {
 	RADARSAT  : 5000,
@@ -38,7 +41,7 @@ class RadarImage(object):
 		new_params.update(params)
 		addToMap(image, new_params, 'Radar')
 
-def get_radar_image(instrument):
+def get_radar_image(instrument, id=None):
 	if instrument == RADARSAT:
 		im_hh = ee.Image('18108519531116889794-06793893466375912303')
 		im_hv = ee.Image('18108519531116889794-13933004153574033452')
@@ -62,7 +65,7 @@ def get_radar_image(instrument):
 		im = im_vv.select(['b1'], ['vv']).addBands(im_vh.select(['b1'], ['vh']))
 	return RadarImage(instrument, im, bounds)
 
-r = get_radar_image(SENTINEL1)
+r = get_radar_image(UAVSAR)
 center = r.bounds.centroid().getInfo()['coordinates']
 centerMap(center[0], center[1], 11)
 r.visualize()

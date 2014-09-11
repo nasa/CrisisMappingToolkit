@@ -1,5 +1,5 @@
 import ee
-from domain import *
+from domains import *
 
 EVI                = 1
 XIAO               = 2
@@ -190,16 +190,16 @@ def dartmouth(domain, b):
 	return b['b2'].add(A).divide(b['b1'].add(B)).lte(DARTMOUTH_THRESHOLDS[domain.id])
 
 __ALGORITHMS = {
-		EVI :  ('EVI',  evi),
-		XIAO : ('XIAO', xiao),
-		DIFFERENCE : ('Difference', modis_diff),
-		CART : ('CART', cart),
-		SVM : ('SVM', svm),
-		RANDOM_FORESTS : ('Random Forests', random_forests),
-		DNNS : ('DNNS', dnns),
-		DNNS_DEM : ('DNNS with DEM', dnns_dem),
-		DIFFERENCE_HISTORY : ('Difference with History', history_diff),
-		DARTMOUTH : ('Dartmouth', dartmouth)
+		EVI :  ('EVI',  evi, 'FF00FF'),
+		XIAO : ('XIAO', xiao, 'FFFF00'),
+		DIFFERENCE : ('Difference', modis_diff, '00FFFF'),
+		CART : ('CART', cart, 'CC6600'),
+		SVM : ('SVM', svm, 'FFAA33'),
+		RANDOM_FORESTS : ('Random Forests', random_forests, 'CC33FF'),
+		DNNS : ('DNNS', dnns, '0000FF'),
+		DNNS_DEM : ('DNNS with DEM', dnns_dem, '9900FF'),
+		DIFFERENCE_HISTORY : ('Difference with History', history_diff, '0099FF'),
+		DARTMOUTH : ('Dartmouth', dartmouth, '33CCFF')
 }
 
 def detect_flood(domain, algorithm):
@@ -208,4 +208,10 @@ def detect_flood(domain, algorithm):
 	except:
 		return None
 	return (approach[0], approach[1](domain, __compute_indices(domain)))
+
+def get_algorithm_color(algorithm):
+	try:
+		return __ALGORITHMS[algorithm][2]
+	except:
+		return None
 
