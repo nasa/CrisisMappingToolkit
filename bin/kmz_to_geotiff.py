@@ -48,7 +48,10 @@ for link in links:
 	east = latlon.find('{%s}east' % namespace).text
 	west = latlon.find('{%s}west' % namespace).text
 	output_name = tempdir + os.sep + name + '.tiff'
-	ret = os.system('gdal_translate -q -a_srs "+proj=longlat +datum=WGS84 +no_defs" -a_ullr %s %s %s %s images/%s.png %s' % (west, north, east, south, name, output_name))
+	z.extract('images/%s.png' % (name), tempdir)
+	imagefile = tempdir + os.sep + ('images/%s.png' % (name))
+	ret = os.system('gdal_translate -q -a_srs "+proj=longlat +datum=WGS84 +no_defs" -a_ullr %s %s %s %s %s %s' % (west, north, east, south, imagefile, output_name))
+	os.remove(imagefile)
 	if ret != 0:
 		print >> sys.stderr, 'Failed to convert tile %s to geotiff.' % (name)
 		failure = True
@@ -69,6 +72,7 @@ if not failure:
 
 for i in input_images:
 	os.remove(i)
+os.rmdir(tempdir + os.sep + 'images')
 os.rmdir(tempdir)
 
 if failure:
