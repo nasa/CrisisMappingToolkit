@@ -584,6 +584,8 @@ class MapClient(threading.Thread):
 #
 map_instance = None
 
+executing_threads = []
+thread_lock = threading.Lock()
 
 # pylint: disable=g-bad-name
 def addToMap(eeobject, vis_params=None, name="", show=True):
@@ -613,7 +615,19 @@ def addToMap(eeobject, vis_params=None, name="", show=True):
 					not isinstance(item, basestring)):
 				vis_params[key] = ','.join([str(x) for x in item])
 
-	WaitForEEResult(lambda: eeobject.getMapId(vis_params), lambda a : map_instance.addOverlay(MakeOverlay(a), eeobject, name, show))
+	def execute_thread(waiting_threads):
+		# get thread before starting
+		with thread_lock:
+			pass
+		result = eeobject.getMapId(vis_params)
+		for t in waiting_threads:
+			t.join()
+		with thread_lock:
+			executing_threads.pop(0)
+		return result
+
+	with thread_lock:
+		executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(executing_threads)), lambda a : map_instance.addOverlay(MakeOverlay(a), eeobject, name, show)))
 
 def centerMap(lng, lat, zoom):	# pylint: disable=g-bad-name
 	"""Center the default map instance at the given lat, lon and zoom values."""
