@@ -26,7 +26,8 @@ im = radar.domains.get_radar_image(INSTRUMENT, DOMAIN)
 centerMap(im.center[0], im.center[1], 11)
 apply(addToMap, im.visualize())
 ground_truth = radar.domains.get_ground_truth(im)
-addToMap(ground_truth, {}, 'Ground Truth', False)
+if ground_truth != None:
+	addToMap(ground_truth, {}, 'Ground Truth', False)
 
 for a in range(len(ALGORITHMS)):
 	alg = ALGORITHMS[a]

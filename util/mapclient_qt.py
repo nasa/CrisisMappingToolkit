@@ -149,6 +149,9 @@ class MapOverlayMenuWidget(QtGui.QWidget):
 	
 	def set_pixel_value(self, value):
 		names = value[0][4:]
+		if len(value) <= 1:
+			self.value.setText('')
+			return
 		values = value[1][4:]
 		text = ''
 		for i in range(len(names)):

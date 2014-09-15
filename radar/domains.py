@@ -6,11 +6,16 @@ TERRASAR  = 2
 UAVSAR    = 3
 SENTINEL1 = 4
 
-VISUALIZATION_MAXIMUMS = {
+MAXIMUM_VALUES = {
 	RADARSAT  : 5000,
 	TERRASAR  : 1000,
 	UAVSAR    : 65000,
 	SENTINEL1 : 1200 
+}
+
+MINIMUM_VALUES = {
+	UAVSAR : 257,
+	SENTINEL1 : 27
 }
 
 # image ids
@@ -21,11 +26,23 @@ HISTORICAL_DATA = {
 	(UAVSAR, UAVSAR_MISSISSIPPI_FLOODED) : (UAVSAR, UAVSAR_MISSISSIPPI_UNFLOODED)
 }
 
-class RadarImage(object):
+class RadarDomain(object):
 	def __init__(self, instrument, id, image, bounds, ground_truth = None):
 		self.instrument = instrument
 		self.id = id
-		self.image = image
+		self.image = image.clamp(MINIMUM_VALUES[instrument], MAXIMUM_VALUES[instrument])
+		if instrument == UAVSAR:
+			self.vv = image.select(['vv'], ['b1'])
+			self.hv = image.select(['hv'], ['b1'])
+			self.hh = image.select(['hh'], ['b1'])
+			self.vh = None
+			self.channels = ['vv', 'hv', 'hh']
+		elif instrument == SENTINEL1:
+			self.vv = image.select(['vv'], ['b1'])
+			self.vh = image.select(['vh'], ['b1'])
+			self.channels = ['vv', 'vh']
+		else:
+			self.channels = []
 		self.bounds = apply(ee.geometry.Geometry.Rectangle, bounds)
 		self.center = ((bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2)
 		self.ground_truth = ground_truth
@@ -37,7 +54,7 @@ class RadarImage(object):
 		if len(bands) == 2:
 			image = image.addBands(0)
 			bands.insert(0, 'constant')
-		new_params = {'bands' : bands, 'min' : 0, 'max' : VISUALIZATION_MAXIMUMS[self.instrument]}
+		new_params = {'bands' : bands, 'min' : 0, 'max' : MAXIMUM_VALUES[self.instrument]}
 		new_params.update(params)
 		return (image, new_params, name, show)
 
@@ -66,7 +83,7 @@ def get_radar_image(instrument, id=0):
 		im_vh = im_vv.mask(im_vh)
 		bounds = (12.0, 41.5, 14.0, 42.5)
 		im = im_vv.select(['b1'], ['vv']).addBands(im_vh.select(['b1'], ['vh']))
-	return RadarImage(instrument, id, im, bounds)
+	return RadarDomain(instrument, id, im, bounds)
 
 def get_ground_truth(domain):
 	if domain.instrument == UAVSAR and domain.id == UAVSAR_MISSISSIPPI_FLOODED:
