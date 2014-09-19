@@ -2,6 +2,8 @@ import logging
 logging.basicConfig(level=logging.ERROR)
 import util.ee_authenticate
 util.ee_authenticate.initialize()
+import matplotlib
+matplotlib.use('tkagg')
 
 import os
 import ee
