@@ -21,31 +21,49 @@ DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_FLOODED
 #DOMAIN = radar.domains.UAVSAR_NAPO_RIVER
 #DOMAIN = radar.domains.SENTINEL1_ROME
 #DOMAIN = radar.domains.SENTINEL1_LANCIANO
-ALGORITHMS = [MATGEN]
+#ALGORITHMS = [MATGEN]
 #ALGORITHMS = [MATGEN, DECISION_TREE, RANDOM_FORESTS, SVM]
 
-def evaluation_function(pair, alg):
-	precision, recall = pair
-	print '%s: (%4g, %4g)' % (get_algorithm_name(alg), precision, recall)
+ALGORITHMS = [MARTINIS]
 
+# --------------------------------------------------------------
+# Functions
+
+def evaluation_function(pair, alg):
+    '''Pretty print an algorithm and its statistics'''
+    precision, recall = pair
+    print '%s: (%4g, %4g)' % (get_algorithm_name(alg), precision, recall)
+
+# --------------------------------------------------------------
+# main()
+
+# Fetch data set information
 im = radar.domains.get_radar_image(DOMAIN)
 
+# Display the Landsat, MODIS, and ground truth data for the data set
 centerMap(im.center[0], im.center[1], 11)
 apply(addToMap, im.visualize())
 ground_truth = radar.domains.get_ground_truth(im)
 if ground_truth != None:
-	addToMap(ground_truth, {}, 'Ground Truth', False)
+    addToMap(ground_truth, {}, 'Ground Truth', False)
 
+# For each of the algorithms
 for a in range(len(ALGORITHMS)):
-	alg = ALGORITHMS[a]
-	result = detect_flood(im, alg)
-	color = get_algorithm_color(alg)
-	addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color}, get_algorithm_name(alg), False)
-	#print result.getDownloadUrl(params={'name' : 'Result',  'region':im.bounds.toGeoJSONString(), 'scale' : 12})
-	#print im.image.visualize(['vv', 'vh'], 1.0).getDownloadUrl(params={'name' : 'Radar', 'region':im.bounds.toGeoJSONString(), 'scale' : 12})
-	if ground_truth != None:
-		evaluate_approach(functools.partial(evaluation_function, alg=alg), result, ground_truth, im.bounds)
+    # Run the algorithm on the data and get the results
+    alg    = ALGORITHMS[a]
+    result = detect_flood(im, alg)
+    
+    # Get a color pre-associated with the algorithm, then draw it on the map
+    color  = get_algorithm_color(alg)
+    addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color}, get_algorithm_name(alg), False)
+    
+    # Compare the algorithm output to the ground truth and print the results
+    if ground_truth != None:
+        evaluate_approach(functools.partial(evaluation_function, alg=alg), result, ground_truth, im.bounds)
 
 #addToMap(domain.groundTruth.mask(domain.groundTruth), {'min': 0, 'max' : 1, 'opacity' : 0.2}, 'Ground Truth', false);
 #addToMap(domain.dem, {min:25, max:50}, 'DEM', false);
+
+
+
 

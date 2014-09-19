@@ -2,15 +2,15 @@
 
 Implements a tiled slippy map using Tk canvas. Displays map tiles using
 whatever projection the tiles are in and only knows about tile coordinates,
-(as opposed to geospatial coordinates.)	This assumes that the tile-space is
+(as opposed to geospatial coordinates.) This assumes that the tile-space is
 organized as a power-of-two pyramid, with the origin in the upper left corner.
 This currently has several spots that are hard-coded for 256x256 tiles, even
 though MapOverlay tries to track this.
 
 Supports mouse-based pan and zoom as well as tile upsampling while waiting
-for new tiles to load.	The map to display is specified by a MapOverlay, and
+for new tiles to load.  The map to display is specified by a MapOverlay, and
 added to the GUI on creation or manually using addOverlay()
-	gui = MapClient(MakeOverlay(mapid))
+    gui = MapClient(MakeOverlay(mapid))
 
 Tiles are referenced using a key of (level, x, y) throughout.
 
@@ -23,8 +23,8 @@ and therefore violate style guidelines.
 # TODO(user):
 # 1) Add a zoom bar.
 # 2) When the move() is happening inside the Drag function, it'd be
-#		a good idea to use a semaphore to keep new tiles from being added
-#		and subsequently moved.
+#       a good idea to use a semaphore to keep new tiles from being added
+#       and subsequently moved.
 
 import collections
 import cStringIO
@@ -41,74 +41,74 @@ import ee
 # check if the Python imaging libraries used by the mapclient module are
 # installed
 try:
-	from PIL import ImageQt						 # pylint: disable=g-import-not-at-top
-	from PIL import Image, ImageChops							 # pylint: disable=g-import-not-at-top
+    from PIL import ImageQt                      # pylint: disable=g-import-not-at-top
+    from PIL import Image, ImageChops                            # pylint: disable=g-import-not-at-top
 except ImportError:
-	print """
-		ERROR: A Python library (PIL) used by the Earth Engine API mapclient module
-		was not found. Information on PIL can be found at:
-		http://pypi.python.org/pypi/PIL
-		"""
-	raise
+    print """
+        ERROR: A Python library (PIL) used by the Earth Engine API mapclient module
+        was not found. Information on PIL can be found at:
+        http://pypi.python.org/pypi/PIL
+        """
+    raise
 
 try:
-	import PyQt4						 # pylint: disable=g-import-not-at-top
-	from PyQt4 import QtCore, QtGui
+    import PyQt4                         # pylint: disable=g-import-not-at-top
+    from PyQt4 import QtCore, QtGui
 except ImportError:
-	print """
-		ERROR: A Python library (PyQt4) used by the Earth Engine API mapclient
-		module was not found.
-		"""
-	raise
+    print """
+        ERROR: A Python library (PyQt4) used by the Earth Engine API mapclient
+        module was not found.
+        """
+    raise
 
-# The default URL to fetch tiles from.	We could pull this from the EE library,
+# The default URL to fetch tiles from.  We could pull this from the EE library,
 # however this doesn't have any other dependencies on that yet, so let's not.
 BASE_URL = 'https://earthengine.googleapis.com'
 
 # This is a URL pattern for creating an overlay from the google maps base map.
 # The z, x and y arguments at the end correspond to level, x, y here.
 DEFAULT_MAP_URL_PATTERN = ('http://mt1.google.com/vt/lyrs=m@176000000&hl=en&'
-													 'src=app&z=%d&x=%d&y=%d')
+                                                     'src=app&z=%d&x=%d&y=%d')
 
 class WaitForEEResult(threading.Thread):
-	def __init__(self, eefunction, function):
-		threading.Thread.__init__(self)
-		self.eefunction = eefunction
-		self.function = function
-		self.setDaemon(True)
-		self.start()
-	def run(self):
-		self.function(self.eefunction())
+    def __init__(self, eefunction, function):
+        threading.Thread.__init__(self)
+        self.eefunction = eefunction
+        self.function = function
+        self.setDaemon(True)
+        self.start()
+    def run(self):
+        self.function(self.eefunction())
 
 class MapGui(QtGui.QMainWindow):
-	def __init__(self, parent=None):
-		QtGui.QWidget.__init__(self, parent)
-		self.mapwidget = MapView()
+    def __init__(self, parent=None):
+        QtGui.QWidget.__init__(self, parent)
+        self.mapwidget = MapView()
 
-		self.setCentralWidget(self.mapwidget)
-		
-		self.setGeometry(100, 100, 720, 720)
-		self.setWindowTitle('EE Map View')
-		self.show()
+        self.setCentralWidget(self.mapwidget)
+        
+        self.setGeometry(100, 100, 720, 720)
+        self.setWindowTitle('EE Map View')
+        self.show()
 
-	def CenterMap(self, lon, lat, opt_zoom=None):
-		self.mapwidget.CenterMap(lon, lat, opt_zoom)
-	
-	def addOverlay(self, overlay, eeobject, name, show):
-		self.mapwidget.addOverlay(overlay, eeobject, name, show)
-	
-	def keyPressEvent(self, event):
-		"""Handle keypress events."""
-		if event.key() == QtCore.Qt.Key_Q:
-			QtGui.QApplication.quit()
+    def CenterMap(self, lon, lat, opt_zoom=None):
+        self.mapwidget.CenterMap(lon, lat, opt_zoom)
+    
+    def addOverlay(self, overlay, eeobject, name, show):
+        self.mapwidget.addOverlay(overlay, eeobject, name, show)
+    
+    def keyPressEvent(self, event):
+        """Handle keypress events."""
+        if event.key() == QtCore.Qt.Key_Q:
+            QtGui.QApplication.quit()
 
 class MapViewOverlay(object):
-	def __init__(self, overlay, eeobject, name, show=True, opacity=1.0):
-		self.overlay = overlay
-		self.eeobject = eeobject
-		self.name = name
-		self.show = show
-		self.opacity = opacity
+    def __init__(self, overlay, eeobject, name, show=True, opacity=1.0):
+        self.overlay = overlay
+        self.eeobject = eeobject
+        self.name = name
+        self.show = show
+        self.opacity = opacity
 
 class MapOverlayMenuWidget(QtGui.QWidget):
 	def __init__(self, parent, layer, x, y):
@@ -424,169 +424,168 @@ class MapView(QtGui.QWidget):
 		self.origin_y = -y + height / 2
 		self.LoadTiles()
 
-
 class MapOverlay(object):
-	"""A class representing a map overlay."""
+    """A class representing a map overlay."""
 
-	TILE_WIDTH = 256
-	TILE_HEIGHT = 256
-	MAX_CACHE = 1000					# The maximum number of tiles to cache.
-	_images = {}							 # The tile cache, keyed by (url, level, x, y).
-	_lru_keys = []						 # Keys to the cached tiles, for cache ejection.
+    TILE_WIDTH = 256
+    TILE_HEIGHT = 256
+    MAX_CACHE = 1000                    # The maximum number of tiles to cache.
+    _images = {}                             # The tile cache, keyed by (url, level, x, y).
+    _lru_keys = []                       # Keys to the cached tiles, for cache ejection.
 
-	def __init__(self, url):
-		"""Initialize the MapOverlay."""
-		self.url = url
-		# Make 10 workers.
-		self.queue = Queue.Queue()
-		self.fetchers = [MapOverlay.TileFetcher(self) for unused_x in range(10)]
-		self.constant = None
+    def __init__(self, url):
+        """Initialize the MapOverlay."""
+        self.url = url
+        # Make 10 workers.
+        self.queue = Queue.Queue()
+        self.fetchers = [MapOverlay.TileFetcher(self) for unused_x in range(10)]
+        self.constant = None
 
-	def getTile(self, key, callback):		# pylint: disable=g-bad-name
-		"""Get the requested tile.
+    def getTile(self, key, callback):       # pylint: disable=g-bad-name
+        """Get the requested tile.
 
-		If the requested tile is already cached, it's returned (sent to the
-		callback) directly.	If it's not cached, a check is made to see if
-		a lower-res version is cached, and if so that's interpolated up, before
-		a request for the actual tile is made.
+        If the requested tile is already cached, it's returned (sent to the
+        callback) directly. If it's not cached, a check is made to see if
+        a lower-res version is cached, and if so that's interpolated up, before
+        a request for the actual tile is made.
 
-		Args:
-			key: The key of the tile to fetch.
-			callback: The callback to call when the tile is available.	The callback
-					may be called more than once if a low-res version is available.
-		"""
-		result = self.GetCachedTile(key)
-		if result:
-			callback(result)
-		else:
-			# Interpolate what we have and put the key on the fetch queue.
-			self.queue.put((key, callback))
-			self.Interpolate(key, callback)
+        Args:
+            key: The key of the tile to fetch.
+            callback: The callback to call when the tile is available.  The callback
+                    may be called more than once if a low-res version is available.
+        """
+        result = self.GetCachedTile(key)
+        if result:
+            callback(result)
+        else:
+            # Interpolate what we have and put the key on the fetch queue.
+            self.queue.put((key, callback))
+            self.Interpolate(key, callback)
 
-	def Flush(self):
-		"""Empty the tile queue."""
-		while not self.queue.empty():
-			self.queue.get_nowait()
+    def Flush(self):
+        """Empty the tile queue."""
+        while not self.queue.empty():
+            self.queue.get_nowait()
 
-	def CalcTiles(self, level, bbox):
-		"""Calculate which tiles to load based on the visible viewport.
+    def CalcTiles(self, level, bbox):
+        """Calculate which tiles to load based on the visible viewport.
 
-		Args:
-			level: The level at which to calculate the required tiles.
-			bbox: The viewport coordinates as a tuple (xlo, ylo, xhi, yhi])
+        Args:
+            level: The level at which to calculate the required tiles.
+            bbox: The viewport coordinates as a tuple (xlo, ylo, xhi, yhi])
 
-		Returns:
-			The list of tile keys to fill the given viewport.
-		"""
-		tile_list = []
-		for y in xrange(int(bbox[1] / MapOverlay.TILE_HEIGHT),
-										int(bbox[3] / MapOverlay.TILE_HEIGHT + 1)):
-			for x in xrange(int(bbox[0] / MapOverlay.TILE_WIDTH),
-											int(bbox[2] / MapOverlay.TILE_WIDTH + 1)):
-				tile_list.append((level, x, y))
-		return tile_list
+        Returns:
+            The list of tile keys to fill the given viewport.
+        """
+        tile_list = []
+        for y in xrange(int(bbox[1] / MapOverlay.TILE_HEIGHT),
+                                        int(bbox[3] / MapOverlay.TILE_HEIGHT + 1)):
+            for x in xrange(int(bbox[0] / MapOverlay.TILE_WIDTH),
+                                            int(bbox[2] / MapOverlay.TILE_WIDTH + 1)):
+                tile_list.append((level, x, y))
+        return tile_list
 
-	def Interpolate(self, key, callback):
-		"""Upsample a lower res tile if one is available.
+    def Interpolate(self, key, callback):
+        """Upsample a lower res tile if one is available.
 
-		Args:
-			key: The tile key to upsample.
-			callback: The callback to call when the tile is ready.
-		"""
-		level, x, y = key
-		delta = 1
-		result = None
-		while level - delta > 0 and result is None:
-			prevkey = (level - delta, x / 2, y / 2)
-			result = self.GetCachedTile(prevkey)
-			if not result:
-				(_, x, y) = prevkey
-				delta += 1
+        Args:
+            key: The tile key to upsample.
+            callback: The callback to call when the tile is ready.
+        """
+        level, x, y = key
+        delta = 1
+        result = None
+        while level - delta > 0 and result is None:
+            prevkey = (level - delta, x / 2, y / 2)
+            result = self.GetCachedTile(prevkey)
+            if not result:
+                (_, x, y) = prevkey
+                delta += 1
 
-		if result:
-			px = (key[1] % 2 ** delta) * MapOverlay.TILE_WIDTH / 2 ** delta
-			py = (key[2] % 2 ** delta) * MapOverlay.TILE_HEIGHT / 2 ** delta
-			image = (result.crop([px, py,
-														px + MapOverlay.TILE_WIDTH / 2 ** delta,
-														py + MapOverlay.TILE_HEIGHT / 2 ** delta])
-							 .resize((MapOverlay.TILE_WIDTH, MapOverlay.TILE_HEIGHT)))
-			callback(image)
+        if result:
+            px = (key[1] % 2 ** delta) * MapOverlay.TILE_WIDTH / 2 ** delta
+            py = (key[2] % 2 ** delta) * MapOverlay.TILE_HEIGHT / 2 ** delta
+            image = (result.crop([px, py,
+                                                        px + MapOverlay.TILE_WIDTH / 2 ** delta,
+                                                        py + MapOverlay.TILE_HEIGHT / 2 ** delta])
+                             .resize((MapOverlay.TILE_WIDTH, MapOverlay.TILE_HEIGHT)))
+            callback(image)
 
-	def PutCacheTile(self, key, image):
-		"""Insert a new tile in the cache and eject old ones if it's too big."""
-		cache_key = (self.url,) + key
-		MapOverlay._images[cache_key] = image
-		MapOverlay._lru_keys.append(cache_key)
-		while len(MapOverlay._lru_keys) > MapOverlay.MAX_CACHE:
-			remove_key = MapOverlay._lru_keys.pop(0)
-			try:
-				MapOverlay._images.pop(remove_key)
-			except KeyError:
-				# Just in case someone removed this before we did.
-				pass
+    def PutCacheTile(self, key, image):
+        """Insert a new tile in the cache and eject old ones if it's too big."""
+        cache_key = (self.url,) + key
+        MapOverlay._images[cache_key] = image
+        MapOverlay._lru_keys.append(cache_key)
+        while len(MapOverlay._lru_keys) > MapOverlay.MAX_CACHE:
+            remove_key = MapOverlay._lru_keys.pop(0)
+            try:
+                MapOverlay._images.pop(remove_key)
+            except KeyError:
+                # Just in case someone removed this before we did.
+                pass
 
-	def GetCachedTile(self, key):
-		"""Returns the specified tile if it's in the cache."""
-		cache_key = (self.url,) + key
-		return MapOverlay._images.get(cache_key, None)
+    def GetCachedTile(self, key):
+        """Returns the specified tile if it's in the cache."""
+        cache_key = (self.url,) + key
+        return MapOverlay._images.get(cache_key, None)
 
-	class TileFetcher(threading.Thread):
-		"""A threaded URL fetcher."""
+    class TileFetcher(threading.Thread):
+        """A threaded URL fetcher."""
 
-		def __init__(self, overlay):
-			threading.Thread.__init__(self)
-			self.overlay = overlay
-			self.setDaemon(True)
-			self.start()
+        def __init__(self, overlay):
+            threading.Thread.__init__(self)
+            self.overlay = overlay
+            self.setDaemon(True)
+            self.start()
 
-		def run(self):
-			"""Pull URLs off the ovelay's queue and call the callback when done."""
-			while True:
-				(key, callback) = self.overlay.queue.get()
-				# Check one more time that we don't have this yet.
-				if not self.overlay.GetCachedTile(key):
-					(level, x, y) = key
-					if x >= 0 and y >= 0 and x <= 2 ** level-1 and y <= 2 ** level-1:
-						url = self.overlay.url % key
-						try:
-							data = urllib2.urlopen(url).read()
-						except urllib2.HTTPError as e:
-							print >> sys.stderr, e
-						else:
-							# PhotoImage can't handle alpha on LA images.
-							image = Image.open(cStringIO.StringIO(data)).convert('RGBA')
-							callback(image)
-							self.overlay.PutCacheTile(key, image)
+        def run(self):
+            """Pull URLs off the ovelay's queue and call the callback when done."""
+            while True:
+                (key, callback) = self.overlay.queue.get()
+                # Check one more time that we don't have this yet.
+                if not self.overlay.GetCachedTile(key):
+                    (level, x, y) = key
+                    if x >= 0 and y >= 0 and x <= 2 ** level-1 and y <= 2 ** level-1:
+                        url = self.overlay.url % key
+                        try:
+                            data = urllib2.urlopen(url).read()
+                        except urllib2.HTTPError as e:
+                            print >> sys.stderr, e
+                        else:
+                            # PhotoImage can't handle alpha on LA images.
+                            image = Image.open(cStringIO.StringIO(data)).convert('RGBA')
+                            callback(image)
+                            self.overlay.PutCacheTile(key, image)
 
 
 def MakeOverlay(mapid, baseurl=BASE_URL):
-	"""Create an overlay from a mapid."""
-	url = (baseurl + '/map/' + mapid['mapid'] + '/%d/%d/%d?token=' +
-				 mapid['token'])
-	return MapOverlay(url)
+    """Create an overlay from a mapid."""
+    url = (baseurl + '/map/' + mapid['mapid'] + '/%d/%d/%d?token=' +
+                 mapid['token'])
+    return MapOverlay(url)
 
 class MapClient(threading.Thread):
-	def __init__(self):
-		threading.Thread.__init__(self)
-		self.ready = False
-		self.start()
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.ready = False
+        self.start()
 
-	def run(self):
-		app = QtGui.QApplication(sys.argv)
-		self.gui = MapGui()
-		self.gui.show()
-		self.ready = True
-		sys.exit(app.exec_())
-	
-	def CenterMap(self, lon, lat, opt_zoom=None):
-		while not self.ready:
-			time.sleep(0.01)
-		self.gui.CenterMap(lon, lat, opt_zoom)
-	
-	def addOverlay(self, overlay, eeobject, name, show):
-		while not self.ready:
-			time.sleep(0.01)
-		self.gui.addOverlay(overlay, eeobject, name, show)
+    def run(self):
+        app = QtGui.QApplication(sys.argv)
+        self.gui = MapGui()
+        self.gui.show()
+        self.ready = True
+        sys.exit(app.exec_())
+    
+    def CenterMap(self, lon, lat, opt_zoom=None):
+        while not self.ready:
+            time.sleep(0.01)
+        self.gui.CenterMap(lon, lat, opt_zoom)
+    
+    def addOverlay(self, overlay, eeobject, name, show):
+        while not self.ready:
+            time.sleep(0.01)
+        self.gui.addOverlay(overlay, eeobject, name, show)
 
 #
 # A global MapClient instance for addToMap convenience.
@@ -598,51 +597,51 @@ thread_lock = threading.Lock()
 
 # pylint: disable=g-bad-name
 def addToMap(eeobject, vis_params=None, name="", show=True):
-	"""Adds a layer to the default map instance.
+    """Adds a layer to the default map instance.
 
-	Args:
-			eeobject: the object to add to the map.
-			vis_params: a dictionary of visualization parameters.	See
-					ee.data.getMapId().
-			*unused_args: unused arguments, left for compatibility with the JS API.
+    Args:
+            eeobject: the object to add to the map.
+            vis_params: a dictionary of visualization parameters.   See
+                    ee.data.getMapId().
+            *unused_args: unused arguments, left for compatibility with the JS API.
 
-	This call exists to be an equivalent to the playground addToMap() call.
-	It uses a global MapInstance to hang on to "the map".	If the MapInstance
-	isn't initializd, this creates a new one.
-	"""
-	
-	global map_instance
-	if not map_instance:
-		map_instance = MapClient()
+    This call exists to be an equivalent to the playground addToMap() call.
+    It uses a global MapInstance to hang on to "the map".   If the MapInstance
+    isn't initializd, this creates a new one.
+    """
+    
+    global map_instance
+    if not map_instance:
+        map_instance = MapClient()
 
-	# Flatten any lists to comma separated strings.
-	if vis_params:
-		vis_params = dict(vis_params)
-		for key in vis_params.keys():
-			item = vis_params.get(key)
-			if (isinstance(item, collections.Iterable) and
-					not isinstance(item, basestring)):
-				vis_params[key] = ','.join([str(x) for x in item])
+    # Flatten any lists to comma separated strings.
+    if vis_params:
+        vis_params = dict(vis_params)
+        for key in vis_params.keys():
+            item = vis_params.get(key)
+            if (isinstance(item, collections.Iterable) and
+                    not isinstance(item, basestring)):
+                vis_params[key] = ','.join([str(x) for x in item])
 
-	def execute_thread(waiting_threads):
-		# get thread before starting
-		with thread_lock:
-			pass
-		result = eeobject.getMapId(vis_params)
-		for t in waiting_threads:
-			t.join()
-		with thread_lock:
-			executing_threads.pop(0)
-		return result
+    def execute_thread(waiting_threads):
+        # get thread before starting
+        with thread_lock:
+            pass
+        result = eeobject.getMapId(vis_params)
+        for t in waiting_threads:
+            t.join()
+        with thread_lock:
+            executing_threads.pop(0)
+        return result
 
-	with thread_lock:
-		executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(executing_threads)), lambda a : map_instance.addOverlay(MakeOverlay(a), eeobject, name, show)))
+    with thread_lock:
+        executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(executing_threads)), lambda a : map_instance.addOverlay(MakeOverlay(a), eeobject, name, show)))
 
-def centerMap(lng, lat, zoom):	# pylint: disable=g-bad-name
-	"""Center the default map instance at the given lat, lon and zoom values."""
-	global map_instance
-	if not map_instance:
-		map_instance = MapClient()
+def centerMap(lng, lat, zoom):  # pylint: disable=g-bad-name
+    """Center the default map instance at the given lat, lon and zoom values."""
+    global map_instance
+    if not map_instance:
+        map_instance = MapClient()
 
-	map_instance.CenterMap(lng, lat, zoom)
+    map_instance.CenterMap(lng, lat, zoom)
 

@@ -141,3 +141,4 @@ def get_ground_truth(domain):
 		return im.select(['b1']).clamp(0, 1)
 	return None
 
+

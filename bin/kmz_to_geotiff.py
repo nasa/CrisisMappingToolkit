@@ -10,32 +10,32 @@ import tempfile
 from xml.etree import ElementTree
 
 if len(sys.argv) < 3:
-	print 'Usage: kmz_to_geotiff.py input.kmz output.tiff'
-	sys.exit(0)
+    print 'Usage: kmz_to_geotiff.py input.kmz output.tiff'
+    sys.exit(0)
 
 single_mosaic = False
 
 try:
-	z = zipfile.ZipFile(sys.argv[1], 'r')
+    z = zipfile.ZipFile(sys.argv[1], 'r')
 except:
-	print >> sys.stderr, 'Could not open file ' + sys.argv[1] + '.'
-	sys.exit(1)
+    print >> sys.stderr, 'Could not open file ' + sys.argv[1] + '.'
+    sys.exit(1)
 
 namespace = 'http://earth.google.com/kml/2.1'
 ElementTree.register_namespace('', namespace)
 
 try:
-	tree = ElementTree.parse(z.open('overlay.kml', 'r'))
+    tree = ElementTree.parse(z.open('overlay.kml', 'r'))
 except:
-	print >> sys.stderr, 'Could not open overlay.kml in kmz file.'
-	sys.exit(1)
+    print >> sys.stderr, 'Could not open overlay.kml in kmz file.'
+    sys.exit(1)
 
 try:
-	links = tree.getroot().find('{%s}Document' % (namespace)).findall('{%s}NetworkLink' % namespace)
+    links = tree.getroot().find('{%s}Document' % (namespace)).findall('{%s}NetworkLink' % namespace)
 except:
-	print >> sys.stderr, 'Kmz file did not have expected structure.'
-	raise
-	sys.exit(1)
+    print >> sys.stderr, 'Kmz file did not have expected structure.'
+    raise
+    sys.exit(1)
 
 tempdir = tempfile.mkdtemp()
 
@@ -117,11 +117,12 @@ if not failure:
 			else:
 				print 'Merge successful. Output to ' + sys.argv[2] + '_' + str(cur_line / ROWS) + '.tiff.'
 
+
 for i in input_images:
-	os.remove(i)
+    os.remove(i)
 os.rmdir(tempdir + os.sep + 'images')
 os.rmdir(tempdir)
 
 if failure:
-	sys.exit(1)
+    sys.exit(1)
 
