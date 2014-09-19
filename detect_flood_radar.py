@@ -13,15 +13,16 @@ from radar.flood_algorithms import *
 from util.mapclient_qt import centerMap, addToMap
 from util.evaluation import evaluate_approach
 
-INSTRUMENT = radar.domains.UAVSAR
 DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_FLOODED
+#DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_UNFLOODED
+#DOMAIN = radar.domains.SENTINEL1_ROME
 ALGORITHMS = [THRESHOLD]
 
 def evaluation_function(pair, alg):
 	precision, recall = pair
 	print '%s: (%4g, %4g)' % (get_algorithm_name(alg), precision, recall)
 
-im = radar.domains.get_radar_image(INSTRUMENT, DOMAIN)
+im = radar.domains.get_radar_image(DOMAIN)
 
 centerMap(im.center[0], im.center[1], 11)
 apply(addToMap, im.visualize())
