@@ -95,7 +95,7 @@ def get_radar_image(id):
 		im_vv = ee.Image('18108519531116889794-15063535589376921925')
 		im_vv = im_vv.mask(im_vv)
 		im_vh = ee.Image('18108519531116889794-10203767773364605611')
-		im_vh = im_vv.mask(im_vh)
+		im_vh = im_vh.mask(im_vh)
 		bounds = (12.0, 41.5, 14.0, 42.5)
 		im = im_vv.select(['b1'], ['vv']).addBands(im_vh.select(['b1'], ['vh']))
 	return RadarDomain(instrument, id, im, bounds)
