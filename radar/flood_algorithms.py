@@ -20,10 +20,10 @@ def grow_regions(domain, thresholded, thresholds):
 		thresholded = thresholded.convolve(neighborhood_kernel).And(loose_thresholded)
 	return thresholded
 
-def threshold(domain):
+def threshold(domain, historical_domain=None):
 	hist = RadarHistogram(domain)
 	
-	thresholds = hist.find_thresholds()
+	thresholds = hist.get_thresholds()
 	
 	results = []
 	for c in range(len(thresholds)):
@@ -34,6 +34,9 @@ def threshold(domain):
 	for c in range(1, len(results)):
 		result_image = result_image.addBands(results[c], [domain.channels[c]])
 	addToMap(result_image, {'min': 0, 'max': 1}, 'Color Image', False)
+
+	# TODO: compare water pixels to expected distribution
+	# take difference of two image, remove pixels that aren't below original non region-growing threshold and don't change by at least fixed amount
 	
 	result_image = results[0].select([domain.channels[0]], ['b1'])
 	for c in range(1, len(results)):

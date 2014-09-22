@@ -24,7 +24,7 @@ class RadarHistogram(object):
 	__WATER_MODE_RANGES = {
 		domains.UAVSAR : {'vv' : (3.0, 4.1), 'hv' : (3.0, 3.6), 'hh' : (3.0, 3.6)},
 		domains.UAVSAR_LOG : {'vv' : (0, 50), 'hv' : (0, 100), 'hh' : (0, 100)},
-		domains.SENTINEL1 : {'vv' : (0, 90), 'vh' : (0, 90)}
+		domains.SENTINEL1 : {'vv' : (0, 90), 'vh' : (0, 50)}
 	}
 
 	BACKSCATTER_MODEL_GAMMA    = 1
@@ -43,17 +43,21 @@ class RadarHistogram(object):
 				backscatter_model = RadarHistogram.BACKSCATTER_MODEL_GAMMA
 		self.backscatter_model = backscatter_model
 		
-		self.hist_image = domain.image
-		if not domain.log_scale:
-			self.hist_image = self.hist_image.log10()
-		if RadarHistogram.__HISTOGRAM_CLAMP_MAX.has_key(self.domain.instrument):
-			self.hist_image = self.hist_image.clamp(0, RadarHistogram.__HISTOGRAM_CLAMP_MAX[self.domain.instrument])
+		self.hist_image = self.__preprocess_image(domain.image)
 
-		self.__compute_histogram()
+		self.histograms = self.__compute_histogram(self.hist_image)
+		self.__find_thresholds()
 	
-	def __compute_histogram(self):
-		histogram = self.hist_image.reduceRegion(ee.Reducer.histogram(RadarHistogram.__NUM_BUCKETS[self.domain.instrument], None, None), self.domain.bounds, 30, None, None, True).getInfo()
-		self.histograms = []
+	def __preprocess_image(self, image):
+		if not self.domain.log_scale:
+			image = image.log10()
+		if RadarHistogram.__HISTOGRAM_CLAMP_MAX.has_key(self.domain.instrument):
+			image = image.clamp(0, RadarHistogram.__HISTOGRAM_CLAMP_MAX[self.domain.instrument])
+		return image
+	
+	def __compute_histogram(self, image):
+		histogram = image.reduceRegion(ee.Reducer.histogram(RadarHistogram.__NUM_BUCKETS[self.domain.instrument], None, None), self.domain.bounds, 30, None, None, True).getInfo()
+		h = []
 	
 		for c in range(len(self.domain.channels)):
 			ch = self.domain.channels[c]
@@ -64,7 +68,8 @@ class RadarHistogram(object):
 			# normalize
 			total = sum(histogram[ch]['histogram'])
 			histogram[ch]['histogram'] = map(lambda x : x / total, histogram[ch]['histogram'])
-			self.histograms.append((histogram[ch]['bucketMin'], histogram[ch]['bucketWidth'], histogram[ch]['histogram']))
+			h.append((histogram[ch]['bucketMin'], histogram[ch]['bucketWidth'], histogram[ch]['histogram']))
+		return h
 
 	def __cdf(self, params, x):
 		mode = params[0]
@@ -178,19 +183,23 @@ class RadarHistogram(object):
 	
 		return (threshold, params)
 
-	def find_thresholds(self):
-		results = []
+	def __find_thresholds(self):
+		self.thresholds = []
+		self.distributions = []
 		for c in range(len(self.domain.channels)):
 			(threshold, params) = self.__find_threshold_histogram(c)
 			if not self.domain.log_scale:
 				threshold = 10 ** threshold
-			results.append(threshold)
-		return results
+			self.thresholds.append(threshold)
+			self.distributions.append(params)
+	
+	def get_thresholds(self):
+		return self.thresholds
 	
 	def find_loose_thresholds(self, percentile=0.99):
 		results = []
 		for c in range(len(self.domain.channels)):
-			(threshold, params) = self.__find_threshold_histogram(c)
+			(threshold, params) = (self.thresholds[c], self.distributions[c])
 			if params != None:
 				t = self.__cdf_percentile(params, percentile)
 				if not self.domain.log_scale:
@@ -198,6 +207,8 @@ class RadarHistogram(object):
 				results.append(t)
 			else:
 				# if finding dip or peak, find next local min / max as threshold
+				if not self.domain.log_scale:
+					threshold = math.log10(threshold)
 				start = self.histograms[c][0]
 				width = self.histograms[c][1]
 				values = self.histograms[c][2]
