@@ -18,7 +18,7 @@ from util.evaluation import evaluate_approach
 DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_FLOODED
 #DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_UNFLOODED
 #DOMAIN = radar.domains.SENTINEL1_ROME
-ALGORITHMS = [THRESHOLD]
+ALGORITHMS = [MATGEN]
 
 def evaluation_function(pair, alg):
 	precision, recall = pair
