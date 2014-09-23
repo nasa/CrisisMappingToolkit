@@ -312,6 +312,12 @@ class MapView(QtGui.QWidget):
 
 	def contextMenuEvent(self, event):
 		menu = QtGui.QMenu(self)
+
+		(lon, lat) = self.XYToLonLat(event.x(), event.y())
+		location_widget = QtGui.QWidgetAction(menu)
+		location_widget.setDefaultWidget(QtGui.QLabel("  Location: (%g, %g)" % (lon, lat)))
+		menu.addAction(location_widget)
+
 		for i in range(1, len(self.overlays)):
 			action = QtGui.QWidgetAction(menu)
 			item = MapOverlayMenuWidget(self, i, event.x(), event.y())
