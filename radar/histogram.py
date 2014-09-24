@@ -24,7 +24,7 @@ class RadarHistogram(object):
 	__WATER_MODE_RANGES = {
 		domains.UAVSAR : {'vv' : (3.0, 4.1), 'hv' : (3.0, 3.6), 'hh' : (3.0, 3.6)},
 		domains.UAVSAR_LOG : {'vv' : (0, 50), 'hv' : (0, 100), 'hh' : (0, 100)},
-		domains.SENTINEL1 : {'vv' : (0, 90), 'vh' : (0, 50)}
+		domains.SENTINEL1 : {'vv' : (30, 90), 'vh' : (30, 50)}
 	}
 
 	BACKSCATTER_MODEL_GAMMA    = 1
@@ -40,7 +40,7 @@ class RadarHistogram(object):
 			elif domain.instrument == domains.UAVSAR_LOG:
 				backscatter_model = RadarHistogram.BACKSCATTER_MODEL_DIP
 			else:
-				backscatter_model = RadarHistogram.BACKSCATTER_MODEL_GAMMA
+				backscatter_model = RadarHistogram.BACKSCATTER_MODEL_DIP
 		self.backscatter_model = backscatter_model
 		
 		self.hist_image = self.__preprocess_image(domain.image)

@@ -132,7 +132,7 @@ class MapOverlayMenuWidget(QtGui.QWidget):
 		self.slider.valueChanged.connect(self.set_transparency)
 
 		self.name = QtGui.QLabel(overlay.name, self)
-		self.name.setMinimumSize(100, 10)
+		self.name.setMinimumSize(130, 10)
 		
 		self.value = QtGui.QLabel('...', self)
 		self.value.setMinimumSize(200, 10)

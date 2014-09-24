@@ -16,9 +16,13 @@ from util.mapclient_qt import centerMap, addToMap
 from util.evaluation import evaluate_approach
 
 DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_FLOODED
+#DOMAIN = radar.domains.UAVSAR_ARKANSAS_CITY
 #DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_UNFLOODED
+#DOMAIN = radar.domains.UAVSAR_NAPO_RIVER
 #DOMAIN = radar.domains.SENTINEL1_ROME
+#DOMAIN = radar.domains.SENTINEL1_LANCIANO
 ALGORITHMS = [MATGEN]
+#ALGORITHMS = [MATGEN, DECISION_TREE, RANDOM_FORESTS, SVM]
 
 def evaluation_function(pair, alg):
 	precision, recall = pair
@@ -37,6 +41,8 @@ for a in range(len(ALGORITHMS)):
 	result = detect_flood(im, alg)
 	color = get_algorithm_color(alg)
 	addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color}, get_algorithm_name(alg), False)
+	#print result.getDownloadUrl(params={'name' : 'Result',  'region':im.bounds.toGeoJSONString(), 'scale' : 12})
+	#print im.image.visualize(['vv', 'vh'], 1.0).getDownloadUrl(params={'name' : 'Radar', 'region':im.bounds.toGeoJSONString(), 'scale' : 12})
 	if ground_truth != None:
 		evaluate_approach(functools.partial(evaluation_function, alg=alg), result, ground_truth, im.bounds)
 
