@@ -111,318 +111,318 @@ class MapViewOverlay(object):
         self.opacity = opacity
 
 class MapOverlayMenuWidget(QtGui.QWidget):
-	def __init__(self, parent, layer, x, y):
-		super(MapOverlayMenuWidget, self).__init__()
-		self.parent = parent
-		self.layer = layer
-		self.x = x
-		self.y = y
-		overlay = self.parent.overlays[layer]
-		
-		self.check_box = QtGui.QCheckBox(self)
-		self.check_box.setChecked(overlay.show)
-		self.check_box.stateChanged.connect(self.toggle_visible)
+    def __init__(self, parent, layer, x, y):
+        super(MapOverlayMenuWidget, self).__init__()
+        self.parent = parent
+        self.layer = layer
+        self.x = x
+        self.y = y
+        overlay = self.parent.overlays[layer]
+        
+        self.check_box = QtGui.QCheckBox(self)
+        self.check_box.setChecked(overlay.show)
+        self.check_box.stateChanged.connect(self.toggle_visible)
 
-		self.slider = QtGui.QSlider(QtCore.Qt.Horizontal, self)
-		self.slider.setRange(0, 100)
-		self.slider.setValue(int(overlay.opacity * 100))
-		self.slider.setTickInterval(25)
-		self.slider.setMinimumSize(100, 10)
-		self.slider.setMaximumSize(100, 50)
-		self.slider.valueChanged.connect(self.set_transparency)
+        self.slider = QtGui.QSlider(QtCore.Qt.Horizontal, self)
+        self.slider.setRange(0, 100)
+        self.slider.setValue(int(overlay.opacity * 100))
+        self.slider.setTickInterval(25)
+        self.slider.setMinimumSize(100, 10)
+        self.slider.setMaximumSize(100, 50)
+        self.slider.valueChanged.connect(self.set_transparency)
 
-		self.name = QtGui.QLabel(overlay.name, self)
-		self.name.setMinimumSize(130, 10)
-		
-		self.value = QtGui.QLabel('...', self)
-		self.value.setMinimumSize(500, 10)
+        self.name = QtGui.QLabel(overlay.name, self)
+        self.name.setMinimumSize(130, 10)
+        
+        self.value = QtGui.QLabel('...', self)
+        self.value.setMinimumSize(500, 10)
 
-		self.pixel_loader = WaitForEEResult(self.parent.getPixel(layer, x, y).getInfo, self.set_pixel_value)
+        self.pixel_loader = WaitForEEResult(self.parent.getPixel(layer, x, y).getInfo, self.set_pixel_value)
 
-		hbox = QtGui.QHBoxLayout()
-		hbox.addWidget(self.check_box)
-		hbox.addWidget(self.name)
-		hbox.addWidget(self.slider)
-		hbox.addWidget(self.value)
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.check_box)
+        hbox.addWidget(self.name)
+        hbox.addWidget(self.slider)
+        hbox.addWidget(self.value)
 
-		self.setLayout(hbox)
-	
-	def set_pixel_value(self, value):
-		names = value[0][4:]
-		if len(value) <= 1:
-			self.value.setText('')
-			return
-		values = value[1][4:]
-		text = ''
-		for i in range(len(names)):
-			if i != 0:
-				text += ', '
-			text += str(names[i]) + ': ' + str(values[i])
-		self.value.setText(text)
-	
-	def toggle_visible(self):
-		self.parent.overlays[self.layer].show = not self.parent.overlays[self.layer].show
-		self.parent.reload()
-	
-	def set_transparency(self, value):
-		self.parent.overlays[self.layer].opacity = value / 100.0
-		self.parent.reload()
+        self.setLayout(hbox)
+    
+    def set_pixel_value(self, value):
+        names = value[0][4:]
+        if len(value) <= 1:
+            self.value.setText('')
+            return
+        values = value[1][4:]
+        text = ''
+        for i in range(len(names)):
+            if i != 0:
+                text += ', '
+            text += str(names[i]) + ': ' + str(values[i])
+        self.value.setText(text)
+    
+    def toggle_visible(self):
+        self.parent.overlays[self.layer].show = not self.parent.overlays[self.layer].show
+        self.parent.reload()
+    
+    def set_transparency(self, value):
+        self.parent.overlays[self.layer].opacity = value / 100.0
+        self.parent.reload()
 
-	def hideEvent(self, event):
-		self.parent.setFocus()
+    def hideEvent(self, event):
+        self.parent.setFocus()
 
 class MapView(QtGui.QWidget):
-	"""A simple discrete zoom level map viewer."""
+    """A simple discrete zoom level map viewer."""
 
-	def __init__(self, opt_overlay=None):
-		super(MapView, self).__init__()
-		
-		self.tiles = {}		 # The cached stack of images at each grid cell.
-		self.qttiles = {}	 # The cached PhotoImage at each grid cell.
-		self.qttiles_lock = threading.RLock()
-		self.level = 2			# Starting zoom level
-		self.origin_x = None	 # The map origin x offset at the current level.
-		self.origin_y = None	 # The map origin y offset at the current level.
-		self.anchor_x = None	 # Drag anchor.
-		self.anchor_y = None	 # Drag anchor.
+    def __init__(self, opt_overlay=None):
+        super(MapView, self).__init__()
+        
+        self.tiles = {}      # The cached stack of images at each grid cell.
+        self.qttiles = {}    # The cached PhotoImage at each grid cell.
+        self.qttiles_lock = threading.RLock()
+        self.level = 2          # Starting zoom level
+        self.origin_x = None     # The map origin x offset at the current level.
+        self.origin_y = None     # The map origin y offset at the current level.
+        self.anchor_x = None     # Drag anchor.
+        self.anchor_y = None     # Drag anchor.
 
-		# Map origin offsets; start at the center of the map.
-		self.origin_x = (-(2 ** self.level) * 128) + self.width() / 2
-		self.origin_y = (-(2 ** self.level) * 128) + self.height() / 2
+        # Map origin offsets; start at the center of the map.
+        self.origin_x = (-(2 ** self.level) * 128) + self.width() / 2
+        self.origin_y = (-(2 ** self.level) * 128) + self.height() / 2
 
-		if not opt_overlay:
-			# Default to a google maps basemap
-			opt_overlay = MapOverlay(DEFAULT_MAP_URL_PATTERN)
+        if not opt_overlay:
+            # Default to a google maps basemap
+            opt_overlay = MapOverlay(DEFAULT_MAP_URL_PATTERN)
 
-		# The array of overlays are displayed as last on top.
-		self.overlays = [MapViewOverlay(opt_overlay, None, 'Google Maps')]
-	
-	def paintEvent(self, event):
-		painter = QtGui.QPainter()
-		with self.qttiles_lock:
-			painter.begin(self)
-			for key in self.qttiles.keys():
-				if key[0] != self.level:
-					continue
-				image = self.qttiles[key]
-				xpos = key[1] * image.width() + self.origin_x
-				ypos = key[2] * image.height() + self.origin_y
-				painter.drawImage(QtCore.QPoint(xpos, ypos), image)
-			painter.end()
+        # The array of overlays are displayed as last on top.
+        self.overlays = [MapViewOverlay(opt_overlay, None, 'Google Maps')]
+    
+    def paintEvent(self, event):
+        painter = QtGui.QPainter()
+        with self.qttiles_lock:
+            painter.begin(self)
+            for key in self.qttiles.keys():
+                if key[0] != self.level:
+                    continue
+                image = self.qttiles[key]
+                xpos = key[1] * image.width() + self.origin_x
+                ypos = key[2] * image.height() + self.origin_y
+                painter.drawImage(QtCore.QPoint(xpos, ypos), image)
+            painter.end()
 
-	def addOverlay(self, overlay, eeobject, name, show):						 # pylint: disable=g-bad-name
-		"""Add an overlay to the map."""
-		self.overlays.append(MapViewOverlay(overlay, eeobject, name, show))
-		self.LoadTiles()
+    def addOverlay(self, overlay, eeobject, name, show):                         # pylint: disable=g-bad-name
+        """Add an overlay to the map."""
+        self.overlays.append(MapViewOverlay(overlay, eeobject, name, show))
+        self.LoadTiles()
 
-	def GetViewport(self):
-		"""Return the visible portion of the map as [xlo, ylo, xhi, yhi]."""
-		width, height = self.width(), self.height()
-		return [-self.origin_x, -self.origin_y,
-						-self.origin_x + width, -self.origin_y + height]
+    def GetViewport(self):
+        """Return the visible portion of the map as [xlo, ylo, xhi, yhi]."""
+        width, height = self.width(), self.height()
+        return [-self.origin_x, -self.origin_y,
+                        -self.origin_x + width, -self.origin_y + height]
 
-	def LoadTiles(self):
-		"""Refresh the entire map."""
-		# Start with the overlay on top.
-		for i, overlay in reversed(list(enumerate(self.overlays))):
-			if not overlay.show:
-				continue
-			tile_list = overlay.overlay.CalcTiles(self.level, self.GetViewport())
-			for key in tile_list:
-				overlay.overlay.getTile(key, functools.partial(
-						self.AddTile, key=key, overlay=self.overlays[i], layer=i))
+    def LoadTiles(self):
+        """Refresh the entire map."""
+        # Start with the overlay on top.
+        for i, overlay in reversed(list(enumerate(self.overlays))):
+            if not overlay.show:
+                continue
+            tile_list = overlay.overlay.CalcTiles(self.level, self.GetViewport())
+            for key in tile_list:
+                overlay.overlay.getTile(key, functools.partial(
+                        self.AddTile, key=key, overlay=self.overlays[i], layer=i))
 
-	def Flush(self):
-		"""Empty out all the image fetching queues."""
-		for overlay in self.overlays:
-			overlay.overlay.Flush()
+    def Flush(self):
+        """Empty out all the image fetching queues."""
+        for overlay in self.overlays:
+            overlay.overlay.Flush()
 
-	def CompositeTiles(self, key):
-		"""Composite together all the tiles in this cell into a single image."""
-		composite = None
-		for layer in sorted(self.tiles[key]):
-			image = self.tiles[key][layer]
-			if not composite:
-				composite = image.copy()
-			else:
-				#composite = Image.blend(composite, image, self.overlays[layer].opacity)#composite.paste(image, (0, 0), image)
-				composite.paste(image, (0, 0), ImageChops.multiply(image.split()[3], ImageChops.constant(image, int(self.overlays[layer].opacity * 255))))
-		return composite
+    def CompositeTiles(self, key):
+        """Composite together all the tiles in this cell into a single image."""
+        composite = None
+        for layer in sorted(self.tiles[key]):
+            image = self.tiles[key][layer]
+            if not composite:
+                composite = image.copy()
+            else:
+                #composite = Image.blend(composite, image, self.overlays[layer].opacity)#composite.paste(image, (0, 0), image)
+                composite.paste(image, (0, 0), ImageChops.multiply(image.split()[3], ImageChops.constant(image, int(self.overlays[layer].opacity * 255))))
+        return composite
 
-	def AddTile(self, image, key, overlay, layer):
-		"""Add a tile to the map.
+    def AddTile(self, image, key, overlay, layer):
+        """Add a tile to the map.
 
-		This keeps track of the tiles for each overlay in each grid cell.
-		As new tiles come in, all the tiles in a grid cell are composited together
-		into a new tile and any old tile for that spot is replaced.
+        This keeps track of the tiles for each overlay in each grid cell.
+        As new tiles come in, all the tiles in a grid cell are composited together
+        into a new tile and any old tile for that spot is replaced.
 
-		Args:
-			image: The image tile to display.
-			key: A tuple containing the key of the image (level, x, y)
-			overlay: The overlay this tile belongs to.
-			layer: The layer number this overlay corresponds to.	Only used
-					for caching purposes.
-		"""
-		# TODO(user): This function is called from multiple threads, and
-		# could use some synchronization, but it seems to work.
-		if self.level == key[0] and overlay.show:	# Don't add late tiles from another level.
-			self.tiles[key] = self.tiles.get(key, {})
-			self.tiles[key][layer] = image
+        Args:
+            image: The image tile to display.
+            key: A tuple containing the key of the image (level, x, y)
+            overlay: The overlay this tile belongs to.
+            layer: The layer number this overlay corresponds to.    Only used
+                    for caching purposes.
+        """
+        # TODO(user): This function is called from multiple threads, and
+        # could use some synchronization, but it seems to work.
+        if self.level == key[0] and overlay.show:   # Don't add late tiles from another level.
+            self.tiles[key] = self.tiles.get(key, {})
+            self.tiles[key][layer] = image
 
-			newtile = self.CompositeTiles(key)
-			newtile = ImageQt.ImageQt(newtile)
-			with self.qttiles_lock:
-				self.qttiles[key] = newtile
-			self.update()
+            newtile = self.CompositeTiles(key)
+            newtile = ImageQt.ImageQt(newtile)
+            with self.qttiles_lock:
+                self.qttiles[key] = newtile
+            self.update()
 
-	def Zoom(self, event, direction):
-		"""Zoom the map.
+    def Zoom(self, event, direction):
+        """Zoom the map.
 
-		Args:
-			event: The event that caused this zoom request.
-			direction: The direction to zoom.	+1 for higher zoom, -1 for lower.
-		"""
-		if self.level + direction >= 0:
-			# Discard everything cached in the MapClient, and flush the fetch queues.
-			self.Flush()
-			self.tiles = {}
-			with self.qttiles_lock:
-				self.qttiles = {}
+        Args:
+            event: The event that caused this zoom request.
+            direction: The direction to zoom.   +1 for higher zoom, -1 for lower.
+        """
+        if self.level + direction >= 0:
+            # Discard everything cached in the MapClient, and flush the fetch queues.
+            self.Flush()
+            self.tiles = {}
+            with self.qttiles_lock:
+                self.qttiles = {}
 
-			if direction > 0:
-				self.origin_x = self.origin_x * 2 - event.x()
-				self.origin_y = self.origin_y * 2 - event.y()
-			else:
-				self.origin_x = (self.origin_x + event.x()) / 2
-				self.origin_y = (self.origin_y + event.y()) / 2
+            if direction > 0:
+                self.origin_x = self.origin_x * 2 - event.x()
+                self.origin_y = self.origin_y * 2 - event.y()
+            else:
+                self.origin_x = (self.origin_x + event.x()) / 2
+                self.origin_y = (self.origin_y + event.y()) / 2
 
-			self.level += direction
-			self.LoadTiles()
-	
-	def wheelEvent(self, event):
-		self.Zoom(event, 1 if event.delta() > 0 else -1)
-		event.accept()
+            self.level += direction
+            self.LoadTiles()
+    
+    def wheelEvent(self, event):
+        self.Zoom(event, 1 if event.delta() > 0 else -1)
+        event.accept()
 
-	def reload(self):
-		self.Flush()
-		self.tiles = {}
-		with self.qttiles_lock:
-			self.qttiles = {}
-		self.LoadTiles()
+    def reload(self):
+        self.Flush()
+        self.tiles = {}
+        with self.qttiles_lock:
+            self.qttiles = {}
+        self.LoadTiles()
 
-	def contextMenuEvent(self, event):
-		menu = QtGui.QMenu(self)
+    def contextMenuEvent(self, event):
+        menu = QtGui.QMenu(self)
 
-		(lon, lat) = self.XYToLonLat(event.x(), event.y())
-		location_widget = QtGui.QWidgetAction(menu)
-		location_widget.setDefaultWidget(QtGui.QLabel("  Location: (%g, %g)" % (lon, lat)))
-		menu.addAction(location_widget)
+        (lon, lat) = self.XYToLonLat(event.x(), event.y())
+        location_widget = QtGui.QWidgetAction(menu)
+        location_widget.setDefaultWidget(QtGui.QLabel("  Location: (%g, %g)" % (lon, lat)))
+        menu.addAction(location_widget)
 
-		for i in range(1, len(self.overlays)):
-			action = QtGui.QWidgetAction(menu)
-			item = MapOverlayMenuWidget(self, i, event.x(), event.y())
-			action.setDefaultWidget(item)
-			menu.addAction(action)
-		menu.popup(QtGui.QCursor.pos())
-	
-	def getPixel(self, layer, x, y):
-		collection = ee.ImageCollection([self.overlays[layer].eeobject])
-		# note: scale likely not correct
-		(lon, lat) = self.XYToLonLat(x, y)
-		point_extracted = collection.getRegion(ee.Geometry.Point(lon, lat), 1)
+        for i in range(1, len(self.overlays)):
+            action = QtGui.QWidgetAction(menu)
+            item = MapOverlayMenuWidget(self, i, event.x(), event.y())
+            action.setDefaultWidget(item)
+            menu.addAction(action)
+        menu.popup(QtGui.QCursor.pos())
+    
+    def getPixel(self, layer, x, y):
+        collection = ee.ImageCollection([self.overlays[layer].eeobject])
+        # note: scale likely not correct
+        (lon, lat) = self.XYToLonLat(x, y)
+        point_extracted = collection.getRegion(ee.Geometry.Point(lon, lat), 1)
 
-		return point_extracted
-	
-	def mousePressEvent(self, event):
-		"""Records the anchor location and sets drag handler."""
-		if event.button() == QtCore.Qt.LeftButton:
-			self.anchor_x = event.x()
-			self.anchor_y = event.y()
-			event.accept()
-			return
-		event.ignore()
-		return
+        return point_extracted
+    
+    def mousePressEvent(self, event):
+        """Records the anchor location and sets drag handler."""
+        if event.button() == QtCore.Qt.LeftButton:
+            self.anchor_x = event.x()
+            self.anchor_y = event.y()
+            event.accept()
+            return
+        event.ignore()
+        return
 
-	def mouseMoveEvent(self, event):
-		"""Updates the map position and anchor position."""
-		if self.anchor_x == None:
-			event.ignore()
-			return
-		dx = event.x() - self.anchor_x
-		dy = event.y() - self.anchor_y
-		if dx or dy:
-			self.origin_x += dx
-			self.origin_y += dy
-			self.anchor_x = event.x()
-			self.anchor_y = event.y()
-			self.update()
-			event.accept()
-			return
-		event.ignore()
+    def mouseMoveEvent(self, event):
+        """Updates the map position and anchor position."""
+        if self.anchor_x == None:
+            event.ignore()
+            return
+        dx = event.x() - self.anchor_x
+        dy = event.y() - self.anchor_y
+        if dx or dy:
+            self.origin_x += dx
+            self.origin_y += dy
+            self.anchor_x = event.x()
+            self.anchor_y = event.y()
+            self.update()
+            event.accept()
+            return
+        event.ignore()
 
-	def mouseReleaseEvent(self, event):
-		"""Unbind drag handler and redraw."""
-		if event.button() == QtCore.Qt.LeftButton:
-			self.anchor_x = None
-			self.anchor_y = None
-			self.LoadTiles()
-			event.accept()
-			return
-		event.ignore()
-		return
+    def mouseReleaseEvent(self, event):
+        """Unbind drag handler and redraw."""
+        if event.button() == QtCore.Qt.LeftButton:
+            self.anchor_x = None
+            self.anchor_y = None
+            self.LoadTiles()
+            event.accept()
+            return
+        event.ignore()
+        return
 
-	def resizeEvent(self, event):
-		"""Handle resize events."""
-		self.LoadTiles()
-	
-	def XYToLonLat(self, x, y):
-		mercator_range = 256.0
-		scale = 2 ** self.level
-		origin_x = (mercator_range / 2.0) * scale
-		origin_y = (mercator_range / 2.0) * scale
-		pixels_per_lon_degree = (mercator_range / 360.0) * scale
-		pixels_per_lon_radian = (mercator_range / (2 * math.pi)) * scale
-		lng = (x - self.origin_x - origin_x) / pixels_per_lon_degree
-		latRadians = (y - self.origin_y - origin_y) / -pixels_per_lon_radian
-		lat = (2 * math.atan(math.exp(latRadians)) - math.pi / 2) / (math.pi / 180.0)
-		return (lng, lat)
+    def resizeEvent(self, event):
+        """Handle resize events."""
+        self.LoadTiles()
+    
+    def XYToLonLat(self, x, y):
+        mercator_range = 256.0
+        scale = 2 ** self.level
+        origin_x = (mercator_range / 2.0) * scale
+        origin_y = (mercator_range / 2.0) * scale
+        pixels_per_lon_degree = (mercator_range / 360.0) * scale
+        pixels_per_lon_radian = (mercator_range / (2 * math.pi)) * scale
+        lng = (x - self.origin_x - origin_x) / pixels_per_lon_degree
+        latRadians = (y - self.origin_y - origin_y) / -pixels_per_lon_radian
+        lat = (2 * math.atan(math.exp(latRadians)) - math.pi / 2) / (math.pi / 180.0)
+        return (lng, lat)
 
-	def lonLatToXY(self, lon, lat):
-		# From maps/api/javascript/geometry/mercator_projection.js
-		mercator_range = 256.0
-		scale = 2 ** self.level
-		origin_x = (mercator_range / 2.0) * scale
-		origin_y = (mercator_range / 2.0) * scale
-		pixels_per_lon_degree = (mercator_range / 360.0) * scale
-		pixels_per_lon_radian = (mercator_range / (2 * math.pi)) * scale
+    def lonLatToXY(self, lon, lat):
+        # From maps/api/javascript/geometry/mercator_projection.js
+        mercator_range = 256.0
+        scale = 2 ** self.level
+        origin_x = (mercator_range / 2.0) * scale
+        origin_y = (mercator_range / 2.0) * scale
+        pixels_per_lon_degree = (mercator_range / 360.0) * scale
+        pixels_per_lon_radian = (mercator_range / (2 * math.pi)) * scale
 
-		x = origin_x + (lon * pixels_per_lon_degree)
-		siny = math.sin(lat * math.pi / 180.0)
-		# Prevent sin() overflow.
-		e = 1 - 1e-15
-		if siny > e:
-			siny = e
-		elif siny < -e:
-			siny = -e
-		y = origin_y + (0.5 * math.log((1 + siny) / (1 - siny)) *
-										-pixels_per_lon_radian)
-		return (x, y)
+        x = origin_x + (lon * pixels_per_lon_degree)
+        siny = math.sin(lat * math.pi / 180.0)
+        # Prevent sin() overflow.
+        e = 1 - 1e-15
+        if siny > e:
+            siny = e
+        elif siny < -e:
+            siny = -e
+        y = origin_y + (0.5 * math.log((1 + siny) / (1 - siny)) *
+                                        -pixels_per_lon_radian)
+        return (x, y)
 
-	def CenterMap(self, lon, lat, opt_zoom=None):
-		"""Center the map at the given lon, lat and zoom level."""
-		self.Flush()
-		self.tiles = {}
-		with self.qttiles_lock:
-			self.qttiles = {}
-		width, height = self.width(), self.height()
-		if opt_zoom is not None:
-			self.level = opt_zoom
+    def CenterMap(self, lon, lat, opt_zoom=None):
+        """Center the map at the given lon, lat and zoom level."""
+        self.Flush()
+        self.tiles = {}
+        with self.qttiles_lock:
+            self.qttiles = {}
+        width, height = self.width(), self.height()
+        if opt_zoom is not None:
+            self.level = opt_zoom
 
-		(x, y) = self.lonLatToXY(lon, lat)
+        (x, y) = self.lonLatToXY(lon, lat)
 
-		self.origin_x = -x + width / 2
-		self.origin_y = -y + height / 2
-		self.LoadTiles()
+        self.origin_x = -x + width / 2
+        self.origin_y = -y + height / 2
+        self.LoadTiles()
 
 class MapOverlay(object):
     """A class representing a map overlay."""

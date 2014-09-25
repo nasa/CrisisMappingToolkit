@@ -15,16 +15,19 @@ from radar.flood_algorithms import *
 from util.mapclient_qt import centerMap, addToMap
 from util.evaluation import evaluate_approach
 
+# --------------------------------------------------------------
+# Configuration
+
+# Specify the data set to use - see /radar/domains.py
 DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_FLOODED
 #DOMAIN = radar.domains.UAVSAR_ARKANSAS_CITY
 #DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_UNFLOODED
 #DOMAIN = radar.domains.UAVSAR_NAPO_RIVER
 #DOMAIN = radar.domains.SENTINEL1_ROME
 #DOMAIN = radar.domains.SENTINEL1_LANCIANO
-#ALGORITHMS = [MATGEN]
+ALGORITHMS = [MATGEN]
 #ALGORITHMS = [MATGEN, DECISION_TREE, RANDOM_FORESTS, SVM]
-
-ALGORITHMS = [MARTINIS]
+#ALGORITHMS = [MARTINIS] # This algorithm needs a lot of tuning!
 
 # --------------------------------------------------------------
 # Functions
