@@ -135,7 +135,7 @@ class MapOverlayMenuWidget(QtGui.QWidget):
 		self.name.setMinimumSize(130, 10)
 		
 		self.value = QtGui.QLabel('...', self)
-		self.value.setMinimumSize(200, 10)
+		self.value.setMinimumSize(500, 10)
 
 		self.pixel_loader = WaitForEEResult(self.parent.getPixel(layer, x, y).getInfo, self.set_pixel_value)
 
