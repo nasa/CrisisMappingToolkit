@@ -55,21 +55,19 @@ def count_water(bounds, image):
 			'water_count' : water_count.get('water'),
 			'cloud_count' : cloud_count.get('cloud')})
 
-
 def measure_clouds(image):
-	return ee.Feature(None, {'value' : 5.0})
+    return ee.Feature(None, {'value' : 5.0})
 
 parser = argparse.ArgumentParser(description='Measure lake water levels.')
 parser.add_argument('--date', dest='date', action='store', required=False, default=None)
 args = parser.parse_args()
 
 if args.date == None:
-	#start_date = ee.Date('1984-01-01')
-	start_date = ee.Date('1999-09-20')
+	start_date = ee.Date('1984-01-01')
 	end_date = ee.Date('2030-01-01')
 else:
-	start_date = ee.Date(args.date)
-	end_date = start_date.advance(1.0, 'month')
+    start_date = ee.Date(args.date)
+    end_date = start_date.advance(1.0, 'month')
 
 #start_date = ee.Date('2011-06-01') # lake high
 #start_date = ee.Date('1993-07-01') # lake low
