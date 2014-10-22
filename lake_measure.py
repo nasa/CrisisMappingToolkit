@@ -28,13 +28,12 @@ def get_image_collection(bounds, start_date, end_date):
     return collection
 
 def detect_clouds(im):
-    cloud_mask = im.select(['B3']).gte(35).select(['B3'], ['cloud'])
+    cloud_mask = im.select(['B3']).gte(35).select(['B3'], ['cloud']).And(im.select(['B6']).lte(120))
     NDSI = (im.select(['B2']).subtract(im.select(['B5']))).divide(im.select(['B2']).add(im.select(['B5'])))
     # originally 0.4, but this supposedly misses some clouds, used 0.7 in paper
     # be conservative
     #cloud_mask = cloud_mask.And(NDSI.lte(0.7))
     # should be 300K temperature, what is this in pixel values?
-    cloud_mask = cloud_mask.And(im.select(['B6']).lte(100))
     return cloud_mask
 
 def detect_water(image, clouds):
@@ -75,9 +74,10 @@ def parse_lake_data(filename):
         satellite = parts[1].strip()
         cloud = int(parts[2])
         water = int(parts[3])
+        sun_elevation = float(parts[4])
         if not results.has_key(satellite):
             results[satellite] = dict()
-        results[satellite][date] = (cloud, water)
+        results[satellite][date] = (cloud, water, sun_elevation)
     
     f.close()
     return results
@@ -96,11 +96,11 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory):
     #print '%s, %s, %s' % (name, country, area)
     f.write('# Name     Country    Area in km^2\n')
     f.write('%s, %s, %s\n' % (name, country, area))
-    f.write('# Date, Satellite, Cloud Pixels, Water Pixels\n')
+    f.write('# Date, Satellite, Cloud Pixels, Water Pixels, Sun Elevation\n')
     if data != None:
         for sat in sorted(data.keys()):
             for date in sorted(data[sat].keys()):
-                f.write('%s, %10s, %10d, %10d\n' % (date, sat, data[sat][date][0], data[sat][date][1]))
+                f.write('%s, %10s, %10d, %10d, %.5g\n' % (date, sat, data[sat][date][0], data[sat][date][1], data[sat][date][2]))
     try:
         ee_bounds = ee_lake.geometry().buffer(1000)
         collection = get_image_collection(ee_bounds, start_date, end_date)
@@ -116,13 +116,14 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory):
         if data != None and 'Landsat 5' in data.keys() and all_images[i]['properties']['DATE_ACQUIRED'] in data['Landsat 5']:
             continue
         im = ee.Image(v.get(i))
+        sun_elevation = all_images[i]['properties']['SUN_ELEVATION']
         try:
             r = count_water(ee_bounds, im).getInfo()['properties']
         except Exception as e:
             print >> sys.stderr, 'Failure counting water...trying again. ' + str(e)
             time.sleep(5)
             r = count_water(ee_bounds, im).getInfo()['properties']
-        output = '%s, %10s, %10d, %10d' % (r['date'], 'Landsat 5', r['cloud_count'], r['water_count'])
+        output = '%s, %10s, %10d, %10d, %.5g' % (r['date'], 'Landsat 5', r['cloud_count'], r['water_count'], sun_elevation)
         print '%15s %s' % (name, output)
         f.write(output + '\n')
         results.append(r)
@@ -144,7 +145,10 @@ class LakeThread(threading.Thread):
         self.start()
     def run(self):
         global_semaphore.acquire()
-        apply(process_lake, self.args)
+        try:
+            apply(process_lake, self.args)
+        except Exception as e:
+            print >> sys.stderr, e
         global_semaphore.release()
         thread_lock.acquire()
         global total_threads
@@ -172,8 +176,9 @@ else:
 if args.lake != None:
     all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").filterMetadata(u'LAKE_NAME', u'equals', args.lake).toList(1000000)
 else:
-    bounds = ee.Geometry.Rectangle(-125.29, 32.55, -114.04, 42.02)
-    all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").filterBounds(bounds).toList(1000000)
+    #bounds = ee.Geometry.Rectangle(-125.29, 32.55, -114.04, 42.02)
+    #all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").filterBounds(bounds).toList(1000000)
+    all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").toList(1000000)
          #.filterMetadata(u'AREA_SKM', u'less_than', 300.0).toList(100000)#.filterMetadata(
          #u'LAT_DEG', u'less_than',   42.02).filterMetadata( u'LAT_DEG', u'greater_than', 32.55).filterMetadata(
          #u'LONG_DEG', u'less_than', -114.04).filterMetadata(u'LONG_DEG', u'greater_than', -125.29).toList(1000000)
@@ -187,6 +192,7 @@ if args.date:
     ee_bounds = ee_lake.geometry().buffer(1000)
     collection = get_image_collection(ee_bounds, start_date, end_date)
     landsat = ee.Image(collection.first())
+    #pprint(landsat.getInfo())
     center = ee_bounds.centroid().getInfo()['coordinates']
     centerMap(center[0], center[1], 11)
     addToMap(landsat, {'bands': ['B3', 'B2', 'B1']}, 'Landsat 3,2,1 RGB')

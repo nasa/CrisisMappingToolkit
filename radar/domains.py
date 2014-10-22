@@ -18,7 +18,7 @@ MAXIMUM_VALUES = {
 MINIMUM_VALUES = {
     UAVSAR : 257,
     UAVSAR_LOG : 0,
-    SENTINEL1 : 27
+    SENTINEL1 : 0
 }
 
 # image ids
@@ -65,6 +65,7 @@ class RadarDomain(object):
         else:
             self.channels = []
         self.log_scale = (instrument != UAVSAR)
+        self.bbox = bounds
         self.bounds = apply(ee.geometry.Geometry.Rectangle, bounds)
         self.center = ((bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2)
         self.ground_truth = ground_truth
@@ -128,7 +129,8 @@ def get_radar_image(id):
 
 def get_ground_truth(domain):
     if domain.id == UAVSAR_MISSISSIPPI_FLOODED:
-        im = ee.Image('18108519531116889794-12921502713420913455')
+        #im = ee.Image('18108519531116889794-12921502713420913455')
+        im = ee.Image('18108519531116889794-03516536627963450262')
         return im.select(['b1']).clamp(0, 1).mask(domain.image.select(['hh']))
     elif domain.id == UAVSAR_ARKANSAS_CITY:
         im = ee.Image('18108519531116889794-09052745394509652502')

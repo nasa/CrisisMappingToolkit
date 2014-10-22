@@ -135,9 +135,16 @@ class MapOverlayMenuWidget(QtGui.QWidget):
         self.name.setMinimumSize(130, 10)
         
         self.value = QtGui.QLabel('...', self)
-        self.value.setMinimumSize(500, 10)
+        self.value.setMinimumSize(100, 10)
+        self.value.setMaximumSize(500, 10)
 
-        self.pixel_loader = WaitForEEResult(self.parent.getPixel(layer, x, y).getInfo, self.set_pixel_value)
+        def get_pixel():
+            try:
+                return self.parent.getPixel(layer, x, y).getInfo()
+            except: # features throw ee exception, ignore
+                return None
+
+        self.pixel_loader = WaitForEEResult(get_pixel, self.set_pixel_value)
 
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(self.check_box)
@@ -148,6 +155,9 @@ class MapOverlayMenuWidget(QtGui.QWidget):
         self.setLayout(hbox)
     
     def set_pixel_value(self, value):
+        if value == None:
+            self.value.setText('')
+            return
         names = value[0][4:]
         if len(value) <= 1:
             self.value.setText('')

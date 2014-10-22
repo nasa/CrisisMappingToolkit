@@ -40,7 +40,7 @@ class RadarHistogram(object):
             elif domain.instrument == domains.UAVSAR_LOG:
                 backscatter_model = RadarHistogram.BACKSCATTER_MODEL_DIP
             else:
-                backscatter_model = RadarHistogram.BACKSCATTER_MODEL_DIP
+                backscatter_model = RadarHistogram.BACKSCATTER_MODEL_GAMMA
         self.backscatter_model = backscatter_model
         
         self.hist_image = self.__preprocess_image(domain.image)
