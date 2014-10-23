@@ -27,7 +27,7 @@ DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_FLOODED
 #DOMAIN = radar.domains.SENTINEL1_LANCIANO
 ALGORITHMS = [MATGEN]
 #ALGORITHMS = [MATGEN, DECISION_TREE, RANDOM_FORESTS, SVM]
-#ALGORITHMS = [MARTINIS] # This algorithm needs a lot of tuning!
+#ALGORITHMS = [ACTIVE_CONTOUR]
 
 # --------------------------------------------------------------
 # Functions
@@ -49,6 +49,8 @@ apply(addToMap, im.visualize())
 ground_truth = radar.domains.get_ground_truth(im)
 if ground_truth != None:
     addToMap(ground_truth, {}, 'Ground Truth', False)
+
+#print im.image.getDownloadUrl({'name' : 'sar', 'region':ee.Geometry.Rectangle(-91.23, 32.88, -91.02, 33.166).toGeoJSONString(), 'scale': 6.174})
 
 # For each of the algorithms
 for a in range(len(ALGORITHMS)):

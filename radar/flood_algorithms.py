@@ -1,6 +1,7 @@
 import matgen
 import learning
 import martinis
+import active_contour
 
 # From Towards an automated SAR-based flood monitoring system:
 # Lessons learned from two case studies by Matgen, Hostache et. al.
@@ -9,6 +10,7 @@ RANDOM_FORESTS = 2
 DECISION_TREE  = 3
 SVM            = 4
 MARTINIS       = 5
+ACTIVE_CONTOUR = 6
 
 
 
@@ -18,7 +20,8 @@ __ALGORITHMS = {
     RANDOM_FORESTS : ('Random Forests', learning.random_forests, 'FFFF00'),
     DECISION_TREE  : ('Decision Tree', learning.decision_tree, 'FF00FF'),
     SVM : ('SVM', learning.svm, '00AAFF'),
-    MARTINIS  : ('Martinis',  martinis.sar_martinis, 'FF00FF')
+    MARTINIS  : ('Martinis',  martinis.sar_martinis, 'FF00FF'),
+    ACTIVE_CONTOUR : ('Active Contour',  active_contour.active_contour, 'FF00FF')
 }
 
 # These functions just redirect the call to the correct algorithm
