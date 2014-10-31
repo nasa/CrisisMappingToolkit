@@ -22,10 +22,10 @@ DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_FLOODED
 domain = radar.domains.get_radar_image(DOMAIN)
 #result = active_contour(domain)
 
-def active_contour_step(local_image, nodes, step):
+def active_contour_step(local_image, snake, step):
     if step % 10 == 0:
-        respace_nodes(nodes)
-    shift_nodes(local_image, nodes)
+        snake.respace_nodes()
+    snake.shift_nodes()
 
 class ActiveContourWindow(QtGui.QWidget):
     def __init__(self, domain):
@@ -33,7 +33,7 @@ class ActiveContourWindow(QtGui.QWidget):
         self.setGeometry(300, 300, 650, 650)
         self.setWindowTitle('Active Contour')
         self.domain = domain
-        (self.local_image, self.nodes) = initialize_active_contour(domain)
+        (self.local_image, self.snake) = initialize_active_contour(domain)
         channels = [self.local_image.get_image('hh'), self.local_image.get_image('hv'), self.local_image.get_image('vv')]
         channel_images = [PIL.Image.fromarray(numpy.uint8(c >> 8)) for c in channels]
         self.display_image = PIL.Image.merge('RGB', channel_images)
@@ -53,28 +53,27 @@ class ActiveContourWindow(QtGui.QWidget):
         p.drawImage(0, 0, imageqt)
         NODE_RADIUS = 4
         # draw nodes
-        for loop in self.nodes:
-            for i in range(len(loop)):
+        for loop in self.snake.loops:
+            for i in range(len(loop.nodes)):
                 p.setPen(QtGui.QColor(255, 0, 0))
                 p.setBrush(QtGui.QBrush(QtGui.QColor(255, 0, 0)))
-                p.drawEllipse(loop[i][1] - NODE_RADIUS / 2.0,
-                        loop[i][0] - NODE_RADIUS / 2.0, NODE_RADIUS, NODE_RADIUS)
+                p.drawEllipse(loop.nodes[i][1] - NODE_RADIUS / 2.0,
+                        loop.nodes[i][0] - NODE_RADIUS / 2.0, NODE_RADIUS, NODE_RADIUS)
         # draw lines between nodes
-        for loop in self.nodes:
-            for i in range(len(loop)):
-                if len(loop) > 1:
+        for loop in self.snake.loops:
+            for i in range(len(loop.nodes)):
+                if len(loop.nodes) > 1:
                     n = i+1
-                    if n == len(loop):
+                    if n == len(loop.nodes):
                         n = 0
                     p.setPen(QtGui.QColor(0, 255, 0))
-                    p.drawLine(loop[i][1], loop[i][0], loop[n][1], loop[n][0])
+                    p.drawLine(loop.nodes[i][1], loop.nodes[i][0], loop.nodes[n][1], loop.nodes[n][0])
         p.end()
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key_Space:
-            active_contour_step(self.local_image, self.nodes, self.step)
+            active_contour_step(self.local_image, self.snake, self.step)
             self.repaint()
-            print 'Step'
             self.step += 1
         if event.key() == QtCore.Qt.Key_Q:
             QtGui.QApplication.quit()
