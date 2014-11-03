@@ -25,6 +25,7 @@ domain = radar.domains.get_radar_image(DOMAIN)
 def active_contour_step(local_image, snake, step):
     if step % 10 == 0:
         snake.respace_nodes()
+        snake.fix_geometry()
     snake.shift_nodes()
 
 class ActiveContourWindow(QtGui.QWidget):

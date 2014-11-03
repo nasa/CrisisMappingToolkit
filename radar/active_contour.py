@@ -1,13 +1,7 @@
-import domains
-
 from util.mapclient_qt import centerMap, addToMap
 from util.local_ee_image import LocalEEImage
 
-import ee
 import math
-import PIL
-from PIL import ImageQt
-from PyQt4 import QtCore, QtGui
 
 class Loop(object):
     MIN_NODE_SEPARATION    =    5
@@ -27,26 +21,40 @@ class Loop(object):
         self.data = image_data
         self.nodes = nodes
         self.clockwise = self.__is_clockwise()
-    
-    def __is_clockwise(self):
-        pass
 
+    
+    def __line_segments_intersect(self, a, b, c, d):
+        # is counterclockwise order
+        def ccw(a, b, c):
+            return (c[1] - a[1]) * (b[0] - a[0]) > (b[1] - a[1]) * (c[0] - a[0])
+        return (ccw(a, c, d) != ccw(b, c, d)) and (ccw(a, b, c) != ccw(a, b, d))
+
+    # count the number of segments (excluding the one starting with the node with ID ignored)
+    # which a ray in the direction perp emanating from p crosses
+    def __count_intersections(self, p, perp, ignored=None):
+        intersections = 0
+        for i in range(len(self.nodes)):
+            pred = i - 1
+            if pred < 0:
+                pred = len(self.nodes) - 1
+            if pred == ignored: # don't count line segment with origin of ray
+                continue
+            if self.__line_segments_intersect(p, (p[0] + perp[0] * 1e7, p[1] + perp[1] * 1e7), self.nodes[pred], self.nodes[i]):
+                intersections += 1
+        return intersections
+
+    def __is_clockwise(self):
+        a = self.nodes[0]
+        b = self.nodes[1]
+        diff = (b[0] - a[0], b[1] - a[1])
+        mid = (a[0] + diff[0] / 2, a[1] + diff[1] / 2)
+        perp = (diff[1], -diff[0])
+        # ray through polygon interior intersects an odd number of segments
+        return self.__count_intersections(mid, perp, 0) % 2 == 1
+    
     def __inside_line(self, a, b, x):
         v = (b[0] - a[0]) * (b[1] - x[1]) - (b[1] - a[1]) * (b[0] - x[0])
         return v >= 0
-    
-    def __line_distance_2(self, a, b, x):
-        v = (x[0] - a[0], x[1] - a[1])
-        l = (b[0] - a[0], b[1] - a[1])
-        mag = math.sqrt(l[0] * l[0] + l[1] * l[1])
-        if mag == 0.0:
-            return (a[0] - x[0]) ** 2 + (a[1] - x[1]) ** 2
-        l = (l[0] / mag, l[1] / mag)
-        n = v[0] * l[0] + v[1] * l[1]
-        n = max(0, min(mag, n))
-        tx = v[0] - n * l[0]
-        ty = v[1] - n * l[1]
-        return tx * tx + ty * ty
     
     def __curvature(self, n1, n2, n3, nn1=None, nn2=None, nn3=None):
         a1 = math.atan2(n1[1] - n2[1], n1[0] - n2[0])
@@ -86,9 +94,6 @@ class Loop(object):
         n = 0
         for x in range(bbox[0], bbox[1]):
             for y in range(bbox[2], bbox[3]):
-                #if __line_distance_2(n1, n2, (x, y)) > MAX_LINE_DISTANCE ** 2 and \
-                #   __line_distance_2(n2, n3, (x, y)) > MAX_LINE_DISTANCE ** 2:
-                #    continue
                 acute   = self.__inside_line(n1, n2, n3)
                 # add .5 so we don't get integer effects where a
                 # shift of one pixel removes the entire row
@@ -188,11 +193,95 @@ class Loop(object):
                 continue
             i += 1
 
+    # includes loop_start but not loop_end
+    def __create_loops(self, intersections, loop_start, loop_end):
+        i = loop_start
+        cur_loop = []
+        all_loops = []
+        def lind(n):
+            return n if n >= loop_start else n + len(self.nodes)
+        # find next intersection
+        while True:
+            closest = lind(loop_end-1) # don't include new loop where prev = loop_end
+            closest_other = None
+            for (prev1, prev2) in intersections:
+                if lind(prev1) < closest and prev1 >= i:
+                    closest = lind(prev1)
+                    closest_other = prev2 + 1 if prev2 < len(self.nodes) - 1 else 0
+                if lind(prev2) < closest and prev2 >= i:
+                    closest = lind(prev2)
+                    closest_other = prev1 + 1 if prev1 < len(self.nodes) - 1 else 0
+            closest_next = closest + 1
+            # extend loop with passed nodes
+            if closest_next >= len(self.nodes):
+                closest_next -= len(self.nodes)
+                cur_loop.extend(self.nodes[i:])
+                closest -= len(self.nodes)
+                cur_loop.extend(self.nodes[0:closest_next])
+            else:
+                cur_loop.extend(self.nodes[i:closest_next])
+            if closest_other == None:
+                break
+            # until closest_other is another loop
+            all_loops.extend(self.__create_loops(intersections, closest_next, closest_other))
+            i = closest_other
+            if i == loop_end:
+                break
+        return [Loop(self.data, cur_loop)] + all_loops
+
+    def __inside_loop(self, loop):
+        start = loop.nodes[0]
+        return self.__count_intersections(start, (1, 0)) % 2 == 1
+
+    def __filter_loops(self, loops):
+        # find biggest loop with our own orientation
+        biggest_length = -1
+        biggest_loop = -1
+        for i in range(len(loops)):
+            if loops[i].clockwise == self.clockwise and len(loops[i].nodes) > biggest_length:
+                biggest_length = len(loops[i].nodes)
+                biggest_loop = i
+        accepted_loops = [loops[biggest_loop]]
+        for i in range(len(loops)):
+            if i == biggest_loop:
+                continue
+            inside = loops[biggest_loop].__inside_loop(loops[i])
+            same_orientation = (self.clockwise == loops[i].clockwise)
+            if inside and same_orientation:
+                continue
+            if (not inside) and (not same_orientation):
+                continue
+            accepted_loops.append(loops[i])
+        return accepted_loops
+
+    # returns any new loops that split off
+    def fix_self_intersections(self):
+        self_intersections = []
+        for i in range(len(self.nodes)):
+            cur1 = self.nodes[i]
+            prev_i = i - 1 if i > 0 else len(self.nodes) - 1
+            prev1 = self.nodes[prev_i]
+            for j in range(i+1, len(self.nodes)):
+                prev_j = j - 1 if j > 0 else len(self.nodes) - 1
+                if j == i or j == prev_i or prev_j == i:
+                    continue
+                cur2 = self.nodes[j]
+                prev2 = self.nodes[prev_j]
+                if not self.__line_segments_intersect(prev1, cur1, prev2, cur2):
+                    continue
+                self_intersections.append((prev_i, prev_j))
+        if len(self_intersections) != 0:
+            loops = self.__create_loops(self_intersections, 0, 0)
+            return self.__filter_loops(loops)
+        return [self]
+
 
 class Snake(object):
     def __init__(self, local_image, initial_nodes):
         self.local_image = local_image
         self.data = local_image.get_image('hh')
+        # numpy is slower than tuples
+        #initial_nodes = map(lambda x: map(lambda y: np.array(y), x), initial_nodes)
         self.loops = [Loop(self.data, l) for l in initial_nodes]
 
     def shift_nodes(self):
@@ -205,8 +294,12 @@ class Snake(object):
         for l in self.loops:
             l.respace_nodes()
     
+    # remove self loops, merge intersecting loops
     def fix_geometry(self):
-        pass
+        new_loops = []
+        for l in self.loops:
+            new_loops.extend(l.fix_self_intersections())
+        self.loops = new_loops
 
 
 def initialize_active_contour(domain):
