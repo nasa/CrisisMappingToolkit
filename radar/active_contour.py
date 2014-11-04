@@ -14,7 +14,7 @@ class Loop(object):
     ALLOWED_DEVIATIONS     =  2.5
 
     VARIANCE_C             =  0.0
-    CURVATURE_GAMMA        =    3
+    CURVATURE_GAMMA        =    2
     TENSION_LAMBDA         = 0.05
 
     def __init__(self, image_data, nodes):
@@ -207,10 +207,10 @@ class Loop(object):
             for (prev1, prev2) in intersections:
                 if lind(prev1) < closest and prev1 >= i:
                     closest = lind(prev1)
-                    closest_other = prev2 + 1 if prev2 < len(self.nodes) - 1 else 0
-                if lind(prev2) < closest and prev2 >= i:
+                    closest_other = prev2 + 1 if prev2 < lind(loop_end-1) else loop_end
+                if lind(prev2) < closest and prev2 >= i and lind(prev1) >= i:# ignore loops in wrong order
                     closest = lind(prev2)
-                    closest_other = prev1 + 1 if prev1 < len(self.nodes) - 1 else 0
+                    closest_other = prev1 + 1 if prev1 < lind(loop_end-1) else loop_end
             closest_next = closest + 1
             # extend loop with passed nodes
             if closest_next >= len(self.nodes):
@@ -227,6 +227,8 @@ class Loop(object):
             i = closest_other
             if i == loop_end:
                 break
+        if len(cur_loop) <= 2:
+            return all_loops
         return [Loop(self.data, cur_loop)] + all_loops
 
     def __inside_loop(self, loop):
@@ -307,7 +309,8 @@ def initialize_active_contour(domain):
     local_image = LocalEEImage(domain.image, domain.bbox, 100, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.id))
     (w, h) = local_image.size()
     # s = Snake([[(260, 110), (260, 140), (300, 150), (300, 100)]])
-    s = Snake(local_image, [[(10, 10), (10, h - 10), (w - 10, h - 10), (w - 10, 10)]])
+    B = 10
+    s = Snake(local_image, [[(B, B), (B, h - B), (w - B, h - B), (w - B, 3 * B)]])
     s.respace_nodes()
 
     return (local_image, s)
