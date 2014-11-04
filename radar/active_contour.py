@@ -1,26 +1,33 @@
 from util.mapclient_qt import centerMap, addToMap
 from util.local_ee_image import LocalEEImage
 
+import ee
+
 import math
 
 class Loop(object):
     MIN_NODE_SEPARATION    =    5
     MAX_NODE_SEPARATION    =   15
     
-    SEED_REGION_BORDER     =    6
+    SEED_REGION_BORDER     =    4
     
     EXPECTED_WATER_MEAN    =  2.7
     EXPECTED_WATER_STD_DEV = 0.35
     ALLOWED_DEVIATIONS     =  2.5
 
-    VARIANCE_C             =  0.0
-    CURVATURE_GAMMA        =    2
+    VARIANCE_C             =  -0.1
+    CURVATURE_GAMMA        =    1.5
     TENSION_LAMBDA         = 0.05
 
     def __init__(self, image_data, nodes):
         self.data = image_data
+        # third parameter of node is how long it's been still
+        if len(nodes[0]) == 2:
+            nodes = map(lambda x: (x[0], x[1], 0), nodes)
         self.nodes = nodes
         self.clockwise = self.__is_clockwise()
+        self.done = False
+        self.almost_done_count = 0
 
     
     def __line_segments_intersect(self, a, b, c, d):
@@ -50,7 +57,8 @@ class Loop(object):
         mid = (a[0] + diff[0] / 2, a[1] + diff[1] / 2)
         perp = (diff[1], -diff[0])
         # ray through polygon interior intersects an odd number of segments
-        return self.__count_intersections(mid, perp, 0) % 2 == 1
+        count = self.__count_intersections(mid, perp, 0)
+        return count % 2 == 1
     
     def __inside_line(self, a, b, x):
         v = (b[0] - a[0]) * (b[1] - x[1]) - (b[1] - a[1]) * (b[0] - x[0])
@@ -137,12 +145,14 @@ class Loop(object):
 
     NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
     def __shift_node(self, i):
+        n2 = self.nodes[i]
+        if n2[2] > 5:
+            return n2
         p  = i - 1 if i > 0 else len(self.nodes) - 1
         pp = p - 1 if p > 0 else len(self.nodes) - 1
         n  = i + 1 if i < len(self.nodes) - 1 else 0
         nn = n + 1 if n < len(self.nodes) - 1 else 0
         n1 = self.nodes[p]
-        n2 = self.nodes[i]
         n3 = self.nodes[n]
         # use immediate vicinity of node
         x_min = max(0,                  n2[0] - self.SEED_REGION_BORDER)
@@ -168,15 +178,37 @@ class Loop(object):
             if fullg > best_goodness:
                 best_goodness = fullg
                 best = np
-        return best
+        if best_goodness == 0:
+            return (n2[0], n2[1], n2[2] + 1)
+        else:
+            return (best[0], best[1], 0)
 
     def shift_nodes(self):
+        if self.done:
+            return
+        self.moving_count = 0
         for i in range(len(self.nodes)):
             self.nodes[i] = self.__shift_node(i)
+            # this node updated, neighboring nodes should too
+            if self.nodes[i][2] == 0:
+                p = i - 1 if i > 0 else len(self.nodes) - 1
+                n = i + 1 if i < len(self.nodes) - 1 else 0
+                self.nodes[p] = (self.nodes[p][0], self.nodes[p][1], 0)
+                self.nodes[n] = (self.nodes[n][0], self.nodes[n][1], 0)
+                self.moving_count += 1
+        if self.moving_count <= 4 or float(self.moving_count) / len(self.nodes) < 0.01:
+            self.almost_done_count += 1
+        else:
+            self.almost_done_count = 0
+        # just mark it as done after a while of small oscillations
+        if self.almost_done_count >= 50:
+            self.done = True
     
     # insert new nodes if nodes are too far apart
     # remove nodes if too close together
     def respace_nodes(self):
+        if self.done:
+            return
         # go through nodes in loop
         i = 0
         while i < len(self.nodes):
@@ -185,10 +217,18 @@ class Loop(object):
             # delete node if too close
             if dist2 < self.MIN_NODE_SEPARATION ** 2:
                 del self.nodes[n]
+                p = i - 1 if i > 0 else len(self.nodes) - 1
+                # update neighbors
+                self.nodes[p] = (self.nodes[p][0], self.nodes[p][1], 0)
+                n = n if n < len(self.nodes) else 0 # last might have been deleted
+                self.nodes[n] = (self.nodes[n][0], self.nodes[n][1], 0)
                 continue
             # add node if too far
             elif dist2 > self.MAX_NODE_SEPARATION ** 2:
-                mid = ((self.nodes[i][0] + self.nodes[n][0]) / 2, (self.nodes[i][1] + self.nodes[n][1]) / 2)
+                mid = ((self.nodes[i][0] + self.nodes[n][0]) / 2, (self.nodes[i][1] + self.nodes[n][1]) / 2, 0)
+                # update neighbors
+                self.nodes[i] = (self.nodes[i][0], self.nodes[i][1], 0)
+                self.nodes[n] = (self.nodes[n][0], self.nodes[n][1], 0)
                 self.nodes.insert(i + 1, mid)
                 continue
             i += 1
@@ -200,8 +240,10 @@ class Loop(object):
         all_loops = []
         def lind(n):
             return n if n >= loop_start else n + len(self.nodes)
+        split_before = False
         # find next intersection
         while True:
+            initial_length = len(cur_loop)
             closest = lind(loop_end-1) # don't include new loop where prev = loop_end
             closest_other = None
             for (prev1, prev2) in intersections:
@@ -221,9 +263,15 @@ class Loop(object):
             else:
                 cur_loop.extend(self.nodes[i:closest_next])
             if closest_other == None:
+                if split_before:
+                    cur_loop[0] = (cur_loop[0][0], cur_loop[0][1], 0)
                 break
-            # until closest_other is another loop
-            all_loops.extend(self.__create_loops(intersections, closest_next, closest_other))
+            new_loops = self.__create_loops(intersections, closest_next, closest_other)
+            # update neighbors that had changed connectivity
+            cur_loop[initial_length] = (cur_loop[initial_length][0], cur_loop[initial_length][1], 0)
+            cur_loop[-1] = (cur_loop[-1][0], cur_loop[-1][1], 0)
+            split_before = True
+            all_loops.extend(new_loops)
             i = closest_other
             if i == loop_end:
                 break
@@ -258,6 +306,8 @@ class Loop(object):
 
     # returns any new loops that split off
     def fix_self_intersections(self):
+        if len(self.nodes) <= 3:
+            return []
         self_intersections = []
         for i in range(len(self.nodes)):
             cur1 = self.nodes[i]
@@ -285,10 +335,18 @@ class Snake(object):
         # numpy is slower than tuples
         #initial_nodes = map(lambda x: map(lambda y: np.array(y), x), initial_nodes)
         self.loops = [Loop(self.data, l) for l in initial_nodes]
+        self.done = False
 
     def shift_nodes(self):
+        if self.done:
+            return
+        self.done = True
         for loop in self.loops:
             loop.shift_nodes()
+            if not loop.done:
+                self.done = False
+        if self.done:
+            print 'Done!'
     
     # insert new nodes if nodes are too far apart
     # remove nodes if too close together
@@ -303,6 +361,25 @@ class Snake(object):
             new_loops.extend(l.fix_self_intersections())
         self.loops = new_loops
 
+    # first is features to paint, second is features to unpaint
+    def to_ee_feature_collections(self):
+        # currently only supports single unfilled region inside filled region
+        exterior = []
+        interior = []
+        for l in self.loops:
+            coords = map(lambda x: self.local_image.image_to_global(x[0], x[1]), l.nodes)
+            print coords
+            f = ee.Feature.Polygon(coords)
+            if not l.clockwise:
+                interior.append(f)
+            else:
+                exterior.append(f)
+        return (ee.FeatureCollection(exterior), ee.FeatureCollection(interior))
+
+    def to_ee_image(self):
+        (exterior, interior) = self.to_ee_feature_collections()
+        return ee.Image(0).toByte().select(['constant'], ['b1']).paint(exterior, 1).paint(interior, 0)
+
 
 def initialize_active_contour(domain):
     #local_image = LocalEEImage(domain.image, domain.bbox, 6.174, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.id))
@@ -315,10 +392,18 @@ def initialize_active_contour(domain):
 
     return (local_image, s)
 
+MAX_STEPS = 10000
+
 def active_contour(domain):
-    s = initialize_active_contour(domain)
-    for i in range(10):
-        s.shift_nodes()
-    s.respace_nodes()
-    s.fix_snake_geometry()
+    (local_image, snake) = initialize_active_contour(domain)
+    for i in range(MAX_STEPS):
+        if i % 10 == 0:
+            snake.respace_nodes()
+            snake.shift_nodes() # shift before fixing geometry since reversal of orientation possible
+            snake.fix_geometry()
+        else:
+            snake.shift_nodes()
+        if snake.done:
+            break
+    return snake.to_ee_image().clip(domain.bounds)
 
