@@ -171,12 +171,12 @@ class LocalEEImage(object):
 
     def image_to_global(self, r, c):
         lng = self.transform[0] * c + self.transform[4]
-        lat = self.transform[2] * r + self.transform[5]
+        lat = self.transform[3] * r + self.transform[5]
         return (lng, lat)
 
     def global_to_image(self, lon, lat):
         c = (lon - self.transform[4]) / self.transform[0]
-        r = (lat - self.transform[5]) / self.transform[2]
+        r = (lat - self.transform[5]) / self.transform[3]
         return (r, c)
 
     def get(self, band, r, c):
