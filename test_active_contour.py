@@ -12,8 +12,9 @@ from radar.active_contour import *
 
 import sys
 import PIL
+from PIL import ImageQt
 import numpy
-from PyQt4 import QtGui
+from PyQt4 import QtGui, QtCore
 app = QtGui.QApplication(sys.argv)
 
 # Specify the data set to use - see /radar/domains.py
