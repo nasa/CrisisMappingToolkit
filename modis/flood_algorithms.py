@@ -1,6 +1,8 @@
 import ee
 from domains import *
 
+from util.mapclient_qt import addToMap
+
 EVI                = 1
 XIAO               = 2
 DIFFERENCE         = 3
@@ -53,9 +55,10 @@ MODIS_DIFF_THRESHOLDS = {
         NIGER          : 1200}
 
 def modis_diff(domain, b, threshold=None):
-    if threshold == None:
+    '''Compute (b2-b1) < threshold'''
+    if threshold == None: # If no threshold value passed in, load it based on the data set.
         threshold = MODIS_DIFF_THRESHOLDS[domain.id]
-    return b['b2'].subtract(b['b1']).lte(threshold).select(['sur_refl_b02'], ['b1'])
+    return b['b2'].subtract(b['b1']).lte(threshold).select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
 
 def __create_learning_image(domain, b):
     diff  = b['b2'].subtract(b['b1'])
@@ -74,7 +77,7 @@ def earth_engine_classifier(domain, b, classifier_name):
             'max_classification': 2,
             'classifier_name': classifier_name
         })
-    classified = ee.call("ClassifyImage", __create_learning_image(domain, b), classifier).select(['classification'], ['b1']);
+    classified = ee.call("ClassifyImage", __create_learning_image(domain, b), classifier).select(['classification'], ['b1']); 
     return classified;
 
 def cart(domain, b):
@@ -87,60 +90,125 @@ def random_forests(domain, b):
     return earth_engine_classifier(domain, b, 'RifleSerialClassifier')
 
 def dnns(domain, b):
+    '''Dynamic Nearest Neighbor Search'''
+    
+    # Parameters
     KERNEL_SIZE = 10
     PURELAND_THRESHOLD = 0.5
-    kernel = ee.Kernel.square(KERNEL_SIZE, 'pixels', False)
+    
+    # Set up two square kernels of the same size
+    kernel            = ee.Kernel.square(KERNEL_SIZE, 'pixels', False)
     kernel_normalized = ee.Kernel.square(KERNEL_SIZE, 'pixels', True)
+    
+    # Compute b1/b6 and b2/b6
     composite_image = b['b1'].addBands(b['b2']).addBands(b['b6'])
     ratio1 = b['b1'].divide(b['b6'])
     ratio2 = b['b2'].divide(b['b6'])
-    purewater = modis_diff(domain, b)
-    averagewater = purewater.mask(purewater).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, 30)
+    
+    # TODO: This threshold should be lower (fewer pure water pixels)
+    # Compute (b2 - b1) < threshold, a simple water detection algorithm.  Treat the result as "pure water" pixels.
+    PURE_WATER_THRESHOLD_RATIO = 1.0
+    pureWaterThreshold = MODIS_DIFF_THRESHOLDS[domain.id] * PURE_WATER_THRESHOLD_RATIO
+    purewater = modis_diff(domain, b, pureWaterThreshold)
+    
+    # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.
+    WATER_AVERAGE_SCALE_METERS = 30
+    averagewater      = purewater.mask(purewater).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, WATER_AVERAGE_SCALE_METERS)
     averagewaterimage = ee.Image([averagewater.getInfo()['sur_refl_b01'], averagewater.getInfo()['sur_refl_b02'], averagewater.getInfo()['sur_refl_b06']])
     
-    # pure water channel computation
+    # For each pixel, compute the number of nearby pure water pixels
     purewatercount = purewater.convolve(kernel)
-    purewaterref = purewater.multiply(composite_image).convolve(kernel).multiply(purewatercount.gte(100)).divide(purewatercount)
+    # Get mean of nearby pure water (b1,b2,b6) values for each pixel with enough pure water nearby
+    MIN_PUREWATER_NEARBY = 100
+    purewaterref = purewater.multiply(composite_image).convolve(kernel).multiply(purewatercount.gte(MIN_PUREWATER_NEARBY)).divide(purewatercount)
+    # For pixels that did not have enough pure water nearby, just use the global average water value
     purewaterref = purewaterref.add(averagewaterimage.multiply(purewaterref.Not()))
+    # Computed an intermediate fraction = min(b1/b6, b2/b6), sort of a water measure.
     fraction = purewaterref.select('sur_refl_b01').divide(b['b6']).min(purewaterref.select('sur_refl_b02').divide(b['b6']))
     # fraction = fraction.add(purewater.multiply(ee.Image(1.0).subtract(fraction))); // purewater fraction is always 1
     
-    pureland = fraction.lte(PURELAND_THRESHOLD)
-    purelandcount = pureland.convolve(kernel)
-    averageland = pureland.multiply(b['b6']).convolve(kernel).divide(purelandcount)
-    average = b['b6'].convolve(kernel_normalized)
-    averageland = averageland.add(average.multiply(averageland.Not()))
+    pureland       = fraction.lte(PURELAND_THRESHOLD) # Classify pixels as pure land
+    purelandcount  = pureland.convolve(kernel)        # Get nearby pure land count for each pixel
+    average        = b['b6'].convolve(kernel_normalized)  # Get nearby mean value of b6
+    averageland    = pureland.multiply(b['b6']).convolve(kernel).divide(purelandcount) # Get mean nearby LAND value of b6
+    averageland    = averageland.add(average.multiply(averageland.Not())) # For pixels that did not have any pure land nearby, use mean b6
+    
+    # Compute the water fraction: (land - b6) / (land - water)
     water_fraction = (averageland.subtract(b['b6'])).divide(averageland.subtract(purewaterref.select('sur_refl_b06'))).clamp(0, 1)
-    # set pure water to 1, pure land to 0
+    
+    
+    #addToMap(purewatercount, {'min': 0, 'max': 300}, 'pure water count', False)
+    #addToMap(purelandcount,  {'min': 0, 'max': 300}, 'pure land count', False)
+    #addToMap(water_fraction, {'min': 0, 'max': 5}, 'water_fractionDNNS', False)
+    
+    # Set pure water to 1, pure land to 0
     water_fraction = water_fraction.subtract(pureland.multiply(water_fraction))
     water_fraction = water_fraction.add(purewater.multiply(ee.Image(1.0).subtract(water_fraction)))
+    
+    #addToMap(purewaterref, {'min': 0, 'max': 4000}, 'purewaterref', False)
+    #addToMap(averageland, {'min': 0, 'max': 4000}, 'averageland', False)
+    
     #addToMap(fraction)
     #addToMap(purewater, {}, 'Pure Water', false)
     #addToMap(pureland, {}, 'Pure Land', false)
     #addToMap(averageland, {}, 'Average Land', false)
     #addToMap(water_fraction, {}, 'Water Fraction', false)
     #addToMap(purewaterref, {}, 'Pure Water Reflection', false)
-    return water_fraction.select(['sur_refl_b01'], ['b1'])
+    return water_fraction.select(['sur_refl_b01'], ['b1']) # Rename sur_refl_b02 to b1
 
 def dnns_dem(domain, b):
+    '''Enhance the DNNS result with high resolution DEM information'''
+    
+    MODIS_PIXEL_SIZE_METERS = 250
+    
+    # Call the DNNS function to get the starting point
     water_fraction = dnns(domain, b)
 
-    dem_min = domain.dem.mask(water_fraction).focal_min(250, 'square', 'meters')
-    dem_max = domain.dem.mask(water_fraction).focal_max(250, 'square', 'meters')
-    # approximation, linearize each tile's fraction point
+   
+    ## Treating the DEM values contained in the MODIS pixel as a histogram, find the N'th percentile
+    ##  where N is the water fraction computed by DNNS.  That should be the height of the flood water.
+    #modisPixelKernel = ee.Kernel.square(MODIS_PIXEL_SIZE_METERS, 'meters', False)
+    #domain.dem.mask(water_fraction).reduceNeighborhood(ee.Reducer.percentile(), modisPixelKernel)
+    # --> We would like to compute a percentile here, but this would require a different reducer input for each pixel!
+    
+
+    # Get min and max DEM height within each water containing pixel
+    # - If a DEM pixel contains any water then the water level must be at least that high.
+    dem_min = domain.dem.mask(water_fraction).focal_min(MODIS_PIXEL_SIZE_METERS, 'square', 'meters')
+    dem_max = domain.dem.mask(water_fraction).focal_max(MODIS_PIXEL_SIZE_METERS, 'square', 'meters')
+    
+    # Approximation, linearize each tile's fraction point
+    # - The water percentage is used as a percentage between the two elevations
     water_high = dem_min.add(dem_max.subtract(dem_min).multiply(water_fraction))
-    water_high = water_high.multiply(water_fraction.eq(1.0)) # don't include full pixels
-    water_dem_kernel = ee.Kernel.circle(5000, 'meters', False)
-    # TODO: find percentile median
-    average_high = water_high.convolve(water_dem_kernel).divide(water_high.gt(0.0).convolve(water_dem_kernel))
+    water_high = water_high.multiply(water_fraction.eq(1.0)) # Don't include full pixels, they don't give us clues to their height.   
+    
+    # Problem: Averaging process spreads water way out to pixels where it was not detected!!
+    #          Reducing the averaging is a simple way to deal with this and probably does not hurt results at all
+    
+    #dilate_kernel = ee.Kernel.circle(250, 'meters', False)
+    #allowed_water_mask = water_fraction.gt(0.0)#.convolve(dilate_kernel)
+    
+    # Smooth out the water elevations with a broad kernel; nearby pixels probably have the same elevation!
+    water_dem_kernel = ee.Kernel.circle(500, 'meters', False)
+    num_nearby_water_pixels = water_high.gt(0.0).convolve(water_dem_kernel)
+    average_high = water_high.convolve(water_dem_kernel).divide(num_nearby_water_pixels)
     #addToMap(water_fraction, {}, 'Water Fraction', false);
     #addToMap(average_high, {min:25, max:40}, 'Water Level', false);
     #addToMap(dem.subtract(average_high), {min : -0, max : 10}, 'Water Difference', false);
     #addToMap(dem.lte(average_high).and(domain.groundTruth.not()));
-    return domain.dem.lte(average_high).Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
+    
+    #addToMap(allowed_water_mask, {'min': 0, 'max': 1}, 'allowed_water', False);
+    #addToMap(water_high, {'min': 0, 'max': 100}, 'water_high', False);
+    #addToMap(average_high, {'min': 0, 'max': 100}, 'average_high', False);
+    #addToMap(domain.dem, {'min': 0, 'max': 100}, 'DEM', False);
+    
+    # Classify DEM pixels as flooded based on being under the local water elevation or being completely flooded.
+    #return domain.dem.lte(average_high).Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
+    dem_water = domain.dem.lte(average_high).mask(water_fraction) # Mask prevents pixels with 0% water from being labeled as water
+    return dem_water.Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
 
 HISTORY_THRESHOLDS = {
-        BORDER         : (6.5,     -3.5),
+        BORDER         : (3.5,     -3.5),
         BORDER_JUNE    : (6.5,     -3.5),
         ARKANSAS_CITY  : (6.5,     -3.5),
         KASHMORE       : (4.5,     -3.0),
@@ -152,25 +220,72 @@ HISTORY_THRESHOLDS = {
     }
 
 def history_diff(domain, b):
+    '''Leverage historical data and the permanent water mask to improve the threshold method'''
+    
+    # Load pre-selected constants for this domain
     (dev_thresh, change_thresh) = HISTORY_THRESHOLDS[domain.id]
-    history = ee.ImageCollection('MOD09GQ').filterDate(domain.date.advance(-1 - 0.03, 'year'), domain.date.advance(-1 + 0.03, 'year')).filterBounds(domain.bounds);
-    for i in range(1, 4):
-        history.merge(ee.ImageCollection('MOD09GQ').filterDate(domain.date.advance(-(i+1) - 0.03, 'year'), domain.date.advance(-(i+1) + 0.03, 'year')).filterBounds(domain.bounds));
-    flood_diff = (lambda x : x.select(['sur_refl_b02']).subtract(x.select(['sur_refl_b01'])))
-    historyDiff = history.map(flood_diff)
+    
+    # Retrieve all the MODIS images for the region in the last several years
+    NUM_YEARS_BACK         = 5
+    NUM_DAYS_COMPARE_RANGE = 40.0 # Compare this many days before/after the target day in previous years
+    YEAR_RANGE_PERCENTAGE  = NUM_DAYS_COMPARE_RANGE / 365.0
+    #print 'YEAR_RANGE_PERCENTAGE = ' + str(YEAR_RANGE_PERCENTAGE)
+    #print 'Start: ' + str(domain.date.advance(-1 - YEAR_RANGE_PERCENTAGE, 'year'))
+    #print 'End:   ' + str(domain.date.advance(-1 + YEAR_RANGE_PERCENTAGE, 'year'))
+    
+    history = ee.ImageCollection('MOD09GQ').filterDate(domain.date.advance(-1 - YEAR_RANGE_PERCENTAGE, 'year'), domain.date.advance(-1 + YEAR_RANGE_PERCENTAGE, 'year')).filterBounds(domain.bounds);
+    #print history.getInfo()
+    for i in range(1, NUM_YEARS_BACK-1):
+        yearMin = -(i+1) - YEAR_RANGE_PERCENTAGE
+        yearMax = -(i+1) + YEAR_RANGE_PERCENTAGE
+        history.merge(ee.ImageCollection('MOD09GQ').filterDate(domain.date.advance(yearMin, 'year'), domain.date.advance(yearMax, 'year')).filterBounds(domain.bounds));
+    
+    # Simple function implements the b2 - b1 difference method
+    flood_diff_function = (lambda x : x.select(['sur_refl_b02']).subtract(x.select(['sur_refl_b01'])))
+    
+    # Apply difference function to all images in history, then compute mean and standard deviation of difference scores.
+    historyDiff   = history.map(flood_diff_function)
     historyMean   = historyDiff.mean()
     historyStdDev = historyDiff.reduce(ee.Reducer.stdDev())
-    floodDiff  = flood_diff(domain.high_res_modis)
+    
+    #addToMap(historyMean,   {'min' : 0, 'max' : 4000}, 'History mean',   False)
+    #addToMap(historyStdDev, {'min' : 0, 'max' : 2000}, 'History stdDev', False)
+    
+    # Compute flood diff on current image and compare to historical mean/STD.
+    floodDiff   = flood_diff_function(domain.high_res_modis)
     diffOfDiffs = floodDiff.subtract(historyMean)
-    plainDiff   = highResImage.subtract(historyMean)
-    ddDivDev = diffOfDiffs.divide(historyStdDev)
-    changeFlood = ddDivDev.lt(change_thresh)
-    diffInWaterMask = floodDiff.multiply(domain.water_mask)
-    maskedMean   = diffInWaterMask.reduceRegion(ee.Reducer.mean(), domain.bounds, 250)
-    maskedStdDev = diffInWaterMask.reduceRegion(ee.Reducer.stdDev(), domain.bounds, 250)
-    waterThreshold = maskedMean.getInfo().sur_refl_b02 + dev_thresh * maskedStdDev.getInfo().sur_refl_b02;
-    waterPixels = modis_diff(domain, b, waterThreshold)
-    return waterPixels.Or(changeFlood).select(['sur_refl_b02'], ['b1']);
+    ddDivDev    = diffOfDiffs.divide(historyStdDev)
+    changeFlood = ddDivDev.lt(change_thresh)  # Mark all pixels which are enough STD's away from the mean.
+    
+    #addToMap(floodDiff,   {'min' : 0, 'max' : 4000}, 'floodDiff',   False)
+    #addToMap(diffOfDiffs, {'min' : -2000, 'max' : 2000}, 'diffOfDiffs', False)
+    #addToMap(ddDivDev,    {'min' : -10,   'max' : 10}, 'ddDivDev',    False)
+    #addToMap(changeFlood,    {'min' : 0,   'max' : 1}, 'changeFlood',    False)
+    #addToMap(domain.water_mask,    {'min' : 0,   'max' : 1}, 'Permanent water mask',    False)
+    
+    
+    #plainDiff       = highResImage.subtract(historyMean) # ??
+    
+    # TODO: This isn't working at all!
+    
+    # Compute the difference statistics inside permanent water mask pixels
+    MODIS_RESOLUTION = 250 # Meters
+    diffInWaterMask  = floodDiff.multiply(domain.water_mask)
+    maskedMean       = diffInWaterMask.reduceRegion(ee.Reducer.mean(),   domain.bounds, MODIS_RESOLUTION)
+    maskedStdDev     = diffInWaterMask.reduceRegion(ee.Reducer.stdDev(), domain.bounds, MODIS_RESOLUTION)
+    
+    #print 'Water mean = ' + str(maskedMean.getInfo())
+    #print 'Water STD  = ' + str(maskedStdDev.getInfo())
+    
+    # Use the water mask statistics to compute a difference threshold, then find all pixels below the threshold.
+    waterThreshold  = maskedMean.getInfo()['sur_refl_b02'] + dev_thresh*(maskedStdDev.getInfo()['sur_refl_b02']);
+    waterPixels     = modis_diff(domain, b, waterThreshold)
+    
+    #addToMap(waterPixels,    {'min' : 0,   'max' : 1}, 'waterPixels',    False)
+    
+    # Combine water pixels from the historical and water mask methods.
+    return (waterPixels.Or(changeFlood));
+
 
 DARTMOUTH_THRESHOLDS = {
         BORDER         : 0.75,
