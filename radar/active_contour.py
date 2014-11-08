@@ -9,14 +9,14 @@ class Loop(object):
     MIN_NODE_SEPARATION    =    5
     MAX_NODE_SEPARATION    =   15
     
-    SEED_REGION_BORDER     =    4
+    SEED_REGION_BORDER     =    2
     
     EXPECTED_WATER_MEAN    =  2.7
     EXPECTED_WATER_STD_DEV = 0.35
     ALLOWED_DEVIATIONS     =  2.5
 
-    VARIANCE_C             =  -0.1
-    CURVATURE_GAMMA        =    1.5
+    VARIANCE_C             = -0.1
+    CURVATURE_GAMMA        =  1.5
     TENSION_LAMBDA         = 0.05
 
     def __init__(self, image_data, nodes):
@@ -100,13 +100,19 @@ class Loop(object):
         mean = 0
         mean_2 = 0
         n = 0
+        acute   = self.__inside_line(n1, n2, n3)
+        n21diff = (n2[0] - n1[0], n2[1] - n1[1])
+        n32diff = (n3[0] - n2[0], n3[1] - n2[1])
         for x in range(bbox[0], bbox[1]):
             for y in range(bbox[2], bbox[3]):
-                acute   = self.__inside_line(n1, n2, n3)
                 # add .5 so we don't get integer effects where a
                 # shift of one pixel removes the entire row
-                inside1 =  self.__inside_line(n1, n2, (x + 0.5, y + 0.5))
-                inside2 =  self.__inside_line(n2, n3, (x + 0.5, y + 0.5))
+                p = (x + 0.5, y + 0.5)
+                # doing this still but optimized more
+                # inside1 =  self.__inside_line(n1, n2, p)
+                # inside2 =  self.__inside_line(n2, n3, p)
+                inside1 = (n21diff[0] * (n2[1] - p[1]) - n21diff[1] * (n2[0] - p[0])) >= 0
+                inside2 = (n32diff[0] * (n3[1] - p[1]) - n32diff[1] * (n3[0] - p[0])) >= 0
                 if acute:
                     if not (inside1 and inside2):
                         continue
@@ -196,7 +202,7 @@ class Loop(object):
                 self.nodes[p] = (self.nodes[p][0], self.nodes[p][1], 0)
                 self.nodes[n] = (self.nodes[n][0], self.nodes[n][1], 0)
                 self.moving_count += 1
-        if self.moving_count <= 4 or float(self.moving_count) / len(self.nodes) < 0.01:
+        if self.moving_count <= 4 or float(self.moving_count) / len(self.nodes) < 0.05:
             self.almost_done_count += 1
         else:
             self.almost_done_count = 0
@@ -306,6 +312,8 @@ class Loop(object):
 
     # returns any new loops that split off
     def fix_self_intersections(self):
+        if self.done:
+            return [self]
         if len(self.nodes) <= 3:
             return []
         self_intersections = []
@@ -383,11 +391,10 @@ class Snake(object):
 
 def initialize_active_contour(domain):
     #local_image = LocalEEImage(domain.image, domain.bbox, 6.174, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.id))
-    local_image = LocalEEImage(domain.image, domain.bbox, 100, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.id))
+    local_image = LocalEEImage(domain.image, domain.bbox, 25, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.id))
     (w, h) = local_image.size()
-    # s = Snake([[(260, 110), (260, 140), (300, 150), (300, 100)]])
-    B = 10
-    s = Snake(local_image, [[(B, B), (B, h - B), (w - B, h - B), (w - B, 3 * B)]])
+    B = w / 25
+    s = Snake(local_image, [[(B, B), (B, h - B), (w - B, h - B), (w - B, 5 * B)]])
     s.respace_nodes()
 
     return (local_image, s)
