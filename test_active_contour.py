@@ -6,6 +6,7 @@ util.ee_authenticate.initialize()
 import os
 import ee
 import functools
+import time
 
 import radar.domains
 from radar.active_contour import *
@@ -24,10 +25,16 @@ domain = radar.domains.get_radar_image(DOMAIN)
 #result = active_contour(domain)
 
 def active_contour_step(local_image, snake, step):
+    if snake.done:
+        return
+    t = time.time()
     if step % 10 == 0:
         snake.respace_nodes()
+        snake.shift_nodes() # shift before fixing geometry since reversal of orientation possible
         snake.fix_geometry()
-    snake.shift_nodes()
+    else:
+        snake.shift_nodes()
+    print time.time() - t
 
 class ActiveContourWindow(QtGui.QWidget):
     def __init__(self, domain):
@@ -39,7 +46,7 @@ class ActiveContourWindow(QtGui.QWidget):
         channels = [self.local_image.get_image('hh'), self.local_image.get_image('hv'), self.local_image.get_image('vv')]
         channel_images = [PIL.Image.fromarray(numpy.uint8(c >> 8)) for c in channels]
         self.display_image = PIL.Image.merge('RGB', channel_images)
-        self.step = 0
+        self.step = 1
         self.show()
 
     def paintEvent(self, event):

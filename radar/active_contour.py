@@ -51,14 +51,19 @@ class Loop(object):
         return intersections
 
     def __is_clockwise(self):
-        a = self.nodes[0]
-        b = self.nodes[1]
-        diff = (b[0] - a[0], b[1] - a[1])
-        mid = (a[0] + diff[0] / 2, a[1] + diff[1] / 2)
-        perp = (diff[1], -diff[0])
-        # ray through polygon interior intersects an odd number of segments
-        count = self.__count_intersections(mid, perp, 0)
-        return count % 2 == 1
+        s = 0
+        for i in range(len(self.nodes)):
+            n = i + 1 if i < len(self.nodes) - 1 else 0
+            s += (self.nodes[n][0] - self.nodes[i][0]) * (self.nodes[n][1] + self.nodes[i][1])
+        return s >= 0
+        #a = self.nodes[0]
+        #b = self.nodes[1]
+        #diff = (b[0] - a[0], b[1] - a[1])
+        #mid = (a[0] + diff[0] / 2, a[1] + diff[1] / 2)
+        #perp = (diff[1], -diff[0])
+        ## ray through polygon interior intersects an odd number of segments
+        #count = self.__count_intersections(mid, perp, 0)
+        #return count % 2 == 1
     
     def __inside_line(self, a, b, x):
         v = (b[0] - a[0]) * (b[1] - x[1]) - (b[1] - a[1]) * (b[0] - x[0])
@@ -222,10 +227,11 @@ class Loop(object):
             dist2 = (self.nodes[i][0] - self.nodes[n][0]) ** 2 + (self.nodes[i][1] - self.nodes[n][1]) ** 2
             # delete node if too close
             if dist2 < self.MIN_NODE_SEPARATION ** 2:
-                del self.nodes[n]
-                p = i - 1 if i > 0 else len(self.nodes) - 1
                 # update neighbors
-                self.nodes[p] = (self.nodes[p][0], self.nodes[p][1], 0)
+                if len(self.nodes) <= 2:
+                    break
+                self.nodes[i] = (self.nodes[i][0], self.nodes[i][1], 0)
+                del self.nodes[n]
                 n = n if n < len(self.nodes) else 0 # last might have been deleted
                 self.nodes[n] = (self.nodes[n][0], self.nodes[n][1], 0)
                 continue
@@ -241,6 +247,7 @@ class Loop(object):
 
     # includes loop_start but not loop_end
     def __create_loops(self, intersections, loop_start, loop_end):
+        assert not (loop_end < loop_start and loop_end != 0)
         i = loop_start
         cur_loop = []
         all_loops = []
@@ -256,7 +263,7 @@ class Loop(object):
                 if lind(prev1) < closest and prev1 >= i:
                     closest = lind(prev1)
                     closest_other = prev2 + 1 if prev2 < lind(loop_end-1) else loop_end
-                if lind(prev2) < closest and prev2 >= i and lind(prev1) >= i:# ignore loops in wrong order
+                if lind(prev2) < closest and prev2 >= i and prev1 >= i:# ignore loops in wrong order
                     closest = lind(prev2)
                     closest_other = prev1 + 1 if prev1 < lind(loop_end-1) else loop_end
             closest_next = closest + 1
@@ -290,6 +297,8 @@ class Loop(object):
         return self.__count_intersections(start, (1, 0)) % 2 == 1
 
     def __filter_loops(self, loops):
+        if len(loops) == 0:
+            return []
         # find biggest loop with our own orientation
         biggest_length = -1
         biggest_loop = -1
@@ -314,7 +323,11 @@ class Loop(object):
     def fix_self_intersections(self):
         if self.done:
             return [self]
+        # kill self if empty
         if len(self.nodes) <= 3:
+            return []
+        # kill self if collapsed and switched orientation
+        if self.__is_clockwise() != self.clockwise:
             return []
         self_intersections = []
         for i in range(len(self.nodes)):
@@ -334,6 +347,29 @@ class Loop(object):
             loops = self.__create_loops(self_intersections, 0, 0)
             return self.__filter_loops(loops)
         return [self]
+
+    # merge two loops if they intersect
+    def merge(self, other):
+        intersection = None
+        # find intersections
+        for i in range(len(self.nodes)):
+            cur1 = self.nodes[i]
+            prev_i = i - 1 if i > 0 else len(self.nodes) - 1
+            prev1 = self.nodes[prev_i]
+            for j in range(len(other.nodes)):
+                prev_j = j - 1 if j > 0 else len(other.nodes) - 1
+                cur2 = other.nodes[j]
+                prev2 = other.nodes[prev_j]
+                if not self.__line_segments_intersect(prev1, cur1, prev2, cur2):
+                    continue
+                intersection = (i, j)
+                break
+        if intersection == None:
+            return None
+        (i, j) = intersection
+        loop = self.nodes[0:i] + other.nodes[j:] + other.nodes[0:j] + self.nodes[i:]
+        assert len(loop) == len(self.nodes) + len(other.nodes)
+        return Loop(self.data, loop)
 
 
 class Snake(object):
@@ -364,10 +400,31 @@ class Snake(object):
     
     # remove self loops, merge intersecting loops
     def fix_geometry(self):
+        # fix self loops
         new_loops = []
         for l in self.loops:
             new_loops.extend(l.fix_self_intersections())
         self.loops = new_loops
+
+        # merge intersecting loops
+        i = 0
+        while i < len(self.loops):
+            j = i + 1
+            while j < len(self.loops):
+                merged = self.loops[i].merge(self.loops[j])
+                if merged == None:
+                    j += 1
+                    continue
+                else:
+                    merged = merged.fix_self_intersections()
+                    del self.loops[j]
+                    self.loops[i:i+1] = merged
+                    # faster way to do this?
+                    if len(merged) > 1:
+                        i -= 1
+                        break
+            i += 1
+
 
     # first is features to paint, second is features to unpaint
     def to_ee_feature_collections(self):
@@ -376,7 +433,6 @@ class Snake(object):
         interior = []
         for l in self.loops:
             coords = map(lambda x: self.local_image.image_to_global(x[0], x[1]), l.nodes)
-            print coords
             f = ee.Feature.Polygon(coords)
             if not l.clockwise:
                 interior.append(f)
@@ -394,7 +450,15 @@ def initialize_active_contour(domain):
     local_image = LocalEEImage(domain.image, domain.bbox, 25, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.id))
     (w, h) = local_image.size()
     B = w / 25
-    s = Snake(local_image, [[(B, B), (B, h - B), (w - B, h - B), (w - B, 5 * B)]])
+    VERTICAL_CELLS = 20
+    CELL_SIZE = (w - 2 * B) / VERTICAL_CELLS
+    loops = []
+    for i in range(B, w - B, CELL_SIZE):
+        for j in range(B + int(4 * B * float(i - B) / CELL_SIZE / VERTICAL_CELLS), h - B, CELL_SIZE):
+            nextj = min(j + CELL_SIZE, h - B)
+            nexti = min(i + CELL_SIZE, w - B)
+            loops.append([(i, j), (i, nextj), (nexti, nextj), (nexti, j)])
+    s = Snake(local_image, loops)
     s.respace_nodes()
 
     return (local_image, s)
