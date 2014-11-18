@@ -56,14 +56,6 @@ class Loop(object):
             n = i + 1 if i < len(self.nodes) - 1 else 0
             s += (self.nodes[n][0] - self.nodes[i][0]) * (self.nodes[n][1] + self.nodes[i][1])
         return s >= 0
-        #a = self.nodes[0]
-        #b = self.nodes[1]
-        #diff = (b[0] - a[0], b[1] - a[1])
-        #mid = (a[0] + diff[0] / 2, a[1] + diff[1] / 2)
-        #perp = (diff[1], -diff[0])
-        ## ray through polygon interior intersects an odd number of segments
-        #count = self.__count_intersections(mid, perp, 0)
-        #return count % 2 == 1
     
     def __inside_line(self, a, b, x):
         v = (b[0] - a[0]) * (b[1] - x[1]) - (b[1] - a[1]) * (b[0] - x[0])
@@ -101,6 +93,8 @@ class Loop(object):
         new += (n3[0] -  n[0]) ** 2 + (n3[1] -  n[1]) ** 2
         return new - old
 
+    # cost function for how much pixels inside curve (n1, n2, n3) within bbox
+    # look like water
     def __get_goodness(self, bbox, n1, n2, n3):
         mean = 0
         mean_2 = 0
@@ -155,6 +149,7 @@ class Loop(object):
         return (n, g)
 
     NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    # shift a single node to neighboring pixel which reduces cost function the most
     def __shift_node(self, i):
         n2 = self.nodes[i]
         if n2[2] > 5:
@@ -178,11 +173,15 @@ class Loop(object):
     
         for d in self.NEIGHBORS:
             np = (n2[0] + d[0], n2[1] + d[1])
+            # don't move outside image
             if np[0] < 0 or np[0] >= self.data.shape[0] or np[1] < 0 or np[1] >= self.data.shape[1]:
                 continue
+            # find how similar pixels inside curve are to expected water distribution
             (count, g) = self.__get_goodness(bbox, n1, np, n3)
+            # penalty for curving sharply
             curveg = self.__curvature(n1, n2, n3, nn2=np) + self.__curvature(self.nodes[pp], n1, n2, nn2=np) + \
                     self.__curvature(n2, n3, self.nodes[nn], nn1=np)
+            # encourage nodes to stay the right distance apart
             tensiong = self.__tension(n1, n2, n3, np)
             fullg = (count - original_count) * g - self.CURVATURE_GAMMA * curveg - \
                     self.TENSION_LAMBDA * tensiong
@@ -194,6 +193,7 @@ class Loop(object):
         else:
             return (best[0], best[1], 0)
 
+    # shift all nodes in loop to neighboring pixel of lowest cost
     def shift_nodes(self):
         if self.done:
             return
@@ -245,6 +245,8 @@ class Loop(object):
                 continue
             i += 1
 
+    # recursively create new loops based on intersections, in loop between
+    # loop_start and loop_end
     # includes loop_start but not loop_end
     def __create_loops(self, intersections, loop_start, loop_end):
         assert not (loop_end < loop_start and loop_end != 0)
@@ -259,6 +261,7 @@ class Loop(object):
             initial_length = len(cur_loop)
             closest = lind(loop_end-1) # don't include new loop where prev = loop_end
             closest_other = None
+            # find next intersection
             for (prev1, prev2) in intersections:
                 if lind(prev1) < closest and prev1 >= i:
                     closest = lind(prev1)
@@ -279,6 +282,7 @@ class Loop(object):
                 if split_before:
                     cur_loop[0] = (cur_loop[0][0], cur_loop[0][1], 0)
                 break
+            # recursively create new loops within next intersections
             new_loops = self.__create_loops(intersections, closest_next, closest_other)
             # update neighbors that had changed connectivity
             cur_loop[initial_length] = (cur_loop[initial_length][0], cur_loop[initial_length][1], 0)
@@ -296,6 +300,7 @@ class Loop(object):
         start = loop.nodes[0]
         return self.__count_intersections(start, (1, 0)) % 2 == 1
 
+    # eliminate self loops
     def __filter_loops(self, loops):
         if len(loops) == 0:
             return []
@@ -329,6 +334,7 @@ class Loop(object):
         # kill self if collapsed and switched orientation
         if self.__is_clockwise() != self.clockwise:
             return []
+        # find self intersections
         self_intersections = []
         for i in range(len(self.nodes)):
             cur1 = self.nodes[i]
@@ -343,6 +349,8 @@ class Loop(object):
                 if not self.__line_segments_intersect(prev1, cur1, prev2, cur2):
                     continue
                 self_intersections.append((prev_i, prev_j))
+        # recursively divide loops based on self intersections, e.g., merge when
+        # surrounding island from two sides and meeting
         if len(self_intersections) != 0:
             loops = self.__create_loops(self_intersections, 0, 0)
             return self.__filter_loops(loops)
@@ -371,7 +379,7 @@ class Loop(object):
         assert len(loop) == len(self.nodes) + len(other.nodes)
         return Loop(self.data, loop)
 
-
+# an active contour, which is composed of a number of Loops
 class Snake(object):
     def __init__(self, local_image, initial_nodes):
         self.local_image = local_image
