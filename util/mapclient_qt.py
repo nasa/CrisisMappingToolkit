@@ -38,8 +38,7 @@ import urllib2
 
 import ee
 
-# check if the Python imaging libraries used by the mapclient module are
-# installed
+# check if the Python imaging libraries used by the mapclient module are installed
 try:
     from PIL import ImageQt                      # pylint: disable=g-import-not-at-top
     from PIL import Image, ImageChops                            # pylint: disable=g-import-not-at-top
@@ -94,8 +93,8 @@ class MapGui(QtGui.QMainWindow):
     def CenterMap(self, lon, lat, opt_zoom=None):
         self.mapwidget.CenterMap(lon, lat, opt_zoom)
     
-    def addOverlay(self, overlay, eeobject, name, show):
-        self.mapwidget.addOverlay(overlay, eeobject, name, show)
+    def addOverlay(self, overlay, eeobject, name, show, vis_params):
+        self.mapwidget.addOverlay(overlay, eeobject, name, show, vis_params)
     
     def keyPressEvent(self, event):
         """Handle keypress events."""
@@ -103,40 +102,48 @@ class MapGui(QtGui.QMainWindow):
             QtGui.QApplication.quit()
 
 class MapViewOverlay(object):
-    def __init__(self, overlay, eeobject, name, show=True, opacity=1.0):
-        self.overlay = overlay
-        self.eeobject = eeobject
-        self.name = name
-        self.show = show
-        self.opacity = opacity
+    def __init__(self, overlay, eeobject, name, show=True, vis_params=dict()):#, opacity=1.0):
+        self.overlay    = overlay
+        self.eeobject   = eeobject
+        self.name       = name
+        self.show       = show
+        self.vis_params = vis_params
+        self.opacity    = 1.0 # TODO: Parse vis_params for the opacity!  For now it always starts at 1.0
 
 class MapOverlayMenuWidget(QtGui.QWidget):
+    '''Each one of these is one item in the right-click menu'''
     def __init__(self, parent, layer, x, y):
         super(MapOverlayMenuWidget, self).__init__()
-        self.parent = parent
-        self.layer = layer
-        self.x = x
-        self.y = y
-        overlay = self.parent.overlays[layer]
+        self.parent = parent # The parent is a MapView object
+        self.layer  = layer  # The index of the layer in question
+        self.x      = x      # Click location
+        self.y      = y
+        overlay = self.parent.overlays[self.layer] # This is a MapViewOverlay object
+        
+        # Constants that define the field size
+        NAME_WIDTH   = 130
+        ITEM_HEIGHT  = 10
+        INFO_WIDTH   = 500
+        SLIDER_WIDTH = 100
         
         self.check_box = QtGui.QCheckBox(self)
         self.check_box.setChecked(overlay.show)
         self.check_box.stateChanged.connect(self.toggle_visible)
 
         self.slider = QtGui.QSlider(QtCore.Qt.Horizontal, self)
-        self.slider.setRange(0, 100)
+        self.slider.setRange(0, 100) # 0 to 100 percent
         self.slider.setValue(int(overlay.opacity * 100))
-        self.slider.setTickInterval(25)
-        self.slider.setMinimumSize(100, 10)
-        self.slider.setMaximumSize(100, 50)
+        self.slider.setTickInterval(25) # Add five tick marks
+        self.slider.setMinimumSize(SLIDER_WIDTH, ITEM_HEIGHT)
+        #self.slider.setMaximumSize(SLIDER_WIDTH, 50)
         self.slider.valueChanged.connect(self.set_transparency)
 
         self.name = QtGui.QLabel(overlay.name, self)
-        self.name.setMinimumSize(130, 10)
+        self.name.setMinimumSize(NAME_WIDTH, ITEM_HEIGHT)
         
         self.value = QtGui.QLabel('...', self)
-        self.value.setMinimumSize(100, 10)
-        self.value.setMaximumSize(500, 10)
+        self.value.setMinimumSize(INFO_WIDTH, ITEM_HEIGHT)
+        #self.value.setMaximumSize(ITEM_WIDTH, ITEM_HEIGHT) # Don't need this?
 
         def get_pixel():
             try:
@@ -155,20 +162,36 @@ class MapOverlayMenuWidget(QtGui.QWidget):
         self.setLayout(hbox)
     
     def set_pixel_value(self, value):
-        if value == None:
+        '''Generate the text description for the pixel we clicked on'''
+
+        # Handle values with not enough data
+        if value == None: 
             self.value.setText('')
             return
-        names = value[0][4:]
-        if len(value) <= 1:
+        if len(value) <= 1: 
             self.value.setText('')
             return
-        values = value[1][4:]
+
+        headers = value[0] # Extract the two parts of 'value'
+        data    = value[1]       
+        names   = headers[4:] # Skip id, lon, lat, time
+        values  = data[4:] # Skip id, lon, lat, time
+        
+        # Get the object which contains information about the bands to display
+        vis_params = self.parent.overlays[self.layer].vis_params
+        
         text = ''
         for i in range(len(names)):
-            if i != 0:
+            # If bands were defined for this layer, only display the names of the selected bands.
+            if 'bands' in vis_params:    
+                if not (names[i] in vis_params['bands']): # WARNING: This parsing could be more robust!
+                    continue
+            
+            if len(text) > 0: # Add comma after first entry
                 text += ', '
-            text += str(names[i]) + ': ' + str(values[i])
+            text += str(names[i]) + ': ' + str(values[i]) # Just keep appending strings
         self.value.setText(text)
+    
     
     def toggle_visible(self):
         self.parent.overlays[self.layer].show = not self.parent.overlays[self.layer].show
@@ -187,10 +210,10 @@ class MapView(QtGui.QWidget):
     def __init__(self, opt_overlay=None):
         super(MapView, self).__init__()
         
-        self.tiles = {}      # The cached stack of images at each grid cell.
+        self.tiles   = {}    # The cached stack of images at each grid cell.
         self.qttiles = {}    # The cached PhotoImage at each grid cell.
         self.qttiles_lock = threading.RLock()
-        self.level = 2          # Starting zoom level
+        self.level    = 2        # Starting zoom level
         self.origin_x = None     # The map origin x offset at the current level.
         self.origin_y = None     # The map origin y offset at the current level.
         self.anchor_x = None     # Drag anchor.
@@ -215,14 +238,14 @@ class MapView(QtGui.QWidget):
                 if key[0] != self.level:
                     continue
                 image = self.qttiles[key]
-                xpos = key[1] * image.width() + self.origin_x
-                ypos = key[2] * image.height() + self.origin_y
+                xpos  = key[1] * image.width() + self.origin_x
+                ypos  = key[2] * image.height() + self.origin_y
                 painter.drawImage(QtCore.QPoint(xpos, ypos), image)
             painter.end()
 
-    def addOverlay(self, overlay, eeobject, name, show):                         # pylint: disable=g-bad-name
+    def addOverlay(self, overlay, eeobject, name, show, vis_params):   # pylint: disable=g-bad-name
         """Add an overlay to the map."""
-        self.overlays.append(MapViewOverlay(overlay, eeobject, name, show))
+        self.overlays.append(MapViewOverlay(overlay, eeobject, name, show, vis_params))
         self.LoadTiles()
 
     def GetViewport(self):
@@ -328,9 +351,10 @@ class MapView(QtGui.QWidget):
         location_widget.setDefaultWidget(QtGui.QLabel("  Location: (%g, %g)" % (lon, lat)))
         menu.addAction(location_widget)
 
+        # Add a toggle for each layer and put it in the right click menu
         for i in range(1, len(self.overlays)):
             action = QtGui.QWidgetAction(menu)
-            item = MapOverlayMenuWidget(self, i, event.x(), event.y())
+            item   = MapOverlayMenuWidget(self, i, event.x(), event.y())
             action.setDefaultWidget(item)
             menu.addAction(action)
         menu.popup(QtGui.QCursor.pos())
@@ -430,16 +454,16 @@ class MapView(QtGui.QWidget):
 
         (x, y) = self.lonLatToXY(lon, lat)
 
-        self.origin_x = -x + width / 2
+        self.origin_x = -x + width  / 2
         self.origin_y = -y + height / 2
         self.LoadTiles()
 
 class MapOverlay(object):
     """A class representing a map overlay."""
 
-    TILE_WIDTH = 256
+    TILE_WIDTH  = 256
     TILE_HEIGHT = 256
-    MAX_CACHE = 1000                    # The maximum number of tiles to cache.
+    MAX_CACHE   = 1000                    # The maximum number of tiles to cache.
     _images = {}                             # The tile cache, keyed by (url, level, x, y).
     _lru_keys = []                       # Keys to the cached tiles, for cache ejection.
 
@@ -503,7 +527,7 @@ class MapOverlay(object):
             callback: The callback to call when the tile is ready.
         """
         level, x, y = key
-        delta = 1
+        delta  = 1
         result = None
         while level - delta > 0 and result is None:
             prevkey = (level - delta, x / 2, y / 2)
@@ -575,6 +599,7 @@ def MakeOverlay(mapid, baseurl=BASE_URL):
     return MapOverlay(url)
 
 class MapClient(threading.Thread):
+    '''This class is created as a singleton and manages the map interface'''
     def __init__(self):
         threading.Thread.__init__(self)
         self.ready = False
@@ -588,14 +613,16 @@ class MapClient(threading.Thread):
         sys.exit(app.exec_())
     
     def CenterMap(self, lon, lat, opt_zoom=None):
+        '''Center map at a location'''
         while not self.ready:
             time.sleep(0.01)
         self.gui.CenterMap(lon, lat, opt_zoom)
     
-    def addOverlay(self, overlay, eeobject, name, show):
+    def addOverlay(self, overlay, eeobject, name, show, vis_params):
+        '''Add a layer to the map'''
         while not self.ready:
             time.sleep(0.01)
-        self.gui.addOverlay(overlay, eeobject, name, show)
+        self.gui.addOverlay(overlay, eeobject, name, show, vis_params)
 
 #
 # A global MapClient instance for addToMap convenience.
@@ -610,10 +637,10 @@ def addToMap(eeobject, vis_params=None, name="", show=True):
     """Adds a layer to the default map instance.
 
     Args:
-            eeobject: the object to add to the map.
-            vis_params: a dictionary of visualization parameters.   See
-                    ee.data.getMapId().
-            *unused_args: unused arguments, left for compatibility with the JS API.
+            eeobject: The object to add to the map.
+            vis_params: A dictionary of visualization parameters.   See
+                        ee.data.getMapId().
+            *unused_args: Unused arguments, left for compatibility with the JS API.
 
     This call exists to be an equivalent to the playground addToMap() call.
     It uses a global MapInstance to hang on to "the map".   If the MapInstance
@@ -645,7 +672,7 @@ def addToMap(eeobject, vis_params=None, name="", show=True):
         return result
 
     with thread_lock:
-        executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(executing_threads)), lambda a : map_instance.addOverlay(MakeOverlay(a), eeobject, name, show)))
+        executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(executing_threads)), lambda a : map_instance.addOverlay(MakeOverlay(a), eeobject, name, show, vis_params)))
 
 def centerMap(lng, lat, zoom):  # pylint: disable=g-bad-name
     """Center the default map instance at the given lat, lon and zoom values."""
