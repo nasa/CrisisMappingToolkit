@@ -1,4 +1,3 @@
-from util.mapclient_qt import centerMap, addToMap
 from util.local_ee_image import LocalEEImage
 
 import ee

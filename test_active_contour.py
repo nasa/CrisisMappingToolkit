@@ -3,9 +3,6 @@ logging.basicConfig(level=logging.ERROR)
 import util.ee_authenticate
 util.ee_authenticate.initialize()
 
-import os
-import ee
-import functools
 import time
 
 import radar.domains
