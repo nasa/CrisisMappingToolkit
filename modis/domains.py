@@ -53,19 +53,19 @@ TRAINING_DOMAINS = {
 class FloodDomain(object):
     def __init__(self, id, name, bounds, date, high_res_image, low_res_image, landsat, ground_truth, \
             dem, landsat_type = 'L5_L1T', landsat_gain = [1.9, 1.8, 1.0], water_mask = None, center=None):
-        self.id = id
-        self.name = name
-        self.bounds = bounds
-        self.date = date
+        self.id             = id
+        self.name           = name
+        self.bounds         = bounds
+        self.date           = date
         self.high_res_modis = high_res_image
-        self.low_res_modis = low_res_image
-        self.landsat = landsat
-        self.ground_truth = ground_truth
-        self.dem = dem
-        self.water_mask = water_mask
-        self.landsat_type = landsat_type
-        self.landsat_gain = landsat_gain
-        self.center = center
+        self.low_res_modis  = low_res_image
+        self.landsat        = landsat
+        self.ground_truth   = ground_truth
+        self.dem            = dem
+        self.water_mask     = water_mask
+        self.landsat_type   = landsat_type
+        self.landsat_gain   = landsat_gain
+        self.center         = center
 
         if self.water_mask == None:
             self.water_mask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'])
@@ -73,15 +73,15 @@ class FloodDomain(object):
 def retrieve_domain(index):
     if index <= 0 or index >= len(__ALL_DOMAINS):
         return None
-    tup = __ALL_DOMAINS[index]
-    name = tup[0]
-    bounds = apply(ee.geometry.Geometry.Rectangle, tup[1])
-    center = ((tup[1][0] + tup[1][2]) / 2, (tup[1][1] + tup[1][3]) / 2)
+    tup           = __ALL_DOMAINS[index]
+    name          = tup[0]
+    bounds        = apply(ee.geometry.Geometry.Rectangle, tup[1])
+    center        = ((tup[1][0] + tup[1][2]) / 2, (tup[1][1] + tup[1][3]) / 2)
     landsat_dates = map(ee.Date, tup[2])
-    modis_dates = map(ee.Date, tup[3])
-    ground_truth = ee.Image(tup[4]).clamp(0, 1)
-    dem = ee.Image('CGIAR/SRTM90_V4' if tup[5] == None else tup[5])
-    landsat_type = ('L5_L1T' if tup[6] == None else tup[6])
+    modis_dates   = map(ee.Date, tup[3])
+    ground_truth  = ee.Image(tup[4]).clamp(0, 1)
+    dem           = ee.Image('CGIAR/SRTM90_V4' if tup[5] == None else tup[5])
+    landsat_type  = ('L5_L1T' if tup[6] == None else tup[6])
     landsat_gains = ([1.9, 1.8, 1.0] if tup[7] == None else tup[7])
   
     landsat = ee.ImageCollection(landsat_type).filterDate(landsat_dates[0], landsat_dates[1]).filterBounds(bounds).limit(1).mean();

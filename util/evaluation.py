@@ -23,13 +23,14 @@ def __evaluate_approach(result, ground_truth, region, fractional=False):
     
     # wrong  = ground_truth.multiply(-1).add(1).min(result);
     # missed = ground_truth.subtract(result).max(0.0);
-    correct = ground_truth.min(result);
-    correct_sum = ee.data.getValue({'image': correct.stats(  30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-    result_sum = ee.data.getValue({'image': result.stats(    30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-    truth_sum = ee.data.getValue({'image': ground_truth.stats(30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-    precision = 1.0 if  result_sum == 0.0 else correct_sum / result_sum
-    recall    = 1.0 if  truth_sum == 0.0 else correct_sum / truth_sum
+    correct     = ground_truth.min(result);
+    correct_sum = ee.data.getValue({'image': correct.stats(     30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+    result_sum  = ee.data.getValue({'image': result.stats(      30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+    truth_sum   = ee.data.getValue({'image': ground_truth.stats(30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+    precision   = 1.0 if (result_sum == 0.0) else (correct_sum / result_sum)
+    recall      = 1.0 if (truth_sum  == 0.0) else (correct_sum / truth_sum)
     return (precision, recall)
+
 
 def evaluate_approach(evaluation_function, result, ground_truth, region, fractional=False):
     '''Computes precision and recall of the given result/ground truth pair, then passes the result to the input function'''
