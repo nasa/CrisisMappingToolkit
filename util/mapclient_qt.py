@@ -85,7 +85,7 @@ class MapGui(QtGui.QMainWindow):
         self.mapwidget = MapView()
 
         self.setCentralWidget(self.mapwidget)
-        
+
         self.setGeometry(100, 100, 720, 720)
         self.setWindowTitle('EE Map View')
         self.show()
@@ -95,6 +95,10 @@ class MapGui(QtGui.QMainWindow):
     
     def addOverlay(self, overlay, eeobject, name, show, vis_params):
         self.mapwidget.addOverlay(overlay, eeobject, name, show, vis_params)
+
+    def addToMap(self, eeobject, vis_params=None, name="", show=True):
+      # Flatten any lists to comma separated strings.
+      self.mapwidget.addToMap(eeobject, vis_params, name, show)
     
     def keyPressEvent(self, event):
         """Handle keypress events."""
@@ -210,6 +214,10 @@ class MapView(QtGui.QWidget):
     def __init__(self, opt_overlay=None):
         super(MapView, self).__init__()
         
+        # for adding new layers to map
+        self.executing_threads = []
+        self.thread_lock = threading.Lock()
+
         self.tiles   = {}    # The cached stack of images at each grid cell.
         self.qttiles = {}    # The cached PhotoImage at each grid cell.
         self.qttiles_lock = threading.RLock()
@@ -331,7 +339,7 @@ class MapView(QtGui.QWidget):
 
             self.level += direction
             self.LoadTiles()
-    
+
     def wheelEvent(self, event):
         self.Zoom(event, 1 if event.delta() > 0 else -1)
         event.accept()
@@ -457,6 +465,37 @@ class MapView(QtGui.QWidget):
         self.origin_x = -x + width  / 2
         self.origin_y = -y + height / 2
         self.LoadTiles()
+
+    def addToMap(self, eeobject, vis_params=None, name="", show=True):
+      # Flatten any lists to comma separated strings.
+      if vis_params:
+          vis_params = dict(vis_params)
+          for key in vis_params.keys():
+              item = vis_params.get(key)
+              if (isinstance(item, collections.Iterable) and
+                      not isinstance(item, basestring)):
+                  vis_params[key] = ','.join([str(x) for x in item])
+
+      def execute_thread(waiting_threads):
+          # get thread before starting
+          with self.thread_lock:
+              pass
+          result = eeobject.getMapId(vis_params)
+          for t in waiting_threads:
+              t.join()
+          with self.thread_lock:
+              self.executing_threads.pop(0)
+          return result
+
+      with self.thread_lock:
+          self.executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(self.executing_threads)),
+                        lambda a : self.addOverlay(MakeOverlay(a), eeobject, name, show, vis_params)))
+
+    def removeFromMap(self, eeobject):
+        for i in range(len(self.overlays)):
+            if self.overlays[i].eeobject == eeobject:
+                del self.overlays[i]
+                return
 
 class MapOverlay(object):
     """A class representing a map overlay."""
@@ -624,15 +663,16 @@ class MapClient(threading.Thread):
             time.sleep(0.01)
         self.gui.addOverlay(overlay, eeobject, name, show, vis_params)
 
+    def addToMap(self, eeobject, vis_params=None, name="", show=True):
+        while not self.ready:
+            time.sleep(0.01)
+        self.gui.addToMap(eeobject, vis_params, name, show)
+
 #
 # A global MapClient instance for addToMap convenience.
 #
 map_instance = None
 
-executing_threads = []
-thread_lock = threading.Lock()
-
-# pylint: disable=g-bad-name
 def addToMap(eeobject, vis_params=None, name="", show=True):
     """Adds a layer to the default map instance.
 
@@ -650,29 +690,7 @@ def addToMap(eeobject, vis_params=None, name="", show=True):
     global map_instance
     if not map_instance:
         map_instance = MapClient()
-
-    # Flatten any lists to comma separated strings.
-    if vis_params:
-        vis_params = dict(vis_params)
-        for key in vis_params.keys():
-            item = vis_params.get(key)
-            if (isinstance(item, collections.Iterable) and
-                    not isinstance(item, basestring)):
-                vis_params[key] = ','.join([str(x) for x in item])
-
-    def execute_thread(waiting_threads):
-        # get thread before starting
-        with thread_lock:
-            pass
-        result = eeobject.getMapId(vis_params)
-        for t in waiting_threads:
-            t.join()
-        with thread_lock:
-            executing_threads.pop(0)
-        return result
-
-    with thread_lock:
-        executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(executing_threads)), lambda a : map_instance.addOverlay(MakeOverlay(a), eeobject, name, show, vis_params)))
+    map_instance.addToMap(eeobject, vis_params, name, show)
 
 def centerMap(lng, lat, zoom):  # pylint: disable=g-bad-name
     """Center the default map instance at the given lat, lon and zoom values."""
