@@ -1,6 +1,6 @@
-"""A slippy map GUI.
+"""A simple map GUI.
 
-Implements a tiled slippy map using Tk canvas. Displays map tiles using
+Implements a tiled map using QT. Displays map tiles using
 whatever projection the tiles are in and only knows about tile coordinates,
 (as opposed to geospatial coordinates.) This assumes that the tile-space is
 organized as a power-of-two pyramid, with the origin in the upper left corner.
@@ -16,15 +16,25 @@ Tiles are referenced using a key of (level, x, y) throughout.
 
 Several of the functions are named to match the Google Maps Javascript API,
 and therefore violate style guidelines.
+
+Based on the TK map interface from Google Earth Engine.
 """
 
 
+'''
 
-# TODO(user):
-# 1) Add a zoom bar.
-# 2) When the move() is happening inside the Drag function, it'd be
-#       a good idea to use a semaphore to keep new tiles from being added
-#       and subsequently moved.
+Goals for production GUI (Only for Google):
+- Done through a new top level python script
+- (Nice) Wizard to walk through setting parameters / selecting algorithms
+- Parameter adjustment with fixed bank of widgets
+- Simplified right click menu
+- Display flood statistics (flooded area, etc)
+
+
+Goals for debug GUI:
+- Resizable right click menu (fit largest text)
+
+'''
 
 import collections
 import cStringIO
@@ -73,13 +83,14 @@ class WaitForEEResult(threading.Thread):
     def __init__(self, eefunction, function):
         threading.Thread.__init__(self)
         self.eefunction = eefunction
-        self.function = function
+        self.function   = function
         self.setDaemon(True)
         self.start()
     def run(self):
         self.function(self.eefunction())
 
 class MapGui(QtGui.QMainWindow):
+    '''This sets up the main viewing window'''
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
         self.mapwidget = MapView()
@@ -127,7 +138,7 @@ class MapOverlayMenuWidget(QtGui.QWidget):
         # Constants that define the field size
         NAME_WIDTH   = 130
         ITEM_HEIGHT  = 10
-        INFO_WIDTH   = 500
+        INFO_WIDTH   = 450
         SLIDER_WIDTH = 100
         
         self.check_box = QtGui.QCheckBox(self)
@@ -140,7 +151,7 @@ class MapOverlayMenuWidget(QtGui.QWidget):
         self.slider.setTickInterval(25) # Add five tick marks
         self.slider.setMinimumSize(SLIDER_WIDTH, ITEM_HEIGHT)
         #self.slider.setMaximumSize(SLIDER_WIDTH, 50)
-        self.slider.valueChanged.connect(self.set_transparency)
+        self.slider.valueChanged.connect(self.set_transparency) # Whenever the slider is moved, call set_transparency
 
         self.name = QtGui.QLabel(overlay.name, self)
         self.name.setMinimumSize(NAME_WIDTH, ITEM_HEIGHT)
@@ -196,17 +207,18 @@ class MapOverlayMenuWidget(QtGui.QWidget):
             text += str(names[i]) + ': ' + str(values[i]) # Just keep appending strings
         self.value.setText(text)
     
-    
     def toggle_visible(self):
         self.parent.overlays[self.layer].show = not self.parent.overlays[self.layer].show
         self.parent.reload()
     
-    def set_transparency(self, value):
+    def set_transparency(self, value): # This is called whenever the slider bar is changed
+        '''Set the layer transparency with the input value''' 
         self.parent.overlays[self.layer].opacity = value / 100.0
         self.parent.reload()
 
     def hideEvent(self, event):
         self.parent.setFocus()
+
 
 class MapView(QtGui.QWidget):
     """A simple discrete zoom level map viewer."""
@@ -218,8 +230,8 @@ class MapView(QtGui.QWidget):
         self.executing_threads = []
         self.thread_lock = threading.Lock()
 
-        self.tiles   = {}    # The cached stack of images at each grid cell.
-        self.qttiles = {}    # The cached PhotoImage at each grid cell.
+        self.tiles    = {}    # The cached stack of images at each grid cell.
+        self.qttiles  = {}    # The cached PhotoImage at each grid cell.
         self.qttiles_lock = threading.RLock()
         self.level    = 2        # Starting zoom level
         self.origin_x = None     # The map origin x offset at the current level.
@@ -684,7 +696,7 @@ def addToMap(eeobject, vis_params=None, name="", show=True):
 
     This call exists to be an equivalent to the playground addToMap() call.
     It uses a global MapInstance to hang on to "the map".   If the MapInstance
-    isn't initializd, this creates a new one.
+    isn't initialized, this creates a new one.
     """
     
     global map_instance

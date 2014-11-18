@@ -13,7 +13,7 @@ import modis.domains
 from modis.flood_algorithms import *
 
 from util.mapclient_qt import centerMap, addToMap
-from util.evaluation import evaluate_approach
+from util.evaluation   import evaluate_approach
 
 # --------------------------------------------------------------
 # Configuration
@@ -21,7 +21,7 @@ from util.evaluation import evaluate_approach
 # Specify the data set to use - see /modis/domains.py
 DOMAIN = modis.domains.BORDER
 
-# Specify each algorithm to be concurrently run on the data set
+# Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
 ALGORITHMS = [DARTMOUTH, DIFFERENCE, DNNS, DNNS_DEM]
 
 
@@ -44,6 +44,8 @@ d = modis.domains.retrieve_domain(DOMAIN)
 centerMap(d.center[0], d.center[1], 11)
 addToMap(d.landsat,       {'bands': ['B3', 'B2', 'B1'], 'gain': d.landsat_gain}, 'Landsat RGB')
 addToMap(d.low_res_modis, {'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06'], 'min' : 0, 'max': 3000, 'opacity' : 1.0}, 'MODIS', False)
+
+addToMap(d.ground_truth.mask(d.ground_truth), {'min': 0, 'max': 1, 'opacity': 0.5}, 'Ground Truth', False)
 
 # For each of the algorithms
 for a in range(len(ALGORITHMS)):
