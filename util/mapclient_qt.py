@@ -5,12 +5,12 @@ whatever projection the tiles are in and only knows about tile coordinates,
 (as opposed to geospatial coordinates.) This assumes that the tile-space is
 organized as a power-of-two pyramid, with the origin in the upper left corner.
 This currently has several spots that are hard-coded for 256x256 tiles, even
-though MapOverlay tries to track this.
+though TileManager tries to track this.
 
 Supports mouse-based pan and zoom as well as tile upsampling while waiting
-for new tiles to load.  The map to display is specified by a MapOverlay, and
+for new tiles to load.  The map to display is specified by a TileManager, and
 added to the GUI on creation or manually using addOverlay()
-    gui = MapClient(MakeOverlay(mapid))
+    gui = GuiThreadWrapper(MakeTileManager(mapid))
 
 Tiles are referenced using a key of (level, x, y) throughout.
 
@@ -18,23 +18,19 @@ Several of the functions are named to match the Google Maps Javascript API,
 and therefore violate style guidelines.
 
 Based on the TK map interface from Google Earth Engine.
+
+Terminology guide:
+ - overlay = One of the things that can be displayed on the map.
+             There is one of these for each "addToMap()" call.
+ - layer   = Short for Layer Number, used for indexing a list of overlays.
+
+This file contains the core GUI implementation.  Customized GUI instances are
+located in seperate files.
 """
 
 
-'''
-
-Goals for production GUI (Only for Google):
-- Done through a new top level python script
-- (Nice) Wizard to walk through setting parameters / selecting algorithms
-- Parameter adjustment with fixed bank of widgets
-- Simplified right click menu
-- Display flood statistics (flooded area, etc)
 
 
-Goals for debug GUI:
-- Resizable right click menu (fit largest text)
-
-'''
 
 import collections
 import cStringIO
@@ -79,7 +75,12 @@ BASE_URL = 'https://earthengine.googleapis.com'
 DEFAULT_MAP_URL_PATTERN = ('http://mt1.google.com/vt/lyrs=m@176000000&hl=en&'
                                                      'src=app&z=%d&x=%d&y=%d')
 
+
+#================================================================================
+# Classes that implement the GUI
+
 class WaitForEEResult(threading.Thread):
+    '''Runs a user defined function on an Earth Engine function object and waits for the result.'''
     def __init__(self, eefunction, function):
         threading.Thread.__init__(self)
         self.eefunction = eefunction
@@ -89,46 +90,56 @@ class WaitForEEResult(threading.Thread):
     def run(self):
         self.function(self.eefunction())
 
+
 class MapGui(QtGui.QMainWindow):
-    '''This sets up the main viewing window'''
+    '''This sets up the main viewing window in QT, fills it up with aMapView,
+       and then forwards all function calls to it.'''
+    
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
         self.mapwidget = MapView()
 
-        self.setCentralWidget(self.mapwidget)
+        # This makes mapwidget take up the entire window
+        self.setCentralWidget(self.mapwidget) 
 
-        self.setGeometry(100, 100, 720, 720)
+        # This is the initial window size, but the user can resize it.
+        self.setGeometry(100, 100, 720, 720) 
         self.setWindowTitle('EE Map View')
         self.show()
 
-    def CenterMap(self, lon, lat, opt_zoom=None):
-        self.mapwidget.CenterMap(lon, lat, opt_zoom)
-    
-    def addOverlay(self, overlay, eeobject, name, show, vis_params):
-        self.mapwidget.addOverlay(overlay, eeobject, name, show, vis_params)
-
-    def addToMap(self, eeobject, vis_params=None, name="", show=True):
-      # Flatten any lists to comma separated strings.
-      self.mapwidget.addToMap(eeobject, vis_params, name, show)
-    
     def keyPressEvent(self, event):
         """Handle keypress events."""
         if event.key() == QtCore.Qt.Key_Q:
             QtGui.QApplication.quit()
 
-class MapViewOverlay(object):
-    def __init__(self, overlay, eeobject, name, show=True, vis_params=dict()):#, opacity=1.0):
-        self.overlay    = overlay
-        self.eeobject   = eeobject
-        self.name       = name
-        self.show       = show
-        self.vis_params = vis_params
-        self.opacity    = 1.0 # TODO: Parse vis_params for the opacity!  For now it always starts at 1.0
+    def __getattr__(self, attr):
+        '''Forward any unknown function call to MapView() widget we created'''
+        try:
+            return getattr(self.mapwidget, attr) # Forward the call to the MapView class
+        except:
+            raise AttributeError(attr) # This happens if the MapView class does not support the call
+    
 
-class MapOverlayMenuWidget(QtGui.QWidget):
-    '''Each one of these is one item in the right-click menu'''
+
+class MapViewOverlay(object):
+    '''Structure that stores all information about a single overlay in a MapView'''
+    def __init__(self, tileManager, eeobject, name, show=True, vis_params=dict()):#, opacity=1.0):
+        self.tileManager = tileManager # A TileManager instance for this overlay
+        self.eeobject    = eeobject    # Earth Engine function object which computes the overlay.
+        self.name        = name        # Name of the overlay.
+        self.show        = show        # True/False if the overlay is currently being displayed.
+        self.vis_params  = vis_params  # EE-style visualization parameters string.
+        self.opacity     = 1.0         # Current opacity level for display - starts at 1.0
+
+
+
+
+# The map will display a stack of these when you right click on it.
+class MapViewOverlayInfoWidget(QtGui.QWidget):
+    '''Displays information for one layer at one location in a small horizontal bar.  Easy to stack vertically.
+       Includes an opacity control and an on/off toggle checkbox.'''
     def __init__(self, parent, layer, x, y):
-        super(MapOverlayMenuWidget, self).__init__()
+        super(MapViewOverlayInfoWidget, self).__init__()
         self.parent = parent # The parent is a MapView object
         self.layer  = layer  # The index of the layer in question
         self.x      = x      # Click location
@@ -140,27 +151,33 @@ class MapOverlayMenuWidget(QtGui.QWidget):
         ITEM_HEIGHT  = 10
         INFO_WIDTH   = 450
         SLIDER_WIDTH = 100
+        OPACITY_MAX  = 100
         
-        self.check_box = QtGui.QCheckBox(self)
+        # Set up the visibility checkbox
+        self.check_box = QtGui.QCheckBox(self) 
         self.check_box.setChecked(overlay.show)
         self.check_box.stateChanged.connect(self.toggle_visible)
 
+        # Set up the opacity slider
         self.slider = QtGui.QSlider(QtCore.Qt.Horizontal, self)
-        self.slider.setRange(0, 100) # 0 to 100 percent
-        self.slider.setValue(int(overlay.opacity * 100))
+        self.slider.setRange(0, OPACITY_MAX) # 0 to 100 percent
+        self.slider.setValue(int(overlay.opacity * OPACITY_MAX))
         self.slider.setTickInterval(25) # Add five tick marks
         self.slider.setMinimumSize(SLIDER_WIDTH, ITEM_HEIGHT)
         #self.slider.setMaximumSize(SLIDER_WIDTH, 50)
         self.slider.valueChanged.connect(self.set_transparency) # Whenever the slider is moved, call set_transparency
 
+        # Add the overlay name
         self.name = QtGui.QLabel(overlay.name, self)
         self.name.setMinimumSize(NAME_WIDTH, ITEM_HEIGHT)
         
-        self.value = QtGui.QLabel('...', self)
+        # Add the pixel value
+        self.value = QtGui.QLabel('...', self) # Display this until the real value is ready
         self.value.setMinimumSize(INFO_WIDTH, ITEM_HEIGHT)
         #self.value.setMaximumSize(ITEM_WIDTH, ITEM_HEIGHT) # Don't need this?
 
         def get_pixel():
+            '''Helper function to retrieve the value of a single pixel in a single layer.'''
             try:
                 return self.parent.getPixel(layer, x, y).getInfo()
             except: # features throw ee exception, ignore
@@ -168,17 +185,17 @@ class MapOverlayMenuWidget(QtGui.QWidget):
 
         self.pixel_loader = WaitForEEResult(get_pixel, self.set_pixel_value)
 
+        # Set up all the components in a horizontal box layout
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(self.check_box)
         hbox.addWidget(self.name)
         hbox.addWidget(self.slider)
         hbox.addWidget(self.value)
 
-        self.setLayout(hbox)
+        self.setLayout(hbox) # Call QT function derived from parent QWidget class
     
     def set_pixel_value(self, value):
         '''Generate the text description for the pixel we clicked on'''
-
         # Handle values with not enough data
         if value == None: 
             self.value.setText('')
@@ -207,6 +224,7 @@ class MapOverlayMenuWidget(QtGui.QWidget):
             text += str(names[i]) + ': ' + str(values[i]) # Just keep appending strings
         self.value.setText(text)
     
+    
     def toggle_visible(self):
         self.parent.overlays[self.layer].show = not self.parent.overlays[self.layer].show
         self.parent.reload()
@@ -220,10 +238,16 @@ class MapOverlayMenuWidget(QtGui.QWidget):
         self.parent.setFocus()
 
 
-class MapView(QtGui.QWidget):
-    """A simple discrete zoom level map viewer."""
 
-    def __init__(self, opt_overlay=None):
+
+
+
+class MapView(QtGui.QWidget):
+    """A simple discrete zoom level map viewer.
+        This class handles user input, coordinate conversion, and image painting.
+        It requests tiles from the TileManager class when it needs them."""
+
+    def __init__(self, inputTileManager=None):
         super(MapView, self).__init__()
         
         # for adding new layers to map
@@ -243,14 +267,15 @@ class MapView(QtGui.QWidget):
         self.origin_x = (-(2 ** self.level) * 128) + self.width() / 2
         self.origin_y = (-(2 ** self.level) * 128) + self.height() / 2
 
-        if not opt_overlay:
+        if not inputTileManager:
             # Default to a google maps basemap
-            opt_overlay = MapOverlay(DEFAULT_MAP_URL_PATTERN)
+            inputTileManager = TileManager(DEFAULT_MAP_URL_PATTERN)
 
         # The array of overlays are displayed as last on top.
-        self.overlays = [MapViewOverlay(opt_overlay, None, 'Google Maps')]
+        self.overlays = [MapViewOverlay(inputTileManager, None, 'Google Maps')]
     
     def paintEvent(self, event):
+        '''Rasterize each of the tiles on to the output image display'''
         painter = QtGui.QPainter()
         with self.qttiles_lock:
             painter.begin(self)
@@ -258,14 +283,15 @@ class MapView(QtGui.QWidget):
                 if key[0] != self.level:
                     continue
                 image = self.qttiles[key]
-                xpos  = key[1] * image.width() + self.origin_x
+                xpos  = key[1] * image.width()  + self.origin_x
                 ypos  = key[2] * image.height() + self.origin_y
                 painter.drawImage(QtCore.QPoint(xpos, ypos), image)
             painter.end()
 
-    def addOverlay(self, overlay, eeobject, name, show, vis_params):   # pylint: disable=g-bad-name
+    # TODO: Make private?
+    def addOverlay(self, inputTileManager, eeobject, name, show, vis_params):   # pylint: disable=g-bad-name
         """Add an overlay to the map."""
-        self.overlays.append(MapViewOverlay(overlay, eeobject, name, show, vis_params))
+        self.overlays.append(MapViewOverlay(inputTileManager, eeobject, name, show, vis_params))
         self.LoadTiles()
 
     def GetViewport(self):
@@ -280,15 +306,15 @@ class MapView(QtGui.QWidget):
         for i, overlay in reversed(list(enumerate(self.overlays))):
             if not overlay.show:
                 continue
-            tile_list = overlay.overlay.CalcTiles(self.level, self.GetViewport())
+            tile_list = overlay.tileManager.CalcTiles(self.level, self.GetViewport())
             for key in tile_list:
-                overlay.overlay.getTile(key, functools.partial(
+                overlay.tileManager.getTile(key, functools.partial(
                         self.AddTile, key=key, overlay=self.overlays[i], layer=i))
 
     def Flush(self):
         """Empty out all the image fetching queues."""
         for overlay in self.overlays:
-            overlay.overlay.Flush()
+            overlay.tileManager.Flush()
 
     def CompositeTiles(self, key):
         """Composite together all the tiles in this cell into a single image."""
@@ -312,7 +338,7 @@ class MapView(QtGui.QWidget):
         Args:
             image: The image tile to display.
             key: A tuple containing the key of the image (level, x, y)
-            overlay: The overlay this tile belongs to.
+            overlay: The overlay this tile belongs to (MapViewOverlay object).
             layer: The layer number this overlay corresponds to.    Only used
                     for caching purposes.
         """
@@ -374,7 +400,7 @@ class MapView(QtGui.QWidget):
         # Add a toggle for each layer and put it in the right click menu
         for i in range(1, len(self.overlays)):
             action = QtGui.QWidgetAction(menu)
-            item   = MapOverlayMenuWidget(self, i, event.x(), event.y())
+            item   = MapViewOverlayInfoWidget(self, i, event.x(), event.y())
             action.setDefaultWidget(item)
             menu.addAction(action)
         menu.popup(QtGui.QCursor.pos())
@@ -479,51 +505,55 @@ class MapView(QtGui.QWidget):
         self.LoadTiles()
 
     def addToMap(self, eeobject, vis_params=None, name="", show=True):
-      # Flatten any lists to comma separated strings.
-      if vis_params:
-          vis_params = dict(vis_params)
-          for key in vis_params.keys():
-              item = vis_params.get(key)
-              if (isinstance(item, collections.Iterable) and
-                      not isinstance(item, basestring)):
-                  vis_params[key] = ','.join([str(x) for x in item])
+        '''Ads an EE object to the map'''
+        
+        # Flatten any lists to comma separated strings - needed for eeobject.getMapId() call below!
+        if vis_params:
+            vis_params = dict(vis_params)
+            for key in vis_params.keys():
+                item = vis_params.get(key)
+                if (isinstance(item, collections.Iterable) and (not isinstance(item, basestring))):
+                     vis_params[key] = ','.join([str(x) for x in item])
 
-      def execute_thread(waiting_threads):
-          # get thread before starting
-          with self.thread_lock:
-              pass
-          result = eeobject.getMapId(vis_params)
-          for t in waiting_threads:
-              t.join()
-          with self.thread_lock:
-              self.executing_threads.pop(0)
-          return result
+        def execute_thread(waiting_threads):
+            # get thread before starting
+            with self.thread_lock:
+                pass
+            result = eeobject.getMapId(vis_params)
+            for t in waiting_threads:
+                t.join()
+            with self.thread_lock:
+                self.executing_threads.pop(0)
+            return result
 
-      with self.thread_lock:
-          self.executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(self.executing_threads)),
-                        lambda a : self.addOverlay(MakeOverlay(a), eeobject, name, show, vis_params)))
+        with self.thread_lock:
+            self.executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(self.executing_threads)),
+                        lambda a : self.addOverlay(MakeTileManager(a), eeobject, name, show, vis_params)))
 
     def removeFromMap(self, eeobject):
+        '''Removes an overlay from the map by matching its EE object'''
         for i in range(len(self.overlays)):
             if self.overlays[i].eeobject == eeobject:
                 del self.overlays[i]
                 return
 
-class MapOverlay(object):
-    """A class representing a map overlay."""
+
+class TileManager(object):
+    """Retrieves tiles from EE, resizes them, and manages the tile cache.
+       Each overlay on the map requires its own TileManager instance."""
 
     TILE_WIDTH  = 256
     TILE_HEIGHT = 256
     MAX_CACHE   = 1000                    # The maximum number of tiles to cache.
-    _images = {}                             # The tile cache, keyed by (url, level, x, y).
+    _images   = {}                           # The tile cache, keyed by (url, level, x, y).
     _lru_keys = []                       # Keys to the cached tiles, for cache ejection.
 
     def __init__(self, url):
-        """Initialize the MapOverlay."""
+        """Initialize the TileManager."""
         self.url = url
-        # Make 10 workers.
-        self.queue = Queue.Queue()
-        self.fetchers = [MapOverlay.TileFetcher(self) for unused_x in range(10)]
+        # Make 10 workers, each an instance of the TileFetcher helper class.
+        self.queue    = Queue.Queue()
+        self.fetchers = [TileManager.TileFetcher(self) for unused_x in range(10)]
         self.constant = None
 
     def getTile(self, key, callback):       # pylint: disable=g-bad-name
@@ -563,10 +593,10 @@ class MapOverlay(object):
             The list of tile keys to fill the given viewport.
         """
         tile_list = []
-        for y in xrange(int(bbox[1] / MapOverlay.TILE_HEIGHT),
-                                        int(bbox[3] / MapOverlay.TILE_HEIGHT + 1)):
-            for x in xrange(int(bbox[0] / MapOverlay.TILE_WIDTH),
-                                            int(bbox[2] / MapOverlay.TILE_WIDTH + 1)):
+        for y in xrange(int(bbox[1] / TileManager.TILE_HEIGHT),
+                                        int(bbox[3] / TileManager.TILE_HEIGHT + 1)):
+            for x in xrange(int(bbox[0] / TileManager.TILE_WIDTH),
+                                            int(bbox[2] / TileManager.TILE_WIDTH + 1)):
                 tile_list.append((level, x, y))
         return tile_list
 
@@ -588,23 +618,23 @@ class MapOverlay(object):
                 delta += 1
 
         if result:
-            px = (key[1] % 2 ** delta) * MapOverlay.TILE_WIDTH / 2 ** delta
-            py = (key[2] % 2 ** delta) * MapOverlay.TILE_HEIGHT / 2 ** delta
+            px = (key[1] % 2 ** delta) * TileManager.TILE_WIDTH / 2 ** delta
+            py = (key[2] % 2 ** delta) * TileManager.TILE_HEIGHT / 2 ** delta
             image = (result.crop([px, py,
-                                                        px + MapOverlay.TILE_WIDTH / 2 ** delta,
-                                                        py + MapOverlay.TILE_HEIGHT / 2 ** delta])
-                             .resize((MapOverlay.TILE_WIDTH, MapOverlay.TILE_HEIGHT)))
+                                                        px + TileManager.TILE_WIDTH / 2 ** delta,
+                                                        py + TileManager.TILE_HEIGHT / 2 ** delta])
+                             .resize((TileManager.TILE_WIDTH, TileManager.TILE_HEIGHT)))
             callback(image)
 
     def PutCacheTile(self, key, image):
         """Insert a new tile in the cache and eject old ones if it's too big."""
         cache_key = (self.url,) + key
-        MapOverlay._images[cache_key] = image
-        MapOverlay._lru_keys.append(cache_key)
-        while len(MapOverlay._lru_keys) > MapOverlay.MAX_CACHE:
-            remove_key = MapOverlay._lru_keys.pop(0)
+        TileManager._images[cache_key] = image
+        TileManager._lru_keys.append(cache_key)
+        while len(TileManager._lru_keys) > TileManager.MAX_CACHE:
+            remove_key = TileManager._lru_keys.pop(0)
             try:
-                MapOverlay._images.pop(remove_key)
+                TileManager._images.pop(remove_key)
             except KeyError:
                 # Just in case someone removed this before we did.
                 pass
@@ -612,26 +642,26 @@ class MapOverlay(object):
     def GetCachedTile(self, key):
         """Returns the specified tile if it's in the cache."""
         cache_key = (self.url,) + key
-        return MapOverlay._images.get(cache_key, None)
+        return TileManager._images.get(cache_key, None)
 
     class TileFetcher(threading.Thread):
-        """A threaded URL fetcher."""
+        """A threaded URL fetcher used to retrieve tiles."""
 
-        def __init__(self, overlay):
+        def __init__(self, parentTileMananger):
             threading.Thread.__init__(self)
-            self.overlay = overlay
+            self.manager = parentTileMananger
             self.setDaemon(True)
             self.start()
 
         def run(self):
-            """Pull URLs off the ovelay's queue and call the callback when done."""
+            """Pull URLs off the TileManager's queue and call the callback when done."""
             while True:
-                (key, callback) = self.overlay.queue.get()
+                (key, callback) = self.manager.queue.get()
                 # Check one more time that we don't have this yet.
-                if not self.overlay.GetCachedTile(key):
+                if not self.manager.GetCachedTile(key):
                     (level, x, y) = key
                     if x >= 0 and y >= 0 and x <= 2 ** level-1 and y <= 2 ** level-1:
-                        url = self.overlay.url % key
+                        url = self.manager.url % key
                         try:
                             data = urllib2.urlopen(url).read()
                         except urllib2.HTTPError as e:
@@ -640,48 +670,52 @@ class MapOverlay(object):
                             # PhotoImage can't handle alpha on LA images.
                             image = Image.open(cStringIO.StringIO(data)).convert('RGBA')
                             callback(image)
-                            self.overlay.PutCacheTile(key, image)
+                            self.manager.PutCacheTile(key, image)
 
 
-def MakeOverlay(mapid, baseurl=BASE_URL):
-    """Create an overlay from a mapid."""
-    url = (baseurl + '/map/' + mapid['mapid'] + '/%d/%d/%d?token=' +
-                 mapid['token'])
-    return MapOverlay(url)
+def MakeTileManager(mapid, baseurl=BASE_URL):
+    """Create a TileManager from a mapid."""
+    # The url is generated in a particular manner from the map ID.
+    url = (baseurl + '/map/' + mapid['mapid'] + '/%d/%d/%d?token=' + mapid['token'])
+    return TileManager(url)
 
-class MapClient(threading.Thread):
-    '''This class is created as a singleton and manages the map interface'''
-    def __init__(self):
+
+class QtGuiThreadWrapper(threading.Thread):
+    '''This class is created as a singleton and wraps the QT GUI in a thread.
+        It offers a few interface functions for manipulating the map.
+        
+        The class is initalized with the TYPE of GUI class it will wrap.'''
+        
+    def __init__(self, guiClass):
+        '''Initialize the class with the type of QT GUI to run'''
         threading.Thread.__init__(self)
-        self.ready = False
+        self.guiClass = guiClass # Record the class type
+        self.gui      = None     # The GUI is not initialized yet
+        self.ready    = False
         self.start()
 
     def run(self):
-        app = QtGui.QApplication(sys.argv)
-        self.gui = MapGui()
-        self.gui.show()
-        self.ready = True
+        app        = QtGui.QApplication(sys.argv) # Do required QT init
+        self.gui   = self.guiClass()              # Instantiate a GUI class object
+        self.ready = True                         # Now we are ready to rock
         sys.exit(app.exec_())
     
-    def CenterMap(self, lon, lat, opt_zoom=None):
-        '''Center map at a location'''
-        while not self.ready:
-            time.sleep(0.01)
-        self.gui.CenterMap(lon, lat, opt_zoom)
     
-    def addOverlay(self, overlay, eeobject, name, show, vis_params):
-        '''Add a layer to the map'''
+    def __getattr__(self, attr):
+        '''Forward any function call to the GUI class we instantiated'''
         while not self.ready:
-            time.sleep(0.01)
-        self.gui.addOverlay(overlay, eeobject, name, show, vis_params)
+            time.sleep(0.01) # Don't try anything until we are ready!
+        try:
+            return getattr(self.gui, attr) # Forward the call to the GUI class instance
+        except:
+            raise AttributeError(attr) # This happens if the GUI class does not support the call
 
-    def addToMap(self, eeobject, vis_params=None, name="", show=True):
-        while not self.ready:
-            time.sleep(0.01)
-        self.gui.addToMap(eeobject, vis_params, name, show)
+
+#=================================================================================
+# Global objects and functions for interacting with the GUI
 
 #
-# A global MapClient instance for addToMap convenience.
+# A global GuiThreadWrapper instance for addToMap convenience.
 #
 map_instance = None
 
@@ -701,14 +735,30 @@ def addToMap(eeobject, vis_params=None, name="", show=True):
     
     global map_instance
     if not map_instance:
-        map_instance = MapClient()
+        map_instance = QtGuiThreadWrapper(MapGui)
     map_instance.addToMap(eeobject, vis_params, name, show)
+
+def removeFromMap(eeobject):
+    """Removes a layer to the default map instance.
+
+    Args:
+            eeobject: The object to add to the map.
+            
+    This call uses a global MapInstance to hang on to "the map".   If the MapInstance
+    isn't initialized, this creates a new one.
+    """
+    
+    global map_instance
+    if not map_instance:
+        map_instance = QtGuiThreadWrapper(MapGui)
+    map_instance.removeFromMap(eeobject)
+
 
 def centerMap(lng, lat, zoom):  # pylint: disable=g-bad-name
     """Center the default map instance at the given lat, lon and zoom values."""
     global map_instance
     if not map_instance:
-        map_instance = MapClient()
+        map_instance = QtGuiThreadWrapper(MapGui)
 
     map_instance.CenterMap(lng, lat, zoom)
 
