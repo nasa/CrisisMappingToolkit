@@ -91,38 +91,8 @@ class WaitForEEResult(threading.Thread):
         self.function(self.eefunction())
 
 
-class MapGui(QtGui.QMainWindow):
-    '''This sets up the main viewing window in QT, fills it up with aMapView,
-       and then forwards all function calls to it.'''
-    
-    def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
-        self.mapwidget = MapView()
-
-        # This makes mapwidget take up the entire window
-        self.setCentralWidget(self.mapwidget) 
-
-        # This is the initial window size, but the user can resize it.
-        self.setGeometry(100, 100, 720, 720) 
-        self.setWindowTitle('EE Map View')
-        self.show()
-
-    def keyPressEvent(self, event):
-        """Handle keypress events."""
-        if event.key() == QtCore.Qt.Key_Q:
-            QtGui.QApplication.quit()
-
-    def __getattr__(self, attr):
-        '''Forward any unknown function call to MapView() widget we created'''
-        try:
-            return getattr(self.mapwidget, attr) # Forward the call to the MapView class
-        except:
-            raise AttributeError(attr) # This happens if the MapView class does not support the call
-    
-
-
 class MapViewOverlay(object):
-    '''Structure that stores all information about a single overlay in a MapView'''
+    '''Structure that stores all information about a single overlay in a MapViewWidget'''
     def __init__(self, tileManager, eeobject, name, show=True, vis_params=dict()):#, opacity=1.0):
         self.tileManager = tileManager # A TileManager instance for this overlay
         self.eeobject    = eeobject    # Earth Engine function object which computes the overlay.
@@ -132,15 +102,13 @@ class MapViewOverlay(object):
         self.opacity     = 1.0         # Current opacity level for display - starts at 1.0
 
 
-
-
 # The map will display a stack of these when you right click on it.
 class MapViewOverlayInfoWidget(QtGui.QWidget):
     '''Displays information for one layer at one location in a small horizontal bar.  Easy to stack vertically.
        Includes an opacity control and an on/off toggle checkbox.'''
     def __init__(self, parent, layer, x, y):
         super(MapViewOverlayInfoWidget, self).__init__()
-        self.parent = parent # The parent is a MapView object
+        self.parent = parent # The parent is a MapViewWidget object
         self.layer  = layer  # The index of the layer in question
         self.x      = x      # Click location
         self.y      = y
@@ -164,7 +132,6 @@ class MapViewOverlayInfoWidget(QtGui.QWidget):
         self.slider.setValue(int(overlay.opacity * OPACITY_MAX))
         self.slider.setTickInterval(25) # Add five tick marks
         self.slider.setMinimumSize(SLIDER_WIDTH, ITEM_HEIGHT)
-        #self.slider.setMaximumSize(SLIDER_WIDTH, 50)
         self.slider.valueChanged.connect(self.set_transparency) # Whenever the slider is moved, call set_transparency
 
         # Add the overlay name
@@ -174,7 +141,6 @@ class MapViewOverlayInfoWidget(QtGui.QWidget):
         # Add the pixel value
         self.value = QtGui.QLabel('...', self) # Display this until the real value is ready
         self.value.setMinimumSize(INFO_WIDTH, ITEM_HEIGHT)
-        #self.value.setMaximumSize(ITEM_WIDTH, ITEM_HEIGHT) # Don't need this?
 
         def get_pixel():
             '''Helper function to retrieve the value of a single pixel in a single layer.'''
@@ -242,13 +208,13 @@ class MapViewOverlayInfoWidget(QtGui.QWidget):
 
 
 
-class MapView(QtGui.QWidget):
+class MapViewWidget(QtGui.QWidget):
     """A simple discrete zoom level map viewer.
         This class handles user input, coordinate conversion, and image painting.
         It requests tiles from the TileManager class when it needs them."""
 
     def __init__(self, inputTileManager=None):
-        super(MapView, self).__init__()
+        super(MapViewWidget, self).__init__()
         
         # for adding new layers to map
         self.executing_threads = []
@@ -295,10 +261,17 @@ class MapView(QtGui.QWidget):
         self.LoadTiles()
 
     def GetViewport(self):
-        """Return the visible portion of the map as [xlo, ylo, xhi, yhi]."""
+        """Return the visible portion of the map as [xlo, ylo, xhi, yhi] in weird Google coordinates."""
         width, height = self.width(), self.height()
-        return [-self.origin_x, -self.origin_y,
-                        -self.origin_x + width, -self.origin_y + height]
+        return [-self.origin_x,         -self.origin_y,
+                -self.origin_x + width, -self.origin_y + height]
+
+    def GetMapBoundingBox(self):
+        """Return the bounding box of the current view as [minLon, minLat, maxLon, maxLat]"""
+        # Just get the coordinates of the pixel corners of the map image
+        topLeftLonLat  = self.pixelCoordToLonLat(0, 0)
+        botRightLonLat = self.pixelCoordToLonLat(self.width(), self.height())
+        return [topLeftLonLat[0], botRightLonLat[1], botRightLonLat[0], topLeftLonLat[1]]
 
     def LoadTiles(self):
         """Refresh the entire map."""
@@ -392,7 +365,7 @@ class MapView(QtGui.QWidget):
     def contextMenuEvent(self, event):
         menu = QtGui.QMenu(self)
 
-        (lon, lat) = self.XYToLonLat(event.x(), event.y())
+        (lon, lat) = self.pixelCoordToLonLat(event.x(), event.y()) # The event returns pixel coordinates
         location_widget = QtGui.QWidgetAction(menu)
         location_widget.setDefaultWidget(QtGui.QLabel("  Location: (%g, %g)" % (lon, lat)))
         menu.addAction(location_widget)
@@ -408,7 +381,7 @@ class MapView(QtGui.QWidget):
     def getPixel(self, layer, x, y):
         collection = ee.ImageCollection([self.overlays[layer].eeobject])
         # note: scale likely not correct
-        (lon, lat) = self.XYToLonLat(x, y)
+        (lon, lat) = self.pixelCoordToLonLat(x, y)
         point_extracted = collection.getRegion(ee.Geometry.Point(lon, lat), 1)
 
         return point_extracted
@@ -455,19 +428,21 @@ class MapView(QtGui.QWidget):
         """Handle resize events."""
         self.LoadTiles()
     
-    def XYToLonLat(self, x, y):
+    def pixelCoordToLonLat(self, column, row):
+        '''Return the longitude and latitude of a pixel in the map'''
         mercator_range = 256.0
         scale = 2 ** self.level
         origin_x = (mercator_range / 2.0) * scale
         origin_y = (mercator_range / 2.0) * scale
         pixels_per_lon_degree = (mercator_range / 360.0) * scale
         pixels_per_lon_radian = (mercator_range / (2 * math.pi)) * scale
-        lng = (x - self.origin_x - origin_x) / pixels_per_lon_degree
-        latRadians = (y - self.origin_y - origin_y) / -pixels_per_lon_radian
+        lng        = (column - self.origin_x - origin_x) /  pixels_per_lon_degree
+        latRadians = (row    - self.origin_y - origin_y) / -pixels_per_lon_radian
         lat = (2 * math.atan(math.exp(latRadians)) - math.pi / 2) / (math.pi / 180.0)
         return (lng, lat)
 
-    def lonLatToXY(self, lon, lat):
+    def lonLatToPixelCoord(self, lon, lat):
+        '''Return the pixel coordinate in the map for a given longitude and latitude'''
         # From maps/api/javascript/geometry/mercator_projection.js
         mercator_range = 256.0
         scale = 2 ** self.level
@@ -476,17 +451,17 @@ class MapView(QtGui.QWidget):
         pixels_per_lon_degree = (mercator_range / 360.0) * scale
         pixels_per_lon_radian = (mercator_range / (2 * math.pi)) * scale
 
-        x = origin_x + (lon * pixels_per_lon_degree)
-        siny = math.sin(lat * math.pi / 180.0)
+        column = origin_x + (lon * pixels_per_lon_degree)
+        siny   = math.sin(lat * math.pi / 180.0)
         # Prevent sin() overflow.
         e = 1 - 1e-15
         if siny > e:
             siny = e
         elif siny < -e:
             siny = -e
-        y = origin_y + (0.5 * math.log((1 + siny) / (1 - siny)) *
+        row = origin_y + (0.5 * math.log((1 + siny) / (1 - siny)) *
                                         -pixels_per_lon_radian)
-        return (x, y)
+        return (column, row)
 
     def CenterMap(self, lon, lat, opt_zoom=None):
         """Center the map at the given lon, lat and zoom level."""
@@ -498,10 +473,10 @@ class MapView(QtGui.QWidget):
         if opt_zoom is not None:
             self.level = opt_zoom
 
-        (x, y) = self.lonLatToXY(lon, lat)
+        (column, row) = self.lonLatToPixelCoord(lon, lat)
 
-        self.origin_x = -x + width  / 2
-        self.origin_y = -y + height / 2
+        self.origin_x = -column + width  / 2
+        self.origin_y = -row    + height / 2
         self.LoadTiles()
 
     def addToMap(self, eeobject, vis_params=None, name="", show=True):
@@ -712,12 +687,57 @@ class QtGuiThreadWrapper(threading.Thread):
 
 
 #=================================================================================
-# Global objects and functions for interacting with the GUI
+# A Generic GUI implementation
 
-#
+class GenericMapGui(QtGui.QMainWindow):
+    '''This sets up the main viewing window in QT, fills it up with a MapViewWidget,
+       and then forwards all function calls to it.'''
+    
+    def __init__(self, parent=None):
+        QtGui.QWidget.__init__(self, parent)
+        self.mapwidget = MapViewWidget()
+
+        # This makes mapwidget take up the entire window
+        self.setCentralWidget(self.mapwidget) 
+
+        # This is the initial window size, but the user can resize it.
+        self.setGeometry(100, 100, 720, 720) 
+        self.setWindowTitle('EE Map View')
+        self.show()
+
+    def keyPressEvent(self, event):
+        """Handle keypress events."""
+        if event.key() == QtCore.Qt.Key_Q:
+            QtGui.QApplication.quit()
+
+    def __getattr__(self, attr):
+        '''Forward any unknown function call to MapViewWidget() widget we created'''
+        try:
+            return getattr(self.mapwidget, attr) # Forward the call to the MapViewWidget class
+        except:
+            raise AttributeError(attr) # This happens if the MapViewWidget class does not support the call
+
+
+
+#=================================================================================
+# Global objects and functions for interacting with the GUI
+# - These are common operations and every GUI needs to support them.
+
 # A global GuiThreadWrapper instance for addToMap convenience.
-#
 map_instance = None
+
+# This is the type of GUI the functions below will create.
+# - This defaults to the generic GUI, but it can be overwritten in the importing file.
+gui_type = GenericMapGui
+
+
+def addEmptyGui():
+    '''Brings up the GUI without adding any new data to it'''
+    # This just requires map_instance to be constructed
+    global map_instance
+    if not map_instance:
+        map_instance = QtGuiThreadWrapper(gui_type)
+
 
 def addToMap(eeobject, vis_params=None, name="", show=True):
     """Adds a layer to the default map instance.
@@ -732,10 +752,7 @@ def addToMap(eeobject, vis_params=None, name="", show=True):
     It uses a global MapInstance to hang on to "the map".   If the MapInstance
     isn't initialized, this creates a new one.
     """
-    
-    global map_instance
-    if not map_instance:
-        map_instance = QtGuiThreadWrapper(MapGui)
+    addEmptyGui()
     map_instance.addToMap(eeobject, vis_params, name, show)
 
 def removeFromMap(eeobject):
@@ -747,18 +764,12 @@ def removeFromMap(eeobject):
     This call uses a global MapInstance to hang on to "the map".   If the MapInstance
     isn't initialized, this creates a new one.
     """
-    
-    global map_instance
-    if not map_instance:
-        map_instance = QtGuiThreadWrapper(MapGui)
+    addEmptyGui()
     map_instance.removeFromMap(eeobject)
 
 
 def centerMap(lng, lat, zoom):  # pylint: disable=g-bad-name
     """Center the default map instance at the given lat, lon and zoom values."""
-    global map_instance
-    if not map_instance:
-        map_instance = QtGuiThreadWrapper(MapGui)
-
+    addEmptyGui()
     map_instance.CenterMap(lng, lat, zoom)
 
