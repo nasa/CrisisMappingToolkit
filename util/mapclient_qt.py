@@ -41,7 +41,7 @@ import sys
 import time
 import threading
 import urllib2
-
+import json
 import ee
 
 # check if the Python imaging libraries used by the mapclient module are installed
@@ -78,6 +78,10 @@ DEFAULT_MAP_URL_PATTERN = ('http://mt1.google.com/vt/lyrs=m@176000000&hl=en&'
 
 #================================================================================
 # Classes that implement the GUI
+
+def prettyPrintEE(eeObjectInfo):
+    '''Convenient function for printing an EE object with tabbed formatting (pass in result of .getInfo())'''
+    print(json.dumps(eeObjectInfo, sort_keys=True, indent=2))
 
 class WaitForEEResult(threading.Thread):
     '''Runs a user defined function on an Earth Engine function object and waits for the result.'''
@@ -298,7 +302,13 @@ class MapViewWidget(QtGui.QWidget):
                 composite = image.copy()
             else:
                 #composite = Image.blend(composite, image, self.overlays[layer].opacity)#composite.paste(image, (0, 0), image)
+                #try:
                 composite.paste(image, (0, 0), ImageChops.multiply(image.split()[3], ImageChops.constant(image, int(self.overlays[layer].opacity * 255))))
+                #except:
+                #    print 'CompositeTiles Exception caught!'
+                #    print image.split()
+                #    print layer
+                #    print self.overlays
         return composite
 
     def AddTile(self, image, key, overlay, layer):

@@ -15,17 +15,8 @@ Goals for production GUI (Only for Google):
 - Display flood statistics (flooded area, etc)
 '''
 
-#import collections
-#import cStringIO
 import functools
-#import math
-#import Queue
 import sys
-#import time
-#import threading
-#import urllib2
-
-
 import ee
 
 ## check if the Python imaging libraries used by the mapclient module are installed
@@ -53,7 +44,7 @@ except ImportError:
 
 #import mapclient_qt # Load the core GUI tools
 
-from mapclient_qt import MapViewWidget
+from mapclient_qt import MapViewWidget, prettyPrintEE
 
 import modis.flood_algorithms
 
@@ -119,38 +110,47 @@ class ProductionGui(QtGui.QMainWindow):
         topHorizontalBox = QtGui.QHBoxLayout()
         
         TOP_BUTTON_HEIGHT = 30
-        TOP_BUTTON_WIDTH  = 200
+        TOP_LARGE_BUTTON_WIDTH  = 200
+        TOP_SMALL_BUTTON_WIDTH  = 100
         
         # Add a date selector to the top row of widgets
         DEFAULT_START_DATE = ee.Date.fromYMD(2006, 7, 18)
         self.floodDate = DEFAULT_START_DATE
         dateString     = '2006/7/18' # TODO: Generate from the default start date
         self.dateButton = QtGui.QPushButton(dateString, self)
-        self.dateButton.setMinimumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.dateButton.setMaximumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.dateButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.dateButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.dateButton.clicked[bool].connect(self.__showCalendar)
         topHorizontalBox.addWidget(self.dateButton)
         
         # Add a "Set Region" button to the top row of widgets
         self.regionButton = QtGui.QPushButton('Set Processing Region', self)
-        self.regionButton.setMinimumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT) 
-        self.regionButton.setMaximumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.regionButton.setMinimumSize(TOP_LARGE_BUTTON_WIDTH, TOP_BUTTON_HEIGHT) 
+        self.regionButton.setMaximumSize(TOP_LARGE_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.regionButton.clicked[bool].connect(self.__setRegionToView)
         topHorizontalBox.addWidget(self.regionButton)
 
         # Add a "Load Images" button to the top row of widgets
         self.loadImagesButton = QtGui.QPushButton('Load Images', self)
-        self.loadImagesButton.setMinimumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.loadImagesButton.setMaximumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadImagesButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadImagesButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.loadImagesButton.clicked[bool].connect(self.__loadImageData)
         topHorizontalBox.addWidget(self.loadImagesButton)
 
         # Add a "Detect Flood" button to the top row of widgets
         self.loadFloodButton1 = QtGui.QPushButton('Detect Flood', self)
-        self.loadFloodButton1.setMinimumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.loadFloodButton1.setMaximumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadFloodButton1.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadFloodButton1.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.loadFloodButton1.clicked[bool].connect(self.__loadFloodDetect)
         topHorizontalBox.addWidget(self.loadFloodButton1)
+
+        # Add a "Clear All" button to the top row of widgets
+        self.clearButton = QtGui.QPushButton('Clear Map', self)
+        self.clearButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.clearButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.clearButton.clicked[bool].connect(self.__unloadCurrentImages)
+        topHorizontalBox.addWidget(self.clearButton)
+
 
         # Add the row of widgets on the top of the GUI
         vbox.addLayout(topHorizontalBox)
@@ -179,8 +179,8 @@ class ProductionGui(QtGui.QMainWindow):
         # Add a "Detect Flood" button to the right of the parameter controls
         # - This is identical to the button above the map.
         self.loadFloodButton2 = QtGui.QPushButton('Detect Flood', self)
-        self.loadFloodButton2.setMinimumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.loadFloodButton2.setMaximumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadFloodButton2.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadFloodButton2.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.loadFloodButton2.clicked[bool].connect(self.__loadFloodDetect)
         bottomHorizontalBox.addWidget(self.loadFloodButton2)
 
@@ -245,6 +245,8 @@ class ProductionGui(QtGui.QMainWindow):
             self.mapWidget.removeFromMap(self.landsatPost)
         if self.demImage:
             self.mapWidget.removeFromMap(self.demImage)
+        if self.eeFunction:
+            self.mapWidget.removeFromMap(self.eeFunction)
 
     def __displayCurrentImages(self):
         '''Add all the current images to the map. Low level function'''
@@ -295,24 +297,44 @@ class ProductionGui(QtGui.QMainWindow):
 
     def __pickLandsatImage(self, eeImageCollection, bounds, chooseLast=False):
         '''Picks the best image from an ImageCollection of Landsat images'''
-        
-        
         # We require the LANDSAT image to contain the center of the analysis region,
         #  otherwise we tend to get images with minimal overlap.
         geoLimited = eeImageCollection.filterBounds(bounds.centroid())
         
-        # TODO: How to sort by this property?
+        dateList = []
+        index = 0
         for f in geoLimited.getInfo()['features']:
-            print '==================\n\n'
-            print f['properties']['ACQUISITION_DATE']
-        
-        # Now select the first or last image
-        return geoLimited.limit(1).mean()
+            imageDate = None
+            # Landsat images do not have consistent header information so try multiple names here.
+            if 'DATE_ACQUIRED' in f['properties']:
+               imageDate = f['properties']['DATE_ACQUIRED']
+            if 'ACQUISITION_DATE' in f['properties']:
+               imageDate = f['properties']['ACQUISITION_DATE']
+               
+            if not imageDate: # Failed to extract the date!
+                print '===================================\n\n'
+                print geoLimited.getInfo()['features']
+            else: # Found the date
+                dateList.append((imageDate, index))
+                #print (imageDate, index)
+            index += 1
+        if not dateList: # Could not read any dates, just pick the first image.
+            return geoLimited.limit(1).mean()
+
+        # Now select the first or last image, sorting on date but also retrieving the index.
+        if chooseLast: # Latest date
+            bestDate = max(dateList)
+            #print 'Last = '+ str(bestDate)
+        else: # First date
+            bestDate = min(dateList)
+            #print 'First = '+ str(bestDate)
+        #prettyPrintEE(ee.Image(geoLimited.toList(255).get(bestDate[1])).getInfo())
+        return ee.Image(geoLimited.toList(255).get(bestDate[1]))
 
     def __loadImageData(self):
         '''Updates the MODIS and LANDSAT images for the current date'''
         
-        print '---Calling loadImageData'
+        #print '---Calling loadImageData'
         
         # Check that we have all the information we need
         bounds = self.detectParams.statisticsRegion
@@ -320,7 +342,7 @@ class ProductionGui(QtGui.QMainWindow):
             print "Can't load any images until the date and bounds are set!"
             return
  
-        # Unload all the current images
+        # Unload all the current images, including any flood detection results.
         self.__unloadCurrentImages()
 
         # Set up the search range of dates for each image type
@@ -363,7 +385,7 @@ class ProductionGui(QtGui.QMainWindow):
     def __loadFloodDetect(self):
         '''Creates the Earth Engine flood detection function and adds it to the map'''
         
-        print '---Calling loadFloodDetect'
+        #print '---Calling loadFloodDetect'
         
         # Check prerequisites
         if (not self.highResModis) or (not self.floodDate) or (not self.detectParams.statisticsRegion):
@@ -373,6 +395,10 @@ class ProductionGui(QtGui.QMainWindow):
         # Remove the last EE function from the map
         if self.eeFunction:
             self.mapWidget.removeFromMap(self.eeFunction)
+        
+        print 'Starting flood detection with the following parameters:'
+        print '--> Water mask threshold       = ' + str(self.detectParams.waterMaskThreshold)
+        print '--> Change detection threshold = ' + str(self.detectParams.changeDetectThreshold)
         
         # Generate a new EE function
         #print self.detectParams.toString()
