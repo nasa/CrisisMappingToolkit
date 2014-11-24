@@ -118,42 +118,49 @@ class ProductionGui(QtGui.QMainWindow):
         # Add a horizontal row of widgets at the top
         topHorizontalBox = QtGui.QHBoxLayout()
         
+        TOP_BUTTON_HEIGHT = 30
+        TOP_BUTTON_WIDTH  = 200
+        
         # Add a date selector to the top row of widgets
         DEFAULT_START_DATE = ee.Date.fromYMD(2006, 7, 18)
         self.floodDate = DEFAULT_START_DATE
         dateString     = '2006/7/18' # TODO: Generate from the default start date
         self.dateButton = QtGui.QPushButton(dateString, self)
-        self.dateButton.setMinimumSize(200, 20) # TODO: Move these constants
-        self.dateButton.setMaximumSize(200, 20)
+        self.dateButton.setMinimumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.dateButton.setMaximumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.dateButton.clicked[bool].connect(self.__showCalendar)
         topHorizontalBox.addWidget(self.dateButton)
         
         # Add a "Set Region" button to the top row of widgets
         self.regionButton = QtGui.QPushButton('Set Processing Region', self)
-        self.regionButton.setMinimumSize(200, 20) # TODO: Move these constants
-        self.regionButton.setMaximumSize(200, 20)
+        self.regionButton.setMinimumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT) 
+        self.regionButton.setMaximumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.regionButton.clicked[bool].connect(self.__setRegionToView)
         topHorizontalBox.addWidget(self.regionButton)
 
         # Add a "Load Images" button to the top row of widgets
         self.loadImagesButton = QtGui.QPushButton('Load Images', self)
-        self.loadImagesButton.setMinimumSize(100, 20) # TODO: Move these constants
-        self.loadImagesButton.setMaximumSize(100, 20)
+        self.loadImagesButton.setMinimumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadImagesButton.setMaximumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.loadImagesButton.clicked[bool].connect(self.__loadImageData)
         topHorizontalBox.addWidget(self.loadImagesButton)
 
         # Add a "Detect Flood" button to the top row of widgets
-        self.loadFloodButton = QtGui.QPushButton('Detect Flood', self)
-        self.loadFloodButton.setMinimumSize(100, 20) # TODO: Move these constants
-        self.loadFloodButton.setMaximumSize(100, 20)
-        self.loadFloodButton.clicked[bool].connect(self.__loadFloodDetect)
-        topHorizontalBox.addWidget(self.loadFloodButton)
+        self.loadFloodButton1 = QtGui.QPushButton('Detect Flood', self)
+        self.loadFloodButton1.setMinimumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadFloodButton1.setMaximumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadFloodButton1.clicked[bool].connect(self.__loadFloodDetect)
+        topHorizontalBox.addWidget(self.loadFloodButton1)
 
         # Add the row of widgets on the top of the GUI
         vbox.addLayout(topHorizontalBox)
         # Add the main map widget
         vbox.addWidget(self.mapWidget)
         
+        # Set up a horizontal box below the map
+        bottomHorizontalBox = QtGui.QHBoxLayout()
+        # On the left side is a vertical box for the parameter controls
+        paramControlBoxV    = QtGui.QVBoxLayout()
         
         # First set up some sliders to adjust thresholds
         # - Currently we have two thresholds
@@ -162,40 +169,23 @@ class ProductionGui(QtGui.QMainWindow):
         paramMax     = [ 10,  10]
         defaultVal   = [-3, 3]
         
-        NAME_WIDTH    = 250
-        SLIDER_HEIGHT = 20
-        SLIDER_WIDTH  = 400
-        NUM_TICKS     = 4
-        
-        # Build each slider one at a time
+        # Build each of the parameter sliders
         self.sliderList = []
         for name, minVal, maxVal, default in zip(sliderParams, paramMin, paramMax, defaultVal):
-            
-            # Set up this value slider
-            slider = QtGui.QSlider(QtCore.Qt.Horizontal, self)
-            slider.setRange(minVal, maxVal) 
-            slider.setValue(default)
-            valRange = maxVal - minVal
-            slider.setTickInterval(valRange/NUM_TICKS) # Add five tick marks
-            slider.setMinimumSize(SLIDER_WIDTH, SLIDER_HEIGHT)
-            slider.setMaximumSize(SLIDER_WIDTH, SLIDER_HEIGHT)
-            # Use 'partial' to send the param name to the callback function
-            callbackFunction = functools.partial(self.__handleParamChange, parameterName=name) 
-            slider.valueChanged.connect(callbackFunction) # Whenever the slider is moved, trigger callback function
-            self.sliderList.append(slider) # TODO: Do we need this?
-        
-            # Make box with the name
-            nameBox = QtGui.QLabel(name, self)
-            nameBox.setMinimumSize(NAME_WIDTH, SLIDER_HEIGHT)
-            nameBox.setMaximumSize(NAME_WIDTH, SLIDER_HEIGHT)
-            
-            # Put the name to the left of the slider
-            hbox = QtGui.QHBoxLayout()
-            hbox.addWidget(nameBox)
-            hbox.addWidget(slider)
-            
             # Stick the horizontal box on the bottom of the main vertical box
-            vbox.addLayout(hbox)
+            paramControlBoxV = self.__addParamSlider(name, maxVal, minVal, default, paramControlBoxV)
+        bottomHorizontalBox.addLayout(paramControlBoxV) # Add sliders to bottom horizontal box
+
+        # Add a "Detect Flood" button to the right of the parameter controls
+        # - This is identical to the button above the map.
+        self.loadFloodButton2 = QtGui.QPushButton('Detect Flood', self)
+        self.loadFloodButton2.setMinimumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadFloodButton2.setMaximumSize(TOP_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadFloodButton2.clicked[bool].connect(self.__loadFloodDetect)
+        bottomHorizontalBox.addWidget(self.loadFloodButton2)
+
+        # Add all the stuff at the bottom to the main layout
+        vbox.addLayout(bottomHorizontalBox)
 
         # QMainWindow requires that its layout be set in this manner
         mainWidget = QtGui.QWidget()
@@ -207,6 +197,43 @@ class ProductionGui(QtGui.QMainWindow):
         self.setWindowTitle('EE Flood Detector Tool')
         self.show()
 
+
+    def __addParamSlider(self, name, maxVal, minVal, defaultVal, container):
+        '''Adds a single parameter slider to the passed in container.'''
+        # All parameter sliders are handled by the __handleParamChange function
+    
+        NAME_WIDTH    = 250
+        SLIDER_HEIGHT = 20
+        SLIDER_WIDTH  = 400
+        NUM_TICKS     = 4
+        
+        # Set up this value slider
+        slider = QtGui.QSlider(QtCore.Qt.Horizontal, self)
+        slider.setRange(minVal, maxVal) 
+        slider.setValue(defaultVal)
+        valRange = maxVal - minVal
+        slider.setTickInterval(valRange/NUM_TICKS) # Add five tick marks
+        slider.setMinimumSize(SLIDER_WIDTH, SLIDER_HEIGHT)
+        slider.setMaximumSize(SLIDER_WIDTH, SLIDER_HEIGHT)
+        # Use 'partial' to send the param name to the callback function
+        callbackFunction = functools.partial(self.__handleParamChange, parameterName=name) 
+        slider.valueChanged.connect(callbackFunction) # Whenever the slider is moved, trigger callback function
+        self.sliderList.append(slider) # TODO: Do we need this?
+    
+        # Make box with the name
+        nameBox = QtGui.QLabel(name, self)
+        nameBox.setMinimumSize(NAME_WIDTH, SLIDER_HEIGHT)
+        nameBox.setMaximumSize(NAME_WIDTH, SLIDER_HEIGHT)
+        
+        # Put the name to the left of the slider
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(nameBox)
+        hbox.addWidget(slider)
+        
+        # Stick the horizontal box on the bottom of the main vertical box
+        container.addLayout(hbox)
+        return container
+    
 
     def __unloadCurrentImages(self):
         '''Just unload all the current images. Low level function'''
