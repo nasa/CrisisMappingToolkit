@@ -331,6 +331,20 @@ class ProductionGui(QtGui.QMainWindow):
         #prettyPrintEE(ee.Image(geoLimited.toList(255).get(bestDate[1])).getInfo())
         return ee.Image(geoLimited.toList(255).get(bestDate[1]))
 
+
+    def __isInUnitedStates(self):
+        '''Returns true if the current region is inside the US.'''
+        
+        # Extract the geographic boundary of the US.
+        nationList = ee.FeatureCollection('ft:1tdSwUL7MVpOauSgRzqVTOwdfy17KDbw-1d9omPw')
+        nation     = ee.Feature(nationList.filter(ee.Filter.eq('Country', 'United States')).first())
+        nationGeo  = ee.Geometry(nation.geometry())
+        result     = nationGeo.contains(self.detectParams.statisticsRegion)
+
+        return (str(result.getInfo()) == 'True')
+
+
+
     def __loadImageData(self):
         '''Updates the MODIS and LANDSAT images for the current date'''
         
@@ -344,6 +358,10 @@ class ProductionGui(QtGui.QMainWindow):
  
         # Unload all the current images, including any flood detection results.
         self.__unloadCurrentImages()
+
+        # Check if we are inside the US.
+        # - Some higher res data is only available within the US.
+        boundsInsideTheUS = self.__isInUnitedStates() 
 
         # Set up the search range of dates for each image type
         MODIS_SEARCH_RANGE_DAYS   = 1  # MODIS updates frequently so we can have a narrow range
@@ -374,8 +392,8 @@ class ProductionGui(QtGui.QMainWindow):
 
         # Load a DEM
         demName = 'CGIAR/SRTM90_V4' # The default 30m global DEM
-        #if (): # TODO: Determine if the bounds are located in the US!
-        #    demName = 'ned_13' # The US 10m DEM
+        if (boundsInsideTheUS):
+            demName = 'ned_13' # The US 10m DEM
         self.demImage = ee.Image(demName)
         
         # Now add all the images to the map!
