@@ -36,6 +36,43 @@ def __compute_indices(domain):
     return {'b1': band1, 'b2': band2, 'b3': band3, 'b6': band6,
             'NDVI': NDVI, 'NDWI': NDWI, 'EVI': EVI, 'LSWI': LSWI}
 
+
+
+
+
+
+def getQABits(image, start, end, newName):
+    '''Extract bits from positions "start" to "end" in the image'''
+    # Create a bit mask of the bits we need
+    pattern = 0
+    for i in range(start,end):
+       pattern += 2**i
+    # Extract the bits, shift them over, and rename the channel.
+    temp = ee.Image(pattern)
+    return image.select([0], [newName]).bitwise_and(temp).rightShift(start)
+
+def getModisBadPixelMask(lowResModis):
+    '''Retrieves the 1km MODIS bad pixel mask (identifies clouds)'''
+
+    # Select the QA band
+    qaBand = lowResModis.select('state_1km').uint16()
+   
+    # Get the cloud_state bits and find cloudy areas.
+    cloudBits = getQABits(qaBand, 0, 1, 'cloud_state')
+    cloud     = cloudBits.expression("b(0) == 1 || b(0) == 2")
+
+    return cloud # The second part of this, the land water flag, does not work well at all.
+
+    # Get the land_water_flag bits.
+    landWaterFlag = getQABits(qaBand, 3, 5, 'land_water_flag')
+
+    # Create a mask that filters out deep ocean and cloudy areas.
+    mask = landWaterFlag.neq(7).And(cloud.Not())
+    return mask
+
+
+
+
 def evi(domain, b):
     no_clouds = b['b3'].lte(2100).select(['sur_refl_b03'], ['b1'])
     criteria1 = b['EVI'].lte(0.3).And(b['LSWI'].subtract(b['EVI']).gte(0.05)).select(['sur_refl_b02'], ['b1'])

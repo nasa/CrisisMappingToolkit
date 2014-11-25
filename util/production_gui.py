@@ -19,18 +19,6 @@ import functools
 import sys
 import ee
 
-## check if the Python imaging libraries used by the mapclient module are installed
-#try:
-#    from PIL import ImageQt                      # pylint: disable=g-import-not-at-top
-#    from PIL import Image, ImageChops                            # pylint: disable=g-import-not-at-top
-#except ImportError:
-#    print """
-#        ERROR: A Python library (PIL) used by the Earth Engine API mapclient module
-#        was not found. Information on PIL can be found at:
-#        http://pypi.python.org/pypi/PIL
-#        """
-#    raise
-
 try:
     import PyQt4                         # pylint: disable=g-import-not-at-top
     from PyQt4 import QtCore, QtGui
@@ -40,9 +28,6 @@ except ImportError:
         module was not found.
         """
     raise
-
-
-#import mapclient_qt # Load the core GUI tools
 
 from mapclient_qt import MapViewWidget, prettyPrintEE
 
@@ -91,11 +76,12 @@ class ProductionGui(QtGui.QMainWindow):
         # First set up the flood detection stuff
         self.detectParams = FloodDetectParams()
         self.floodDate      = None # Date of the flood to analyze.
-        self.lowResModis    = None # 250m Modis image on the date.
-        self.highResModis   = None # 500m Modis image on the date.
+        self.lowResModis    = None # 250m MODIS image on the date.
+        self.highResModis   = None # 500m MODIS image on the date.
+        self.modisCloudMask = None # Cloud mask from 500m MODIS
         self.compositeModis = None # MODIS display image consisting of bands 1, 2, 6
-        self.landsatPrior   = None # First landsat image < date.
-        self.landsatPost    = None # First landsat image >= the date.
+        self.landsatPrior   = None # First Landsat image < date.
+        self.landsatPost    = None # First Landsat image >= the date.
         self.demImage       = None # DEM image
         self.eeFunction     = None # Flood detection results
         
@@ -237,16 +223,24 @@ class ProductionGui(QtGui.QMainWindow):
 
     def __unloadCurrentImages(self):
         '''Just unload all the current images. Low level function'''
-        if self.compositeModis:
+        if self.compositeModis: # Note: Individual MODIS images are not added to the map
             self.mapWidget.removeFromMap(self.compositeModis)
+            self.compositeModis = None
+        if self.modisCloudMask:
+            self.mapWidget.removeFromMap(self.modisCloudMask)
+            self.modisCloudMask = None
         if self.landsatPrior:
             self.mapWidget.removeFromMap(self.landsatPrior)
+            self.landsatPrior = None
         if self.landsatPost:
             self.mapWidget.removeFromMap(self.landsatPost)
+            self.landsatPost = None
         if self.demImage:
             self.mapWidget.removeFromMap(self.demImage)
+            self.demImage = None
         if self.eeFunction:
             self.mapWidget.removeFromMap(self.eeFunction)
+            self.eeFunction = None
 
     def __displayCurrentImages(self):
         '''Add all the current images to the map. Low level function'''
@@ -269,6 +263,12 @@ class ProductionGui(QtGui.QMainWindow):
                                                           'min': MODIS_RANGE[0], 'max': MODIS_RANGE[1]}, 'MODIS Channels 1/2/6',  False)
         else:
             print 'Failed to find MODIS image!'
+        if self.compositeModis:
+            self.mapWidget.addToMap(self.modisCloudMask.mask(self.modisCloudMask), {'min': 0, 'max': 1, 'palette': '000000, FF0000'},
+                                    '1km Bad MODIS pixels', False)
+        else:
+            print 'Failed to find MODIS Cloud Mask image!'
+
         if self.demImage:
             self.mapWidget.addToMap(self.demImage, {'min': DEM_RANGE[0], 'max': DEM_RANGE[1]}, 'Digital Elevation Map', False)
         else:
@@ -389,6 +389,8 @@ class ProductionGui(QtGui.QMainWindow):
         self.highResModis   = ee.ImageCollection('MOD09GQ').filterBounds(bounds).filterDate(modisStartDate, modisEndDate).limit(1).mean();
         self.lowResModis    = ee.ImageCollection('MOD09GA').filterBounds(bounds).filterDate(modisStartDate, modisEndDate).limit(1).mean();
         self.compositeModis = self.highResModis.addBands(self.lowResModis.select('sur_refl_b06'))
+
+        self.modisCloudMask = modis.flood_algorithms.getModisBadPixelMask(self.lowResModis)
 
         # Load a DEM
         demName = 'CGIAR/SRTM90_V4' # The default 30m global DEM
