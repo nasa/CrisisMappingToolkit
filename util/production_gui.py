@@ -263,8 +263,8 @@ class ProductionGui(QtGui.QMainWindow):
                                                           'min': MODIS_RANGE[0], 'max': MODIS_RANGE[1]}, 'MODIS Channels 1/2/6',  False)
         else:
             print 'Failed to find MODIS image!'
-        if self.compositeModis:
-            self.mapWidget.addToMap(self.modisCloudMask.mask(self.modisCloudMask), {'min': 0, 'max': 1, 'palette': '000000, FF0000'},
+        if self.modisCloudMask:
+            self.mapWidget.addToMap(self.modisCloudMask, {'min': 0, 'max': 1, 'palette': '000000, FF0000'},
                                     '1km Bad MODIS pixels', False)
         else:
             print 'Failed to find MODIS Cloud Mask image!'
@@ -390,7 +390,9 @@ class ProductionGui(QtGui.QMainWindow):
         self.lowResModis    = ee.ImageCollection('MOD09GA').filterBounds(bounds).filterDate(modisStartDate, modisEndDate).limit(1).mean();
         self.compositeModis = self.highResModis.addBands(self.lowResModis.select('sur_refl_b06'))
 
+        # Extract the MODIS cloud mask
         self.modisCloudMask = modis.flood_algorithms.getModisBadPixelMask(self.lowResModis)
+        self.modisCloudMask = self.modisCloudMask.mask(self.modisCloudMask)
 
         # Load a DEM
         demName = 'CGIAR/SRTM90_V4' # The default 30m global DEM
