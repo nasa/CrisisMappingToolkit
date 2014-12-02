@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<!-- For some reason, some UAVSAR files have a different format where
+     each pixel is a single byte. -->
+<sensor>
+    <name>UAVSAR Byte</name>
+    <bands>
+        <band>
+            <source><name>b1</name></source>
+            <name>hh</name>
+            <distribution name="water">
+                <model>dip</model>
+                <mode><range>
+                    <minimum>0</minimum>
+                    <maximum>100</maximum>
+                </range></mode>
+            </distribution>
+        </band>
+        <band>
+            <source><name>b2</name></source>
+            <name>hv</name>
+            <distribution name="water">
+                <model>dip</model>
+                <mode><range>
+                    <minimum>0</minimum>
+                    <maximum>100</maximum>
+                </range></mode>
+            </distribution>
+        </band>
+        <band>
+            <source><name>b3</name></source>
+            <name>vv</name>
+            <distribution name="water">
+                <model>peak</model>
+                <mode><range>
+                    <minimum>10</minimum>
+                    <maximum>50</maximum>
+                </range></mode>
+            </distribution>
+        </band>
+        <mask>
+            <source><name>b4</name></source>
+        </mask>
+    </bands>
+    <range>
+        <minimum>0</minimum>
+        <maximum>255</maximum>
+    </range>
+</sensor>
+

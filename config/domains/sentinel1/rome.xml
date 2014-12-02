@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Rome</name>
+    <sensor>Sentinel1</sensor>
+    <bands>
+        <band>
+            <name>vv</name>
+            <source>
+                <eeid>18108519531116889794-15063535589376921925</eeid>
+                <name>b1</name>
+            </source>
+        </band>
+        <band>
+            <name>vh</name>
+            <source>
+                <eeid>18108519531116889794-10203767773364605611</eeid>
+                <name>b1</name>
+            </source>
+        </band>
+    </bands>
+    <bbox>
+        <bottomleft>
+            <lon>12.2</lon>
+            <lat>41.72</lat>
+        </bottomleft>
+        <topright>
+            <lon>12.72</lon>
+            <lat>41.83</lat>
+        </topright>
+    </bbox>
+    <truth>18108519531116889794-01677512005004143246</truth>
+</domain>
+

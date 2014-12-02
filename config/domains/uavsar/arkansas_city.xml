@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Mississippi 2011 Flood - Arkansas City</name>
+    <sensor>UAVSAR</sensor>
+    <eeid>18108519531116889794-12113912950916481117</eeid>
+    <bbox>
+        <bottomleft>
+            <lon>-91.32</lon>
+            <lat>33.56</lat>
+        </bottomleft>
+        <topright>
+            <lon>-91.03</lon>
+            <lat>33.70</lat>
+        </topright>
+    </bbox>
+    <truth>18108519531116889794-09052745394509652502</truth>
+</domain>
+

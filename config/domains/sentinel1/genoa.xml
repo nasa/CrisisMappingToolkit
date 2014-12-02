@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Genoa</name>
+    <sensor>Sentinel1</sensor>
+    <bands>
+        <band>
+            <name>vv</name>
+            <source>
+                <eeid>18108519531116889794-01814814738877344612</eeid>
+                <name>b1</name>
+            </source>
+        </band>
+        <!-- Note: only has a single band, actually. Should fix that... -->
+        <band>
+            <name>vh</name>
+            <source>
+                <eeid>18108519531116889794-01814814738877344612</eeid>
+                <name>b1</name>
+            </source>
+        </band>
+    </bands>
+    <bbox>
+        <bottomleft>
+            <lon>7.0</lon>
+            <lat>44.5</lat>
+        </bottomleft>
+        <topright>
+            <lon>9.0</lon>
+            <lat>45.0</lat>
+        </topright>
+    </bbox>
+</domain>
+

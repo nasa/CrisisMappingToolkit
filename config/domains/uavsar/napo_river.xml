@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Napo River Flood</name>
+    <sensor>UAVSAR</sensor>
+    <eeid>18108519531116889794-08950626664510535970</eeid>
+    <bands>
+        <band>
+            <source mosaic="true"><name>b1</name></source>
+            <name>hh</name>
+        </band>
+        <band>
+            <source mosaic="true"><name>b2</name></source>
+            <name>hv</name>
+        </band>
+        <band>
+            <source mosaic="true"><name>b3</name></source>
+            <name>vv</name>
+        </band>
+        <!-- Doesn't have a mask for some reason, use first band. -->
+        <mask self="true">
+        </mask>
+    </bands>
+    <bbox>
+        <bottomleft>
+            <lon>-76.38</lon>
+            <lat>-1.6</lat>
+        </bottomleft>
+        <topright>
+            <lon>-74.41</lon>
+            <lat>-0.27</lat>
+        </topright>
+    </bbox>
+</domain>
+

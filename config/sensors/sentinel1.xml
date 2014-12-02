@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<sensor>
+    <name>SENTINEL-1</name>
+    <bands>
+        <band>
+            <name>vv</name>
+            <distribution name="water">
+                <mode><range>
+                    <minimum>30</minimum>
+                    <maximum>90</maximum>
+                </range></mode>
+            </distribution>
+        </band>
+        <band>
+            <name>vh</name>
+            <distribution name="water">
+                <mode><range>
+                    <minimum>30</minimum>
+                    <maximum>50</maximum>
+                </range></mode>
+            </distribution>
+        </band>
+    </bands>
+    <range>
+        <minimum>0</minimum>
+        <maximum>1200</maximum>
+    </range>
+
+    <distribution name="water">
+        <model>gamma</model>
+        <range>
+            <minimum>0</minimum>
+            <maximum>600</maximum>
+        </range>
+        <buckets>512</buckets>
+    </distribution>
+</sensor>
+

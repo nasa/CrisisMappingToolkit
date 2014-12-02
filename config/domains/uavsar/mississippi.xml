@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Mississippi 2011 Flood</name>
+    <sensor>UAVSAR</sensor>
+    <eeid>18108519531116889794-12113912950916481117</eeid>
+    <bbox>
+        <bottomleft>
+            <lon>-91.23</lon>
+            <lat>32.88</lat>
+        </bottomleft>
+        <topright>
+            <lon>-91.02</lon>
+            <lat>33.166</lat>
+        </topright>
+    </bbox>
+    <truth>18108519531116889794-03516536627963450262</truth>
+</domain>
+

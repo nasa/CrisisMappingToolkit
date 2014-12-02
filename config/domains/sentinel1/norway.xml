@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Norway</name>
+    <sensor>Sentinel1</sensor>
+    <bands>
+        <band>
+            <name>vv</name>
+            <source>
+                <eeid>18108519531116889794-16376225715825279773</eeid>
+                <name>b1</name>
+            </source>
+        </band>
+        <band>
+            <name>vh</name>
+            <source>
+                <eeid>18108519531116889794-16234180551177988132</eeid>
+                <name>b1</name>
+            </source>
+        </band>
+    </bands>
+    <bbox>
+        <bottomleft>
+            <lon>3.6</lon>
+            <lat>61.0</lat>
+        </bottomleft>
+        <topright>
+            <lon>6.0</lon>
+            <lat>61.5</lat>
+        </topright>
+    </bbox>
+</domain>
+

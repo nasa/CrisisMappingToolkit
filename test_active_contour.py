@@ -5,7 +5,7 @@ util.ee_authenticate.initialize()
 
 import time
 
-import radar.domains
+import util.domain
 from radar.active_contour import *
 
 import sys
@@ -15,10 +15,7 @@ import numpy
 from PyQt4 import QtGui, QtCore
 app = QtGui.QApplication(sys.argv)
 
-# Specify the data set to use - see /radar/domains.py
-DOMAIN = radar.domains.UAVSAR_MISSISSIPPI_FLOODED
-
-domain = radar.domains.get_radar_image(DOMAIN)
+domain = util.domain.Domain('config/domains/uavsar/mississippi.xml')
 #result = active_contour(domain)
 
 def active_contour_step(local_image, snake, step):

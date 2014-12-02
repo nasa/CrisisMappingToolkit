@@ -12,8 +12,6 @@ SVM            = 4
 MARTINIS       = 5
 ACTIVE_CONTOUR = 6
 
-
-
 # For each algorithm specify the name, function, and color.
 __ALGORITHMS = {
     MATGEN : ('Matgen Threshold', matgen.threshold, '00FFFF'),
