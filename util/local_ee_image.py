@@ -139,6 +139,7 @@ class LocalEEImage(object):
 
     # download an image locally. Caches images with the same bbox, scale and image_name
     def __init__(self, eeobject, bbox, scale, bands, image_name=None):
+        image_name = image_name.replace(' ', '') # can't have space in filename
         if image_name == None:
             image_name = uuid.uuid4()
         url = eeobject.getDownloadUrl({'name' : image_name, 'scale': scale, 'crs': 'EPSG:4326',
