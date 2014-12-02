@@ -22,14 +22,18 @@ class Domain(object):
         self.__band_sources = dict()
         self.__load_xml(xml_file)
 
-    def __load_source(self, source_element, default_eeid):
+    def __load_source(self, source_element):
         d = dict()
-        if default_eeid:
-            d['eeid'] = default_eeid
         source_band = source_element.find('source')
         if source_band != None:
-            if source_band.get('mosaic') == 'true':
-                d['mosaic'] = True
+            mosaic = source_band.get('mosaic')
+            if mosaic != None:
+                if mosaic.lower() == 'true':
+                    d['mosaic'] = True
+                elif mosaic.lower() == 'false':
+                    d['mosaic'] = False
+                else:
+                    raise Exception('Unexpected value of mosaic, %s.' % (source_band.get('mosaic')))
             name = source_band.find('name')
             if name != None:
                 d['source'] = name.text
@@ -60,10 +64,6 @@ class Domain(object):
         return d
 
     def __load_bands(self, root_element):
-        global_eeid = root_element.find('eeid')
-        if global_eeid != None:
-            global_eeid = global_eeid.text
-
         default_water = dict()
         for d in root_element.findall('distribution'):
             if d.get('name').lower() == 'water':
@@ -72,6 +72,12 @@ class Domain(object):
         # read bands
         bands = root_element.find('bands')
         if bands != None:
+            default_source = self.__load_source(bands)
+            for b in self.bands:
+                self.__band_sources[b].update(default_source)
+            if self.__mask_source != None:
+                self.__mask_source.update(default_source)
+
             for b in bands.findall('band'):
                 try:
                     name = b.find('name').text
@@ -81,7 +87,7 @@ class Domain(object):
                     self.bands.append(name)
                 if name not in self.__band_sources:
                     self.__band_sources[name] = dict()
-                self.__band_sources[name].update(self.__load_source(b, global_eeid))
+                self.__band_sources[name].update(self.__load_source(b))
 
                 if name not in self.water:
                     self.water[name] = dict()
@@ -98,14 +104,7 @@ class Domain(object):
                     self.__mask_source['self'] = True
                 source = mask.find('source')
                 if source != None:
-                    self.__mask_source.update(self.__load_source(mask, global_eeid))
-
-        # if same eeid used for all bands, add it to unnamed bands
-        for b in self.__band_sources.keys():
-            if 'eeid' not in self.__band_sources[b] or self.__band_sources[b]['eeid'] == None:
-                self.__band_sources[b]['eeid'] = global_eeid
-        if global_eeid != None and self.__mask_source != None and 'eeid' not in self.__mask_source:
-            self.__mask_source['eeid'] = global_eeid
+                    self.__mask_source.update(self.__load_source(mask))
 
     def __load_image(self):
         # load the bands, combine into image

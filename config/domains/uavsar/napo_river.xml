@@ -2,8 +2,8 @@
 <domain>
     <name>Napo River Flood</name>
     <sensor>UAVSAR</sensor>
-    <eeid>18108519531116889794-08950626664510535970</eeid>
     <bands>
+        <source><eeid>18108519531116889794-08950626664510535970</eeid></source>
         <band>
             <source mosaic="true"><name>b1</name></source>
             <name>hh</name>

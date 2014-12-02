@@ -2,7 +2,9 @@
 <domain>
     <name>Mississippi 2011 Unflooded</name>
     <sensor>UAVSARByte</sensor>
-    <eeid>18108519531116889794-16648596607414356603</eeid>
+    <bands>
+        <source><eeid>18108519531116889794-16648596607414356603</eeid></source>
+    </bands>
     <bbox>
         <bottomleft>
             <lon>-91.23</lon>

@@ -2,7 +2,9 @@
 <domain>
     <name>Mississippi 2011 Flood</name>
     <sensor>UAVSAR</sensor>
-    <eeid>18108519531116889794-12113912950916481117</eeid>
+    <bands>
+        <source><eeid>18108519531116889794-12113912950916481117</eeid></source>
+    </bands>
     <bbox>
         <bottomleft>
             <lon>-91.23</lon>
