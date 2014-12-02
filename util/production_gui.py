@@ -32,6 +32,19 @@ Goals for production GUI (Only for Google):
 - Display flood statistics (flooded area, etc)
 '''
 
+
+ABOUT_TEXT = '''Crisis Mapping Toolkit (CMT) v1
+
+A tool for assisting in crisis measurement and detection using Google's Earth Engine.
+
+
+Copyright * 2014, United States Government as represented by the Administrator of the National Aeronautics and Space Administration. All rights reserved.
+
+The Crisis Mapping Toolkit (CMT) v1 framework is licensed under the Apache License, Version 2.0 (the "License"); you may not use this application except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.'''
+
+
 import functools
 import sys
 import ee
@@ -65,10 +78,6 @@ class DatePickerWidget(QtGui.QWidget):
         hbox.addWidget(self.datePicker)
 
         self.setLayout(hbox) # Call QT function derived from parent QWidget class
-
-
-
-# TODO: Add a message box in additon to using the console!
 
 
 class FloodDetectParams:
@@ -154,6 +163,11 @@ class ProductionGui(QtGui.QMainWindow):
         self.clearButton.clicked[bool].connect(self.__unloadCurrentImages)
         topHorizontalBox.addWidget(self.clearButton)
 
+        self.aboutButton = QtGui.QPushButton('About', self)
+        self.aboutButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.aboutButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.aboutButton.clicked[bool].connect(self.__showAboutText)
+        topHorizontalBox.addWidget(self.aboutButton)
 
         # Add the row of widgets on the top of the GUI
         vbox.addLayout(topHorizontalBox)
@@ -333,7 +347,6 @@ class ProductionGui(QtGui.QMainWindow):
                 print geoLimited.getInfo()['features']
             else: # Found the date
                 dateList.append((imageDate, index))
-                #print (imageDate, index)
             index += 1
         if not dateList: # Could not read any dates, just pick the first image.
             return geoLimited.limit(1).mean()
@@ -341,11 +354,9 @@ class ProductionGui(QtGui.QMainWindow):
         # Now select the first or last image, sorting on date but also retrieving the index.
         if chooseLast: # Latest date
             bestDate = max(dateList)
-            #print 'Last = '+ str(bestDate)
         else: # First date
             bestDate = min(dateList)
-            #print 'First = '+ str(bestDate)
-        #prettyPrintEE(ee.Image(geoLimited.toList(255).get(bestDate[1])).getInfo())
+
         return ee.Image(geoLimited.toList(255).get(bestDate[1]))
 
 
@@ -364,8 +375,6 @@ class ProductionGui(QtGui.QMainWindow):
 
     def __loadImageData(self):
         '''Updates the MODIS and LANDSAT images for the current date'''
-        
-        #print '---Calling loadImageData'
         
         # Check that we have all the information we need
         bounds = self.detectParams.statisticsRegion
@@ -424,8 +433,6 @@ class ProductionGui(QtGui.QMainWindow):
     def __loadFloodDetect(self):
         '''Creates the Earth Engine flood detection function and adds it to the map'''
         
-        #print '---Calling loadFloodDetect'
-        
         # Check prerequisites
         if (not self.highResModis) or (not self.floodDate) or (not self.detectParams.statisticsRegion):
             print "Can't detect floods without image data and flood date!"
@@ -440,7 +447,6 @@ class ProductionGui(QtGui.QMainWindow):
         print '--> Change detection threshold = ' + str(self.detectParams.changeDetectThreshold)
         
         # Generate a new EE function
-        #print self.detectParams.toString()
         self.eeFunction = modis.flood_algorithms.history_diff_core(self.highResModis,
                                         self.floodDate, self.detectParams.waterMaskThreshold,
                                         self.detectParams.changeDetectThreshold, self.detectParams.statisticsRegion)
@@ -482,6 +488,11 @@ class ProductionGui(QtGui.QMainWindow):
         action.setDefaultWidget(item)
         menu.addAction(action)
         menu.popup(QtGui.QCursor.pos())
+
+    def __showAboutText(self):
+        '''Pop up a little text box to display legal information'''
+        QtGui.QMessageBox.about(self, 'about', ABOUT_TEXT)
+        
         
 
     def keyPressEvent(self, event):
