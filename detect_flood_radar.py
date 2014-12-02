@@ -19,7 +19,7 @@ import logging
 logging.basicConfig(level=logging.ERROR)
 import util.ee_authenticate
 import matplotlib
-matplotlib.use('tkagg')
+#matplotlib.use('tkagg') # Needed to display a histogram
 
 import os
 import sys
@@ -29,8 +29,13 @@ import functools
 import util.domain
 from radar.flood_algorithms import *
 
-from util.debug_gui import centerMap, addToMap
+from util.debug_gui  import centerMap, addToMap
 from util.evaluation import evaluate_approach
+
+'''
+Tool for testing radar based flood detection algorithms using a simple GUI.
+'''
+
 
 # --------------------------------------------------------------
 # Configuration

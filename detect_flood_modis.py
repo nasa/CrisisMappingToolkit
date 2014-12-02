@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.ERROR)
 import util.ee_authenticate
 util.ee_authenticate.initialize()
 import matplotlib
-matplotlib.use('tkagg')
+#matplotlib.use('tkagg')
 
 import os
 import ee
@@ -31,6 +31,11 @@ from modis.flood_algorithms import *
 
 from util.mapclient_qt import centerMap, addToMap
 from util.evaluation   import evaluate_approach
+
+'''
+Tool for testing MODIS based flood detection algorithms using a simple GUI.
+'''
+
 
 # --------------------------------------------------------------
 # Configuration

@@ -24,8 +24,18 @@ import tempfile
 
 from xml.etree import ElementTree
 
+'''
+Converts an UAVSAR image to geotiff format.
+'''
+
+# How to call this script
+USAGE_STRING = 'kmz_to_geotiff.py input.kmz output.tiff'
+
+
+# --- Start of script ---
+
 if len(sys.argv) < 3:
-    print 'Usage: kmz_to_geotiff.py input.kmz output.tiff'
+    print 'Usage: ' + USAGE_STRING
     sys.exit(0)
 
 single_mosaic = False
@@ -65,11 +75,11 @@ else:
 
 for link in links:
     latlon = link.find('{%s}Region' % namespace).find('{%s}LatLonAltBox' % namespace)
-    name = link.find('{%s}Link' % namespace).find('{%s}href' % namespace).text[:-4]
-    north = latlon.find('{%s}north' % namespace).text
-    south = latlon.find('{%s}south' % namespace).text
-    east = latlon.find('{%s}east' % namespace).text
-    west = latlon.find('{%s}west' % namespace).text
+    name   = link.find('{%s}Link' % namespace).find('{%s}href' % namespace).text[:-4]
+    north  = latlon.find('{%s}north' % namespace).text
+    south  = latlon.find('{%s}south' % namespace).text
+    east   = latlon.find('{%s}east' % namespace).text
+    west   = latlon.find('{%s}west' % namespace).text
 
     output_name = tempdir + os.sep + name + '.tiff'
     z.extract('images/%s.png' % (name), tempdir)

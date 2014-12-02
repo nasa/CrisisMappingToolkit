@@ -25,16 +25,18 @@ import scipy.optimize
 
 import histogram
 import matplotlib
-matplotlib.use('tkagg')
+#matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
-from util.mapclient_qt import centerMap, addToMap
+from util.mapclient_qt import addToMap
 
 #------------------------------------------------------------------------
 # - sar_martinis radar algorithm (find threshold by histogram splits on selected subregions)
 
 # Algorithm from paper:
-#    Towards operational near real-time flood detection using a split-based
-#    automatic thresholding procedure on high resolution TerraSAR-X data
+#    "Towards operational near real-time flood detection using a split-based
+#    automatic thresholding procedure on high resolution TerraSAR-X data"
+#    by S. Martinis, A. Twele, and S. Voigt, Nat. Hazards Earth Syst. Sci., 9, 303-314, 2009
+
 
 # This algorithm seems extremely sensitive to multiple threshold and
 #  scale parameters.  So far it has not worked well on any data set.
@@ -44,8 +46,8 @@ def getBoundingBox(bounds):
     '''Returns (minLon, minLat, maxLon, maxLat) from domain bounds'''
     
     coordList = bounds['coordinates'][0]
-    minLat = 999
-    minLon = 999999
+    minLat =  999
+    minLon =  999999
     maxLat = -999
     maxLon = -999999
     for c in coordList:
@@ -86,7 +88,7 @@ def getBoundsCenter(bounds):
     
     coordList = bounds['coordinates'][0]
     meanLat  = 0
-    meanLon = 0
+    meanLon  = 0
     for c in coordList:
         meanLat = meanLat + c[1]
         meanLon = meanLon + c[0]
@@ -124,7 +126,7 @@ def sar_martinis(domain):
     metersPerPixel = 12.0
     
     KERNEL_SIZE = 25 # <-- TODO!!! The kernel needs to be the size of a box
-    avgKernel = ee.Kernel.square(KERNEL_SIZE, 'pixels', True); # <-- EE fails if this is in meters!
+    avgKernel   = ee.Kernel.square(KERNEL_SIZE, 'pixels', True); # <-- EE fails if this is in meters!
     
     # Select the radar layer we want to work in
     #channelName = 'hv'
@@ -153,8 +155,8 @@ def sar_martinis(domain):
     # Debug plots
     #addToMap(meanImage, {'min': 3000, 'max': 70000,  'opacity': 1.0, 'palette': GRAY_PALETTE}, 'Mean',   False)
     #addToMap(stdImage,  {'min': 3000, 'max': 200000, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'StdDev', False)
-    addToMap(meanImage, {'min': 0, 'max': 700,  'opacity': 1.0, 'palette': GRAY_PALETTE}, 'Mean',   False)
-    addToMap(stdImage,  {'min': 0, 'max': 60, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'StdDev', False)
+    #addToMap(meanImage, {'min': 0, 'max': 700,  'opacity': 1.0, 'palette': GRAY_PALETTE}, 'Mean',   False)
+    #addToMap(stdImage,  {'min': 0, 'max': 60, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'StdDev', False)
     
     reprojectDist = 5#metersPerPixel
     
@@ -165,8 +167,8 @@ def sar_martinis(domain):
     # TODO: Another paper reccomends replacing CV with CR = (std / gray value range), min value 0.05
     
     # Debug plots
-    addToMap(CV, {'min': 0, 'max': 3, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'CV', False)
-    addToMap(R,  {'min': 0, 'max': 2, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'R',  False)
+    #addToMap(CV, {'min': 0, 'max': 3, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'CV', False)
+    #addToMap(R,  {'min': 0, 'max': 2, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'R',  False)
     
     
     # 2: Prune to a reduced set of tiles X'
@@ -188,7 +190,7 @@ def sar_martinis(domain):
     t4   = R.lte(MAX_R)
     temp = t1.And(t2).And(t3).And(t4)
     X_prime = temp.reproject("EPSG:4326", None, reprojectDist)
-    addToMap(X_prime.mask(X_prime),  {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': TEAL_PALETTE}, 'X_prime',  False)
+    #addToMap(X_prime.mask(X_prime),  {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': TEAL_PALETTE}, 'X_prime',  False)
    
     
     # 3: Prune again to a final set of tiles X''
@@ -255,7 +257,7 @@ def sar_martinis(domain):
             usedPointListEE = usedPointListEE.merge(temp)       
 
         usedPointsDraw = usedPointListEE.draw('00FF00', 8)
-        addToMap(usedPointsDraw, {}, 'Used PTs', False)
+        #addToMap(usedPointsDraw, {}, 'Used PTs', False)
         
     if (numUnusedPoints > 0):
         unusedPointListEE = ee.FeatureCollection(ee.Feature(rejectedPointList[0]))
@@ -264,14 +266,14 @@ def sar_martinis(domain):
             unusedPointListEE = unusedPointListEE.merge(temp)       
 
         unusedPointsDraw = usedPointListEE.draw('FF0000', 8)
-        addToMap(unusedPointsDraw, {}, 'Unused PTs', False)
+        #addToMap(unusedPointsDraw, {}, 'Unused PTs', False)
     
     
     # 5: Use the individual thresholds to compute a global threshold 
     
     computedThreshold = numpy.mean(localThresholdList) # Nothing fancy going on here!
     
-    print 'Computed global threshold = ' + str(computedThreshold)
+    #print 'Computed global threshold = ' + str(computedThreshold)
     
     finalWaterClass = grayLayer.lte(computedThreshold)
     

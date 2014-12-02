@@ -27,7 +27,15 @@ import scipy.optimize
 import matplotlib
 import matplotlib.pyplot as plt
 
+'''
+This file contains tools for histogram based detection of water in radar images.
+'''
+
+
 class RadarHistogram(object):
+    '''Detect water using a single split in the radar histogram.  Adapted from the paper:
+        "Matgen, Hostache, Schumann, et. al. 'Towards an automated SAR-based flood monitoring system:
+         Lessons learned from two case studies.' Physics and Chemistry of the Earth, 2011."'''
     BACKSCATTER_MODEL_GAMMA    = 1
     BACKSCATTER_MODEL_GAUSSIAN = 2
     BACKSCATTER_MODEL_DIP      = 3
@@ -304,7 +312,7 @@ def splitHistogramKittlerIllingworth(histogram, binVals):
     '''Tries to compute an optimal histogram threshold using the Kittler/Illingworth method'''
 
     # Normalize the histogram (each bin is now a percentage)
-    histSum = float(sum(histogram))
+    histSum      = float(sum(histogram))
     relativeHist = numpy.divide(histogram,histSum)
 
 

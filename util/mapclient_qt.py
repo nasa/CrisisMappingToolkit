@@ -275,7 +275,6 @@ class MapViewWidget(QtGui.QWidget):
                 painter.drawImage(QtCore.QPoint(xpos, ypos), image)
             painter.end()
 
-    # TODO: Make private?
     def addOverlay(self, inputTileManager, eeobject, name, show, vis_params):   # pylint: disable=g-bad-name
         """Add an overlay to the map."""
         self.overlays.append(MapViewOverlay(inputTileManager, eeobject, name, show, vis_params))
@@ -342,7 +341,7 @@ class MapViewWidget(QtGui.QWidget):
             layer: The layer number this overlay corresponds to.    Only used
                     for caching purposes.
         """
-        # TODO(user): This function is called from multiple threads, and
+        # This function is called from multiple threads, and
         # could use some synchronization, but it seems to work.
         if self.level == key[0] and overlay.show:   # Don't add late tiles from another level.
             self.tiles[key] = self.tiles.get(key, {})
