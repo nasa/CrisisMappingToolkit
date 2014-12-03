@@ -33,18 +33,6 @@ Goals for production GUI (Only for Google):
 '''
 
 
-ABOUT_TEXT = '''Crisis Mapping Toolkit (CMT) v1
-
-A tool for assisting in crisis measurement and detection using Google's Earth Engine.
-
-
-Copyright * 2014, United States Government as represented by the Administrator of the National Aeronautics and Space Administration. All rights reserved.
-
-The Crisis Mapping Toolkit (CMT) v1 framework is licensed under the Apache License, Version 2.0 (the "License"); you may not use this application except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
-
-Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.'''
-
-
 import functools
 import sys
 import ee
@@ -59,7 +47,7 @@ except ImportError:
         """
     raise
 
-from mapclient_qt import MapViewWidget, prettyPrintEE
+from mapclient_qt import MapViewWidget, prettyPrintEE, ABOUT_TEXT
 
 import modis.flood_algorithms
 
@@ -163,6 +151,7 @@ class ProductionGui(QtGui.QMainWindow):
         self.clearButton.clicked[bool].connect(self.__unloadCurrentImages)
         topHorizontalBox.addWidget(self.clearButton)
 
+        # Add an "About" button containing legal information
         self.aboutButton = QtGui.QPushButton('About', self)
         self.aboutButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.aboutButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
@@ -492,8 +481,6 @@ class ProductionGui(QtGui.QMainWindow):
     def __showAboutText(self):
         '''Pop up a little text box to display legal information'''
         QtGui.QMessageBox.about(self, 'about', ABOUT_TEXT)
-        
-        
 
     def keyPressEvent(self, event):
         """Handle keypress events."""
