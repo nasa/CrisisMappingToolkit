@@ -3,9 +3,13 @@ import xml.etree.ElementTree as ET
 
 import ee
 
+# default search path for sensors description xml files
 DATA_SOURCE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
         ".." + os.path.sep + "config" + os.path.sep + "sensors")
 
+# A class representing a problem domain. Loads an image, bands, and additional
+# information from an xml file. Default information may be specified in a
+# file specific to a sensor type, which can be overridden.
 class Domain(object):
     def __init__(self, xml_file):
         self.name = 'Unnamed'
@@ -22,10 +26,12 @@ class Domain(object):
         self.__band_sources = dict()
         self.__load_xml(xml_file)
 
+    # load a data source for a band or mask, represented by the <source> tag.
     def __load_source(self, source_element):
         d = dict()
         source_band = source_element.find('source')
         if source_band != None:
+            # if it's a mosaic, combine the images in an EE ImageCollection
             mosaic = source_band.get('mosaic')
             if mosaic != None:
                 if mosaic.lower() == 'true':
@@ -34,14 +40,19 @@ class Domain(object):
                     d['mosaic'] = False
                 else:
                     raise Exception('Unexpected value of mosaic, %s.' % (source_band.get('mosaic')))
+            # the name of the band
             name = source_band.find('name')
             if name != None:
+                # the name of the band in the original image
                 d['source'] = name.text
+            # the id of the image to load
             band_eeid = source_band.find('eeid')
             if band_eeid != None:
                 d['eeid'] = band_eeid.text
         return d
 
+    # load a probability distribution into a python dictionary, which may, for
+    # example, represent the expected distribution of water pixels
     def __load_distribution(self, root):
         d = dict()
         model = root.find('model')
@@ -63,21 +74,26 @@ class Domain(object):
                 raise Exception('Buckets in distribution must be integer.')
         return d
 
+    # read the band specification and load it into __band_sources and __mask_source.
+    # does not load the bands
     def __load_bands(self, root_element):
+        # may have a default distribution for all bands directly
         default_water = dict()
         for d in root_element.findall('distribution'):
             if d.get('name').lower() == 'water':
                 default_water = self.__load_distribution(d)
 
-        # read bands
+        # read bands, represented by <band> tag
         bands = root_element.find('bands')
         if bands != None:
+            # shared source information (e.g., all bands have same eeid) is loaded directly in <bands><source /></bands>
             default_source = self.__load_source(bands)
             for b in self.bands:
                 self.__band_sources[b].update(default_source)
             if self.__mask_source != None:
                 self.__mask_source.update(default_source)
 
+            # load individual <band> tags
             for b in bands.findall('band'):
                 try:
                     name = b.find('name').text
@@ -95,7 +111,7 @@ class Domain(object):
                 for d in b.findall('distribution'):
                     if d.get('name').lower() == 'water':
                         self.water[name].update(self.__load_distribution(d))
-            # read mask
+            # read mask, in <mask> tag
             mask = bands.find('mask')
             if mask != None:
                 if self.__mask_source == None:
@@ -106,6 +122,7 @@ class Domain(object):
                 if source != None:
                     self.__mask_source.update(self.__load_source(mask))
 
+    # given band specifications in __band_sources and __mask_source, load them into self.image
     def __load_image(self):
         # load the bands, combine into image
         for i in range(len(self.bands)):
@@ -122,17 +139,20 @@ class Domain(object):
                 self.image = band
             else:
                 self.image = self.image.addBands(band)
-            # set band as member variable
+            # set band as member variable, e.g., self.__dict__['hv'] is equivalent to self.hv
             self.__dict__[self.bands[i]] = band
+        # apply mask
         if self.__mask_source != None:
             if 'self' in self.__mask_source and self.__mask_source['self']:
                 self.image = self.image.mask(self.image)
             else:
                 self.image = self.image.mask(ee.Image(self.__mask_source['eeid']).select([self.__mask_source['source']], ['b1']))
+        # apply minimum and maximum value
         if self.minimum_value == None or  self.maximum_value == None:
             raise Exception('Minimum and maximum value not specified.')
         self.image = self.image.clamp(self.minimum_value, self.maximum_value)
 
+    # read a bbox, <bbox>
     def __load_bbox(self, root):
         b = None
         if root != None:
@@ -145,6 +165,7 @@ class Domain(object):
                 raise Exception("Failed to load bounding box for domain.")
         return b
 
+    # read a <range> tag
     def __load_range(self, tag):
         a = None
         b = None
@@ -162,6 +183,7 @@ class Domain(object):
                 raise Exception('Failed to load range tag.')
         return (a, b)
 
+    # load an xml file representing a domain or a sensor
     def __load_xml(self, xml_file):
         tree = ET.parse(xml_file)
         root = tree.getroot()
@@ -170,7 +192,7 @@ class Domain(object):
         if root.tag != "domain" and root.tag != "sensor":
             raise Exception("XML file not a domain or sensor.")
 
-        # load default values for given source
+        # load default values for given source (may be overwritten by domain file)
         data_source = None
         try:
             data_source = root.find('sensor').text.lower()
@@ -193,12 +215,15 @@ class Domain(object):
         if b != None:
             self.maximum_value = b
         
+        # if scaling tag with type log10 present, take the log of the image
         scale = root.find('scaling')
         if scale != None:
             self.log_scale = scale.get('type') == 'log10'
         
+        # read data about all the bands
         self.__load_bands(root)
         if root.tag == "domain":
+            # actually load the data specified by the bands
             self.__load_image()
             self.bounds = apply(ee.geometry.Geometry.Rectangle, self.bbox)
             self.center = ((self.bbox[0] + self.bbox[2]) / 2, (self.bbox[1] + self.bbox[3]) / 2)
