@@ -1,9 +1,26 @@
+# -----------------------------------------------------------------------------
+# Copyright * 2014, United States Government, as represented by the
+# Administrator of the National Aeronautics and Space Administration. All
+# rights reserved.
+#
+# The Crisis Mapping Toolkit (CMT) v1 platform is licensed under the Apache
+# License, Version 2.0 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+# -----------------------------------------------------------------------------
+
 import os
 import xml.etree.ElementTree as ET
 
 import ee
 
-# default search path for sensors description xml files
+# default search path for sensors description xml files: [root]/config/sensors
 DATA_SOURCE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
         ".." + os.path.sep + "config" + os.path.sep + "sensors")
 
@@ -12,13 +29,13 @@ DATA_SOURCE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
 # file specific to a sensor type, which can be overridden.
 class Domain(object):
     def __init__(self, xml_file):
-        self.name = 'Unnamed'
-        self.image = None
-        self.truth = None
-        self.sensor = None
-        self.bands = []
-        self.log_scale = False
-        self.water = dict()
+        self.name         = 'Unnamed'
+        self.image        = None
+        self.truth        = None
+        self.sensor       = None
+        self.bands        = []
+        self.log_scale    = False
+        self.water        = dict()
         self.ground_truth = None
         # also data member for each band
 
@@ -131,7 +148,7 @@ class Domain(object):
                 raise Exception('Incomplete band specification.')
             if 'mosaic' in source:
                 ims = ee.ImageCollection(source['eeid'])
-                im = ims.mosaic()
+                im  = ims.mosaic()
             else:
                 im = ee.Image(source['eeid'])
             band = im.select([source['source']], [self.bands[i]])
@@ -159,7 +176,7 @@ class Domain(object):
             try:
                 bl = root.find('bottomleft')
                 tr = root.find('topright')
-                b = tuple(map(lambda x: float(x.text),
+                b  = tuple(map(lambda x: float(x.text),
                             [bl.find('lon'), bl.find('lat'), tr.find('lon'), tr.find('lat')]))
             except:
                 raise Exception("Failed to load bounding box for domain.")
@@ -209,7 +226,7 @@ class Domain(object):
             raise Exception('Domain has no name.')
 
         self.bbox = self.__load_bbox(root.find('bbox'))
-        (a, b) = self.__load_range(root.find('range'))
+        (a, b)    = self.__load_range(root.find('range'))
         if a != None:
             self.minimum_value = a
         if b != None:

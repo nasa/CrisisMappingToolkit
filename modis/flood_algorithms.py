@@ -1,8 +1,30 @@
+# -----------------------------------------------------------------------------
+# Copyright * 2014, United States Government, as represented by the
+# Administrator of the National Aeronautics and Space Administration. All
+# rights reserved.
+#
+# The Crisis Mapping Toolkit (CMT) v1 platform is licensed under the Apache
+# License, Version 2.0 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+# -----------------------------------------------------------------------------
+
 import ee
 from domains import *
 
 from util.mapclient_qt import addToMap
 
+'''
+Contains implementations of multiple MODIS-based flood detection algorithms.
+'''
+
+# Each algorithm name has an integer assigned to it.
 EVI                = 1
 XIAO               = 2
 DIFFERENCE         = 3
@@ -38,9 +60,6 @@ def __compute_indices(domain):
 
 
 
-
-
-
 def getQABits(image, start, end, newName):
     '''Extract bits from positions "start" to "end" in the image'''
     # Create a bit mask of the bits we need
@@ -62,26 +81,31 @@ def getModisBadPixelMask(lowResModis):
     cloud     = cloudBits.expression("b(0) == 1 || b(0) == 2")
 
     return cloud # The second part of this, the land water flag, does not work well at all.
-
-    # Get the land_water_flag bits.
-    landWaterFlag = getQABits(qaBand, 3, 5, 'land_water_flag')
-
-    # Create a mask that filters out deep ocean and cloudy areas.
-    mask = landWaterFlag.neq(7).And(cloud.Not())
-    return mask
+    
+    ## Get the land_water_flag bits.
+    #landWaterFlag = getQABits(qaBand, 3, 5, 'land_water_flag')
+    #
+    ## Create a mask that filters out deep ocean and cloudy areas.
+    #mask = landWaterFlag.neq(7).And(cloud.Not())
+    #return mask
 
 
 
 
 def evi(domain, b):
+    '''Simple EVI based classifier'''
     no_clouds = b['b3'].lte(2100).select(['sur_refl_b03'], ['b1'])
     criteria1 = b['EVI'].lte(0.3).And(b['LSWI'].subtract(b['EVI']).gte(0.05)).select(['sur_refl_b02'], ['b1'])
     criteria2 = b['EVI'].lte(0.05).And(b['LSWI'].lte(0.0)).select(['sur_refl_b02'], ['b1'])
     return no_clouds.And(criteria1.Or(criteria2))
 
 def xiao(domain, b):
+    '''Method from paper: Xiao, Boles, Frolking, et. al. Mapping paddy rice agriculture in South and Southeast Asia using
+                          multi-temporal MODIS images, Remote Sensing of Environment, 2006.'''
     return b['LSWI'].subtract(b['NDVI']).gte(0.05).Or(b['LSWI'].subtract(b['EVI']).gte(0.05)).select(['sur_refl_b02'], ['b1']);
 
+# TODO: Remove this?
+# A good modis_diff threshold value for each of our domains
 MODIS_DIFF_THRESHOLDS = {
         BORDER         : 1200,
         BORDER_JUNE    : 1550,
@@ -95,42 +119,52 @@ MODIS_DIFF_THRESHOLDS = {
         NIGER          : 1200}
 
 def modis_diff(domain, b, threshold=None):
-    '''Compute (b2-b1) < threshold'''
+    '''Compute (b2-b1) < threshold, a simple water detection index.'''
     if threshold == None: # If no threshold value passed in, load it based on the data set.
         threshold = MODIS_DIFF_THRESHOLDS[domain.id]
     return b['b2'].subtract(b['b1']).lte(threshold).select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
 
+
 def __create_learning_image(domain, b):
+    '''Set up features for the classifier to be trained on: [b2, b2/b1, b2/b1, NDVI, NDWI]'''
     diff  = b['b2'].subtract(b['b1'])
     ratio = b['b2'].divide(b['b1'])
     return b['b1'].addBands(b['b2']).addBands(diff).addBands(ratio).addBands(b['NDVI']).addBands(b['NDWI'])
 
 def earth_engine_classifier(domain, b, classifier_name):
+    '''Apply EE classifier tool using a ground truth image.'''
     training_domain = retrieve_domain(TRAINING_DOMAINS[domain.id])
-    training_image = __create_learning_image(training_domain, __compute_indices(training_domain))
-    classifier = ee.apply("TrainClassifier", {
-            'image': training_image,
-            'subsampling' : 0.5,
-            'training_image' : training_domain.ground_truth,
-            'training_band': "b1",
-            'training_region' : training_domain.bounds,
+    training_image  = __create_learning_image(training_domain, __compute_indices(training_domain))
+    classifier = ee.apply("TrainClassifier", {  # Call the EE classifier
+            'image'             : training_image,
+            'subsampling'       : 0.5,
+            'training_image'    : training_domain.ground_truth,
+            'training_band'     : "b1",
+            'training_region'   : training_domain.bounds,
             'max_classification': 2,
-            'classifier_name': classifier_name
+            'classifier_name'   : classifier_name
         })
     classified = ee.call("ClassifyImage", __create_learning_image(domain, b), classifier).select(['classification'], ['b1']); 
     return classified;
 
 def cart(domain, b):
+    '''Classify using CART (Classification And Regression Tree)'''
     return earth_engine_classifier(domain, b, 'Cart')
 
 def svm(domain, b):
+    '''Classify using Pegasos classifier'''
     return earth_engine_classifier(domain, b, 'Pegasos')
 
 def random_forests(domain, b):
+    '''Classify using RifleSerialClassifier (Random Forests)'''
     return earth_engine_classifier(domain, b, 'RifleSerialClassifier')
 
 def dnns(domain, b):
-    '''Dynamic Nearest Neighbor Search'''
+    '''Dynamic Nearest Neighbor Search adapted from the paper:
+        "Li, Sun, Yu, et. al. "A new short-wave infrared (SWIR) method for
+        quantitative water fraction derivation and evaluation with EOS/MODIS
+        and Landsat/TM data." IEEE Transactions on Geoscience and Remote Sensing, 2013."
+    '''
     
     # This algorithm has some differences from the original paper implementation.
     #  The most signficant of these is that it does not make use of land/water/partial
@@ -140,7 +174,7 @@ def dnns(domain, b):
     #    as part of the kernel) might get the best results!
 
     # TODO: Recall/precision parameters for this function must be recomputed
-    #       once tho constants have been tuned!
+    #       once the constants have been tuned!
     
     # Parameters
     KERNEL_SIZE = 41 # The original paper used a 100x100 pixel box = 25,000 meters!
@@ -234,7 +268,9 @@ def dnns(domain, b):
     return water_fraction.select(['sum_2'], ['b1']) # Rename sum_2 to b1
 
 def dnns_dem(domain, b):
-    '''Enhance the DNNS result with high resolution DEM information'''
+    '''Enhance the DNNS result with high resolution DEM information, adapted from the paper:
+        "Li, Sun, Goldberg, and Stefanidis. "Derivation of 30-m-resolution
+        water maps from TERRA/MODIS and SRTM." Remote Sensing of Environment, 2013."'''
     
     MODIS_PIXEL_SIZE_METERS = 250
     
@@ -292,6 +328,8 @@ def dnns_dem(domain, b):
     dem_water = domain.dem.lte(average_high).mask(water_fraction) # Mask prevents pixels with 0% water from being labeled as water
     return dem_water.Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
 
+
+# Tuned thresholds for the history_diff tool below
 HISTORY_THRESHOLDS = {
         BORDER         : (3.5,     -3.5),
         BORDER_JUNE    : (6.5,     -3.5),
@@ -404,6 +442,7 @@ DARTMOUTH_THRESHOLDS = {
     }
 
 def dartmouth(domain, b):
+    '''A flood detection method from the Dartmouth Flood Observatory'''
     A = 500
     B = 2500
     return b['b2'].add(A).divide(b['b1'].add(B)).lte(DARTMOUTH_THRESHOLDS[domain.id]).select(['sur_refl_b02'], ['b1'])
@@ -536,23 +575,25 @@ def dnns_revised(domain, b):
 
 
 
-
+# Set up some information for each algorithm, used by the functions below.
 __ALGORITHMS = {
-        # Algorithm,    Display name,   Function name,    Display by default,    Display color
+        # Algorithm,    Display name,   Function name,    Fractional result?,    Display color
         EVI                : ('EVI',                     evi,            False, 'FF00FF'),
         XIAO               : ('XIAO',                    xiao,           False, 'FFFF00'),
         DIFFERENCE         : ('Difference',              modis_diff,     False, '00FFFF'),
         CART               : ('CART',                    cart,           False, 'CC6600'),
         SVM                : ('SVM',                     svm,            False, 'FFAA33'),
         RANDOM_FORESTS     : ('Random Forests',          random_forests, False, 'CC33FF'),
-        DNNS               : ('DNNS',                    dnns,           False, '0000FF'),
+        DNNS               : ('DNNS',                    dnns,           True,  '0000FF'),
         DNNS_REVISED       : ('DNNS Revised',            dnns_revised,   False, '00FF00'),
         DNNS_DEM           : ('DNNS with DEM',           dnns_dem,       False, '9900FF'),
         DIFFERENCE_HISTORY : ('Difference with History', history_diff,   False, '0099FF'),
         DARTMOUTH          : ('Dartmouth',               dartmouth,      False, '33CCFF')
 }
 
+
 def detect_flood(domain, algorithm):
+    '''Run flood detection with a named algorithm in a given domain.'''
     try:
         approach = __ALGORITHMS[algorithm]
     except:
@@ -560,18 +601,21 @@ def detect_flood(domain, algorithm):
     return (approach[0], approach[1](domain, __compute_indices(domain)))
 
 def get_algorithm_name(algorithm):
+    '''Return the text name of an algorithm.'''
     try:
         return __ALGORITHMS[algorithm][0]
     except:
         return None
 
 def get_algorithm_color(algorithm):
+    '''Return the color assigned to an algorithm.'''
     try:
         return __ALGORITHMS[algorithm][3]
     except:
         return None
 
 def is_algorithm_fractional(algorithm):
+    '''Return True if the algorithm has a fractional output.'''
     try:
         return __ALGORITHMS[algorithm][2]
     except:

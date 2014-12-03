@@ -1,3 +1,20 @@
+# -----------------------------------------------------------------------------
+# Copyright * 2014, United States Government, as represented by the
+# Administrator of the National Aeronautics and Space Administration. All
+# rights reserved.
+#
+# The Crisis Mapping Toolkit (CMT) v1 platform is licensed under the Apache
+# License, Version 2.0 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+# -----------------------------------------------------------------------------
+
 """A simple map GUI.
 
 Implements a tiled map using QT. Displays map tiles using
@@ -27,9 +44,6 @@ Terminology guide:
 This file contains the core GUI implementation.  Customized GUI instances are
 located in seperate files.
 """
-
-
-
 
 
 import collections
@@ -74,6 +88,20 @@ BASE_URL = 'https://earthengine.googleapis.com'
 # The z, x and y arguments at the end correspond to level, x, y here.
 DEFAULT_MAP_URL_PATTERN = ('http://mt1.google.com/vt/lyrs=m@176000000&hl=en&'
                                                      'src=app&z=%d&x=%d&y=%d')
+
+
+# Text to display in "About" buttons for legal purposes
+ABOUT_TEXT = '''Crisis Mapping Toolkit (CMT) v1
+
+A tool for assisting in crisis measurement and detection using Google's Earth Engine.
+
+
+Copyright * 2014, United States Government as represented by the Administrator of the National Aeronautics and Space Administration. All rights reserved.
+
+The Crisis Mapping Toolkit (CMT) v1 framework is licensed under the Apache License, Version 2.0 (the "License"); you may not use this application except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.'''
+
 
 
 #================================================================================
@@ -258,7 +286,6 @@ class MapViewWidget(QtGui.QWidget):
                 painter.drawImage(QtCore.QPoint(xpos, ypos), image)
             painter.end()
 
-    # TODO: Make private?
     def addOverlay(self, inputTileManager, eeobject, name, show, vis_params):   # pylint: disable=g-bad-name
         """Add an overlay to the map."""
         self.overlays.append(MapViewOverlay(inputTileManager, eeobject, name, show, vis_params))
@@ -325,7 +352,7 @@ class MapViewWidget(QtGui.QWidget):
             layer: The layer number this overlay corresponds to.    Only used
                     for caching purposes.
         """
-        # TODO(user): This function is called from multiple threads, and
+        # This function is called from multiple threads, and
         # could use some synchronization, but it seems to work.
         if self.level == key[0] and overlay.show:   # Don't add late tiles from another level.
             self.tiles[key] = self.tiles.get(key, {})
@@ -705,10 +732,36 @@ class GenericMapGui(QtGui.QMainWindow):
     
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
-        self.mapwidget = MapViewWidget()
+        self.mapWidget = MapViewWidget()
 
-        # This makes mapwidget take up the entire window
-        self.setCentralWidget(self.mapwidget) 
+
+        # Set up all the components in a vertical layout
+        vbox = QtGui.QVBoxLayout()
+        
+        # Add a horizontal row of widgets at the top
+        topHorizontalBox = QtGui.QHBoxLayout()
+        
+        TOP_BUTTON_HEIGHT = 30
+        TINY_BUTTON_WIDTH = 30
+        
+        # Make a tiny "About" box for legal information
+        self.aboutButton = QtGui.QPushButton('?', self)
+        self.aboutButton.setMinimumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.aboutButton.setMaximumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.aboutButton.clicked[bool].connect(self.__showAboutText)
+        topHorizontalBox.addStretch(1) # This pushes the button to the right side of the screen
+        topHorizontalBox.addWidget(self.aboutButton)
+
+        # Add the row of widgets on the top of the GUI
+        vbox.addLayout(topHorizontalBox)
+        
+        # Add the main map widget
+        vbox.addWidget(self.mapWidget)
+
+        # QMainWindow requires that its layout be set in this manner
+        mainWidget = QtGui.QWidget()
+        mainWidget.setLayout(vbox)
+        self.setCentralWidget(mainWidget)
 
         # This is the initial window size, but the user can resize it.
         self.setGeometry(100, 100, 720, 720) 
@@ -720,10 +773,14 @@ class GenericMapGui(QtGui.QMainWindow):
         if event.key() == QtCore.Qt.Key_Q:
             QtGui.QApplication.quit()
 
+    def __showAboutText(self):
+        '''Pop up a little text box to display legal information'''
+        QtGui.QMessageBox.about(self, 'about', ABOUT_TEXT)
+
     def __getattr__(self, attr):
         '''Forward any unknown function call to MapViewWidget() widget we created'''
         try:
-            return getattr(self.mapwidget, attr) # Forward the call to the MapViewWidget class
+            return getattr(self.mapWidget, attr) # Forward the call to the MapViewWidget class
         except:
             raise AttributeError(attr) # This happens if the MapViewWidget class does not support the call
 

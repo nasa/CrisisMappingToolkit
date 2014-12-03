@@ -1,8 +1,32 @@
+# -----------------------------------------------------------------------------
+# Copyright * 2014, United States Government, as represented by the
+# Administrator of the National Aeronautics and Space Administration. All
+# rights reserved.
+#
+# The Crisis Mapping Toolkit (CMT) v1 platform is licensed under the Apache
+# License, Version 2.0 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+# -----------------------------------------------------------------------------
+
 from util.local_ee_image import LocalEEImage
 
 import ee
 
 import math
+
+'''
+Active Contour (snake) water detector based on the paper:
+    "Flood boundary delineation from Synthetic Aperture Radar imagery using a
+     statistical active contour model. M. S. Horritt , D. C. Mason & A. J. Luckman"
+'''
+
 
 class Loop(object):
     MIN_NODE_SEPARATION    =    5
@@ -23,9 +47,9 @@ class Loop(object):
         # third parameter of node is how long it's been still
         if len(nodes[0]) == 2:
             nodes = map(lambda x: (x[0], x[1], 0), nodes)
-        self.nodes = nodes
+        self.nodes     = nodes
         self.clockwise = self.__is_clockwise()
-        self.done = False
+        self.done      = False
         self.almost_done_count = 0
 
     
@@ -52,7 +76,7 @@ class Loop(object):
     def __is_clockwise(self):
         s = 0
         for i in range(len(self.nodes)):
-            n = i + 1 if i < len(self.nodes) - 1 else 0
+            n = (i + 1) if (i < len(self.nodes) - 1) else 0 # TODO: There should be a function for this line!
             s += (self.nodes[n][0] - self.nodes[i][0]) * (self.nodes[n][1] + self.nodes[i][1])
         return s >= 0
     
@@ -65,12 +89,12 @@ class Loop(object):
         a2 = math.atan2(n3[1] - n2[1], n3[0] - n2[0])
         if nn1:
             b1 = math.atan2(nn1[1] - n2[1], nn1[0] - n2[0])
-            b2 = math.atan2(n3[1] - n2[1], n3[0] - n2[0])
+            b2 = math.atan2( n3[1] - n2[1],  n3[0] - n2[0])
         elif nn2:
             b1 = math.atan2(n1[1] - nn2[1], n1[0] - nn2[0])
             b2 = math.atan2(n3[1] - nn2[1], n3[0] - nn2[0])
         else:
-            b1 = math.atan2(n1[1] - n2[1], n1[0] - n2[0])
+            b1 = math.atan2( n1[1] - n2[1],  n1[0] - n2[0])
             b2 = math.atan2(nn3[1] - n2[1], nn3[0] - n2[0])
         change = (b1 - b2) - (a1 - a2)
         while change > math.pi:
@@ -118,12 +142,12 @@ class Loop(object):
                     if (not inside1) and (not inside2):
                         continue
                 val = math.log10(self.data[x, y])
-                mean += val
+                mean   += val
                 mean_2 += val ** 2
                 n += 1
         if n == 0:
             return (0, 0)
-        mean /= float(n)
+        mean   /= float(n)
         mean_2 /= float(n)
         var = mean_2 - mean ** 2
         if var <= 0.0:
@@ -153,12 +177,12 @@ class Loop(object):
         n2 = self.nodes[i]
         if n2[2] > 5:
             return n2
-        p  = i - 1 if i > 0 else len(self.nodes) - 1
-        pp = p - 1 if p > 0 else len(self.nodes) - 1
-        n  = i + 1 if i < len(self.nodes) - 1 else 0
-        nn = n + 1 if n < len(self.nodes) - 1 else 0
-        n1 = self.nodes[p]
-        n3 = self.nodes[n]
+        p     = (i - 1) if (i > 0)                   else (len(self.nodes) - 1)
+        pp    = (p - 1) if (p > 0)                   else (len(self.nodes) - 1)
+        n     = (i + 1) if (i < len(self.nodes) - 1) else 0
+        nn    = (n + 1) if (n < len(self.nodes) - 1) else 0
+        n1    = self.nodes[p]
+        n3    = self.nodes[n]
         # use immediate vicinity of node
         x_min = max(0,                  n2[0] - self.SEED_REGION_BORDER)
         x_max = min(self.data.shape[0], n2[0] + self.SEED_REGION_BORDER)
@@ -178,15 +202,16 @@ class Loop(object):
             # find how similar pixels inside curve are to expected water distribution
             (count, g) = self.__get_goodness(bbox, n1, np, n3)
             # penalty for curving sharply
-            curveg = self.__curvature(n1, n2, n3, nn2=np) + self.__curvature(self.nodes[pp], n1, n2, nn2=np) + \
-                    self.__curvature(n2, n3, self.nodes[nn], nn1=np)
+            curveg = self.__curvature(n1,             n2, n3,             nn2=np) + \
+                     self.__curvature(self.nodes[pp], n1, n2,             nn2=np) + \
+                     self.__curvature(n2,             n3, self.nodes[nn], nn1=np)
             # encourage nodes to stay the right distance apart
             tensiong = self.__tension(n1, n2, n3, np)
             fullg = (count - original_count) * g - self.CURVATURE_GAMMA * curveg - \
                     self.TENSION_LAMBDA * tensiong
             if fullg > best_goodness:
                 best_goodness = fullg
-                best = np
+                best          = np
         if best_goodness == 0:
             return (n2[0], n2[1], n2[2] + 1)
         else:
@@ -201,8 +226,8 @@ class Loop(object):
             self.nodes[i] = self.__shift_node(i)
             # this node updated, neighboring nodes should too
             if self.nodes[i][2] == 0:
-                p = i - 1 if i > 0 else len(self.nodes) - 1
-                n = i + 1 if i < len(self.nodes) - 1 else 0
+                p = (i - 1) if (i > 0)                   else (len(self.nodes) - 1)
+                n = (i + 1) if (i < len(self.nodes) - 1) else 0
                 self.nodes[p] = (self.nodes[p][0], self.nodes[p][1], 0)
                 self.nodes[n] = (self.nodes[n][0], self.nodes[n][1], 0)
                 self.moving_count += 1
@@ -222,7 +247,7 @@ class Loop(object):
         # go through nodes in loop
         i = 0
         while i < len(self.nodes):
-            n = i + 1 if i < len(self.nodes) - 1 else 0
+            n     = (i + 1) if (i < len(self.nodes) - 1) else 0
             dist2 = (self.nodes[i][0] - self.nodes[n][0]) ** 2 + (self.nodes[i][1] - self.nodes[n][1]) ** 2
             # delete node if too close
             if dist2 < self.MIN_NODE_SEPARATION ** 2:
@@ -231,7 +256,7 @@ class Loop(object):
                     break
                 self.nodes[i] = (self.nodes[i][0], self.nodes[i][1], 0)
                 del self.nodes[n]
-                n = n if n < len(self.nodes) else 0 # last might have been deleted
+                n = n if (n < len(self.nodes)) else 0 # last might have been deleted
                 self.nodes[n] = (self.nodes[n][0], self.nodes[n][1], 0)
                 continue
             # add node if too far
@@ -263,11 +288,11 @@ class Loop(object):
             # find next intersection
             for (prev1, prev2) in intersections:
                 if lind(prev1) < closest and prev1 >= i:
-                    closest = lind(prev1)
-                    closest_other = prev2 + 1 if prev2 < lind(loop_end-1) else loop_end
+                    closest       = lind(prev1)
+                    closest_other = (prev2 + 1) if (prev2 < lind(loop_end-1)) else loop_end
                 if lind(prev2) < closest and prev2 >= i and prev1 >= i:# ignore loops in wrong order
-                    closest = lind(prev2)
-                    closest_other = prev1 + 1 if prev1 < lind(loop_end-1) else loop_end
+                    closest       = lind(prev2)
+                    closest_other = (prev1 + 1) if (prev1 < lind(loop_end-1)) else loop_end
             closest_next = closest + 1
             # extend loop with passed nodes
             if closest_next >= len(self.nodes):
@@ -305,11 +330,11 @@ class Loop(object):
             return []
         # find biggest loop with our own orientation
         biggest_length = -1
-        biggest_loop = -1
+        biggest_loop   = -1
         for i in range(len(loops)):
             if loops[i].clockwise == self.clockwise and len(loops[i].nodes) > biggest_length:
                 biggest_length = len(loops[i].nodes)
-                biggest_loop = i
+                biggest_loop   = i
         accepted_loops = [loops[biggest_loop]]
         for i in range(len(loops)):
             if i == biggest_loop:
@@ -336,14 +361,14 @@ class Loop(object):
         # find self intersections
         self_intersections = []
         for i in range(len(self.nodes)):
-            cur1 = self.nodes[i]
-            prev_i = i - 1 if i > 0 else len(self.nodes) - 1
-            prev1 = self.nodes[prev_i]
+            cur1   = self.nodes[i]
+            prev_i = (i - 1) if (i > 0) else (len(self.nodes) - 1)
+            prev1  = self.nodes[prev_i]
             for j in range(i+1, len(self.nodes)):
-                prev_j = j - 1 if j > 0 else len(self.nodes) - 1
-                if j == i or j == prev_i or prev_j == i:
+                prev_j = (j - 1) if (j > 0) else (len(self.nodes) - 1)
+                if (j == i) or (j == prev_i) or (prev_j == i):
                     continue
-                cur2 = self.nodes[j]
+                cur2  = self.nodes[j]
                 prev2 = self.nodes[prev_j]
                 if not self.__line_segments_intersect(prev1, cur1, prev2, cur2):
                     continue
@@ -360,13 +385,13 @@ class Loop(object):
         intersection = None
         # find intersections
         for i in range(len(self.nodes)):
-            cur1 = self.nodes[i]
-            prev_i = i - 1 if i > 0 else len(self.nodes) - 1
-            prev1 = self.nodes[prev_i]
+            cur1   = self.nodes[i]
+            prev_i = (i - 1) if (i > 0) else (len(self.nodes) - 1)
+            prev1  = self.nodes[prev_i]
             for j in range(len(other.nodes)):
-                prev_j = j - 1 if j > 0 else len(other.nodes) - 1
-                cur2 = other.nodes[j]
-                prev2 = other.nodes[prev_j]
+                prev_j = (j - 1) if (j > 0) else (len(other.nodes) - 1)
+                cur2   = other.nodes[j]
+                prev2  = other.nodes[prev_j]
                 if not self.__line_segments_intersect(prev1, cur1, prev2, cur2):
                     continue
                 intersection = (i, j)
@@ -374,7 +399,7 @@ class Loop(object):
         if intersection == None:
             return None
         (i, j) = intersection
-        loop = self.nodes[0:i] + other.nodes[j:] + other.nodes[0:j] + self.nodes[i:]
+        loop   = self.nodes[0:i] + other.nodes[j:] + other.nodes[0:j] + self.nodes[i:]
         assert len(loop) == len(self.nodes) + len(other.nodes)
         return Loop(self.data, loop)
 
@@ -386,7 +411,7 @@ class Snake(object):
         # numpy is slower than tuples
         #initial_nodes = map(lambda x: map(lambda y: np.array(y), x), initial_nodes)
         self.loops = [Loop(self.data, l) for l in initial_nodes]
-        self.done = False
+        self.done  = False
 
     def shift_nodes(self):
         if self.done:
@@ -440,7 +465,7 @@ class Snake(object):
         interior = []
         for l in self.loops:
             coords = map(lambda x: self.local_image.image_to_global(x[0], x[1]), l.nodes)
-            f = ee.Feature.Polygon(coords)
+            f      = ee.Feature.Polygon(coords)
             if not l.clockwise:
                 interior.append(f)
             else:
@@ -456,9 +481,9 @@ def initialize_active_contour(domain):
     #local_image = LocalEEImage(domain.image, domain.bbox, 6.174, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.id))
     local_image = LocalEEImage(domain.image, domain.bbox, 25, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.name))
     (w, h) = local_image.size()
-    B = w / 25
+    B              = w / 25
     VERTICAL_CELLS = 20
-    CELL_SIZE = (w - 2 * B) / VERTICAL_CELLS
+    CELL_SIZE      = (w - 2 * B) / VERTICAL_CELLS
     loops = []
     for i in range(B, w - B, CELL_SIZE):
         for j in range(B + int(4 * B * float(i - B) / CELL_SIZE / VERTICAL_CELLS), h - B, CELL_SIZE):
