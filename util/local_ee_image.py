@@ -24,6 +24,7 @@ import os.path
 import urllib2
 import uuid
 import zipfile
+import tempfile
 from multiprocessing.pool import ThreadPool
 
 import ee
@@ -38,6 +39,8 @@ from PyQt4 import QtCore, QtGui
 # however this doesn't have any other dependencies on that yet, so let's not.
 BASE_URL = 'https://earthengine.googleapis.com'
 
+TEMP_FILE_DIR = tempfile.gettempdir()
+
 class LocalEEImage(object):
     """Downloads an entire image from Earth Engine and maintains it locally."""
 
@@ -47,8 +50,9 @@ class LocalEEImage(object):
         if image_name == None:
             image_name = uuid.uuid4()
         url = eeobject.getDownloadUrl({'name' : image_name, 'scale': scale, 'crs': 'EPSG:4326',
-                  'region': apply(ee.Geometry.Rectangle, bbox).toGeoJSONString()})
-        filename = '/tmp/%s_%g,%g_%g,%g_%g.zip' % (image_name, bbox[0], bbox[1], bbox[2], bbox[3], scale)
+                                       'region': apply(ee.Geometry.Rectangle, bbox).toGeoJSONString()})
+        tempFile = '%s_%g,%g_%g,%g_%g.zip' % (image_name, bbox[0], bbox[1], bbox[2], bbox[3], scale)
+        filename = os.path.join(TEMP_FILE_DIR, tempFile) 
         if not os.path.isfile(filename):
             print 'Downloading image...'
             data = urllib2.urlopen(url)
