@@ -2,7 +2,10 @@
 
 The Crisis Mapping Toolkit is a collection of algorithms and utilities for creating maps in response to crisis.
 The CMT relies on [Google Earth Engine (EE)](https://earthengine.google.org/) for much of its data processing.
-It is released under the Apache 2 license.
+The CMT is released under the Apache 2 license.
+
+The CMT is developed by the NASA Ames Intelligent Robotics Group, with generous support from the Google Crisis
+Response Team and the Google Earth Engine Team.
 
 The CMT currently provides:
 
@@ -20,6 +23,7 @@ The CMT currently provides:
       data sources in XML.
 
 The CMT is under heavy development, so expect frequent changes and additional features.
+Please contact Brian Coltin (brian.j.coltin@nasa.gov) with any questions.
 
 ## Installation
 
