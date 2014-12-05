@@ -23,7 +23,7 @@ The CMT currently provides:
       data sources in XML.
 
 The CMT is under heavy development, so expect frequent changes and additional features.
-Please contact Brian Coltin (brian.j.coltin@nasa.gov) with any questions.
+Please contact Brian Coltin (brian.j.coltin at nasa dot gov) with any questions.
 
 ## Installation
 
