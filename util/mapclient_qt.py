@@ -398,13 +398,32 @@ class MapViewWidget(QtGui.QWidget):
         with self.qttiles_lock:
             self.qttiles = {}
         self.LoadTiles()
+    
+    def __showAboutText(self):
+        '''Pop up a little text box to display legal information'''
+        QtGui.QMessageBox.about(self, 'about', ABOUT_TEXT)
 
     def contextMenuEvent(self, event):
         menu = QtGui.QMenu(self)
 
         (lon, lat) = self.pixelCoordToLonLat(event.x(), event.y()) # The event returns pixel coordinates
         location_widget = QtGui.QWidgetAction(menu)
-        location_widget.setDefaultWidget(QtGui.QLabel("  Location: (%g, %g)" % (lon, lat)))
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(QtGui.QLabel("  Location: (%g, %g)" % (lon, lat)))
+
+        aboutButton = QtGui.QPushButton('About', self)
+        aboutButton.clicked[bool].connect(self.__showAboutText)
+        hbox.addWidget(aboutButton)
+        
+        TOP_BUTTON_HEIGHT = 20
+        TINY_BUTTON_WIDTH = 50
+        # Make a tiny "About" box for legal information
+        aboutButton.setMinimumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        aboutButton.setMaximumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        mainWidget = QtGui.QWidget()
+        mainWidget.setLayout(hbox)
+        location_widget.setDefaultWidget(mainWidget)
+
         menu.addAction(location_widget)
 
         # Add a toggle for each layer and put it in the right click menu
@@ -733,37 +752,8 @@ class GenericMapGui(QtGui.QMainWindow):
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
         self.mapWidget = MapViewWidget()
-
-
-        # Set up all the components in a vertical layout
-        vbox = QtGui.QVBoxLayout()
-        
-        # Add a horizontal row of widgets at the top
-        topHorizontalBox = QtGui.QHBoxLayout()
-        
-        TOP_BUTTON_HEIGHT = 30
-        TINY_BUTTON_WIDTH = 30
-        
-        # Make a tiny "About" box for legal information
-        self.aboutButton = QtGui.QPushButton('?', self)
-        self.aboutButton.setMinimumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.aboutButton.setMaximumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.aboutButton.clicked[bool].connect(self.__showAboutText)
-        topHorizontalBox.addStretch(1) # This pushes the button to the right side of the screen
-        topHorizontalBox.addWidget(self.aboutButton)
-
-        # Add the row of widgets on the top of the GUI
-        vbox.addLayout(topHorizontalBox)
-        
-        # Add the main map widget
-        vbox.addWidget(self.mapWidget)
-
-        # QMainWindow requires that its layout be set in this manner
-        mainWidget = QtGui.QWidget()
-        mainWidget.setLayout(vbox)
-        self.setCentralWidget(mainWidget)
-
         # This is the initial window size, but the user can resize it.
+        self.setCentralWidget(self.mapWidget)
         self.setGeometry(100, 100, 720, 720) 
         self.setWindowTitle('EE Map View')
         self.show()
@@ -772,10 +762,6 @@ class GenericMapGui(QtGui.QMainWindow):
         """Handle keypress events."""
         if event.key() == QtCore.Qt.Key_Q:
             QtGui.QApplication.quit()
-
-    def __showAboutText(self):
-        '''Pop up a little text box to display legal information'''
-        QtGui.QMessageBox.about(self, 'about', ABOUT_TEXT)
 
     def __getattr__(self, attr):
         '''Forward any unknown function call to MapViewWidget() widget we created'''
