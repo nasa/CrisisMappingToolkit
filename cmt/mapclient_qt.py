@@ -64,9 +64,9 @@ try:
     from PIL import Image, ImageChops                            # pylint: disable=g-import-not-at-top
 except ImportError:
     print """
-        ERROR: A Python library (PIL) used by the Earth Engine API mapclient module
-        was not found. Information on PIL can be found at:
-        http://pypi.python.org/pypi/PIL
+        ERROR: A Python library (PILLOW) used by the CMT mapclient_qt module
+        was not found. Information on PILLOW can be found at:
+        https://pillow.readthedocs.org/
         """
     raise
 
@@ -75,7 +75,7 @@ try:
     from PyQt4 import QtCore, QtGui
 except ImportError:
     print """
-        ERROR: A Python library (PyQt4) used by the Earth Engine API mapclient
+        ERROR: A Python library (PyQt4) used by the CMT mapclient_qt
         module was not found.
         """
     raise

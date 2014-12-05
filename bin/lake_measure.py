@@ -17,7 +17,13 @@
 
 import logging
 logging.basicConfig(level=logging.ERROR)
-import cmt.ee_authenticate
+try:
+    import cmt.ee_authenticate
+except:
+    import sys
+    import os.path
+    sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
+    import cmt.ee_authenticate
 cmt.ee_authenticate.initialize()
 import matplotlib
 matplotlib.use('tkagg')

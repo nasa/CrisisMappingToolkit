@@ -17,32 +17,41 @@
 
 import logging
 logging.basicConfig(level=logging.ERROR)
-import cmt.ee_authenticate
+try:
+    import cmt.ee_authenticate
+except:
+    import sys
+    import os.path
+    sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
+    import cmt.ee_authenticate
+cmt.ee_authenticate.initialize()
 #import matplotlib
-#matplotlib.use('tkagg') # Needed to display a histogram
+#matplotlib.use('tkagg')
 
 import os
-import sys
 import ee
 import functools
 
-import cmt.domain
-from cmt.radar.flood_algorithms import *
+import cmt.modis.domains
+from cmt.modis.flood_algorithms import *
 
 from cmt.mapclient_qt import centerMap, addToMap
-from cmt.util.evaluation import evaluate_approach
+from cmt.util.evaluation   import evaluate_approach
 
 '''
-Tool for testing radar based flood detection algorithms using a simple GUI.
+Tool for testing MODIS based flood detection algorithms using a simple GUI.
 '''
 
 
 # --------------------------------------------------------------
 # Configuration
 
-ALGORITHMS = [MATGEN]
-#ALGORITHMS = [MATGEN, DECISION_TREE, RANDOM_FORESTS, SVM]
-#ALGORITHMS = [ACTIVE_CONTOUR]
+# Specify the data set to use - see /modis/domains.py
+DOMAIN = cmt.modis.domains.BORDER
+
+# Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
+ALGORITHMS = [DARTMOUTH, DIFFERENCE, DNNS, DNNS_DEM]
+
 
 # --------------------------------------------------------------
 # Functions
@@ -52,39 +61,40 @@ def evaluation_function(pair, alg):
     precision, recall = pair
     print '%s: (%4g, %4g)' % (get_algorithm_name(alg), precision, recall)
 
+
 # --------------------------------------------------------------
 # main()
 
-if len(sys.argv) < 2:
-    print 'Usage: detect_flood_radar.py domain.xml'
-    sys.exit(0)
-
-cmt.ee_authenticate.initialize()
 # Fetch data set information
-domain = cmt.domain.Domain(sys.argv[1])
+d = cmt.modis.domains.retrieve_domain(DOMAIN)
 
-# Display the Landsat, MODIS, and ground truth data for the data set
-centerMap(domain.center[0], domain.center[1], 11)
-apply(addToMap, domain.visualize())
-if domain.ground_truth != None:
-    addToMap(domain.ground_truth, {}, 'Ground Truth', False)
+# Display the Landsat and MODIS data for the data set
+centerMap(d.center[0], d.center[1], 11)
+addToMap(d.landsat,       {'bands': ['B3', 'B2', 'B1'], 'gain': d.landsat_gain}, 'Landsat RGB')
+addToMap(d.low_res_modis, {'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06'], 'min' : 0, 'max': 3000, 'opacity' : 1.0}, 'MODIS', False)
 
-#print im.image.getDownloadUrl({'name' : 'sar', 'region':ee.Geometry.Rectangle(-91.23, 32.88, -91.02, 33.166).toGeoJSONString(), 'scale': 6.174})
+addToMap(d.ground_truth.mask(d.ground_truth), {'min': 0, 'max': 1, 'opacity': 0.5}, 'Ground Truth', False)
 
 # For each of the algorithms
 for a in range(len(ALGORITHMS)):
     # Run the algorithm on the data and get the results
-    alg    = ALGORITHMS[a]
-    result = detect_flood(domain, alg)
-    
-    # Get a color pre-associated with the algorithm, then draw it on the map
-    color  = get_algorithm_color(alg)
-    addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color}, get_algorithm_name(alg), False)
-    
-    # Compare the algorithm output to the ground truth and print the results
-    if domain.ground_truth != None:
-        evaluate_approach(functools.partial(evaluation_function, alg=alg), result, domain.ground_truth, domain.bounds)
+    (alg, result) = detect_flood(d, ALGORITHMS[a])
 
-#addToMap(domain.groundTruth.mask(domain.groundTruth), {'min': 0, 'max' : 1, 'opacity' : 0.2}, 'Ground Truth', false);
+    # Get a color pre-associated with the algorithm, then draw it on the map
+    color = get_algorithm_color(ALGORITHMS[a])
+    addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color}, alg, False)
+
+    # Compare the algorithm output to the ground truth and print the results
+    evaluate_approach(functools.partial(evaluation_function, alg=ALGORITHMS[a]), result, d.ground_truth, d.bounds, is_algorithm_fractional(ALGORITHMS[a]))
+
 #addToMap(domain.dem, {min:25, max:50}, 'DEM', false);
+
+
+
+
+
+
+
+
+
 

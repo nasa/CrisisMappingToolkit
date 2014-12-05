@@ -7,10 +7,10 @@ It is released under the Apache 2 license.
 The CMT currently provides:
 
 - Algorithms to determine **flood extent from MODIS data**, such as
-multiple thresholding techniques, learned approaches, Dynamic Nearest
-Neighbor Search, and more.
+  multiple thresholding techniques, learned approaches, Dynamic Nearest
+  Neighbor Search, and more.
 - Algorithms to determine **flood extent from SAR data**, such as
-histogram thresholding and active contour.
+  histogram thresholding and active contour.
 - Various helpful utilities, such as:
     - An **improved visualization UI**, with a drop down menu of layers
       similar to the EE javascript playground.
@@ -22,6 +22,13 @@ histogram thresholding and active contour.
 The CMT is under heavy development, so expect frequent changes and additional features.
 
 ## Installation
+
+- Download the CMT source code from [Github](https://github.com/bcoltin/CrisisMappingToolkit).
+- Install PyQt4.
+- Install the CMT with 
+  ```
+  python setup.py install
+  ```
 
 ## Documentation
 

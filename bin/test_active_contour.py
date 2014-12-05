@@ -18,7 +18,13 @@
 
 import logging
 logging.basicConfig(level=logging.ERROR)
-import cmt.ee_authenticate
+try:
+    import cmt.ee_authenticate
+except:
+    import sys
+    import os.path
+    sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
+    import cmt.ee_authenticate
 cmt.ee_authenticate.initialize()
 
 import time
@@ -33,7 +39,7 @@ import numpy
 from PyQt4 import QtGui, QtCore
 app = QtGui.QApplication(sys.argv)
 
-domain = cmt.domain.Domain('config/domains/uavsar/mississippi.xml')
+domain = cmt.domain.Domain(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..') + '/config/domains/uavsar/mississippi.xml')
 #result = active_contour(domain)
 
 def active_contour_step(local_image, snake, step):
