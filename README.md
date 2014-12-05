@@ -48,7 +48,7 @@ from ee.mapclient import centerMap, addToMap
 with 
 
 ```python
-from cmt.mapclient import centerMap, addToMap
+from cmt.mapclient_qt import centerMap, addToMap
 ```
 
 then use the centerMap and addToMap functions exactly as before.

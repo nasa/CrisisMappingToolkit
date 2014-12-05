@@ -16,6 +16,7 @@
 # -----------------------------------------------------------------------------
 
 import ee
+import sys
 
 import math
 import numpy
@@ -23,8 +24,11 @@ import scipy
 import scipy.special
 import scipy.optimize
 
-import matplotlib
-import matplotlib.pyplot as plt
+#try:
+#    import matplotlib
+#    import matplotlib.pyplot as plt
+#except:
+#    print >> sys.stderr, 'Cannot load matplotlib, visualization functionality unavailable.'
 
 '''
 This file contains tools for histogram based detection of water in radar images.

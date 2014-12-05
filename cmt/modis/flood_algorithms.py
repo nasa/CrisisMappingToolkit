@@ -18,7 +18,7 @@
 import ee
 from domains import *
 
-from util.mapclient_qt import addToMap
+from cmt.mapclient_qt import addToMap
 
 '''
 Contains implementations of multiple MODIS-based flood detection algorithms.

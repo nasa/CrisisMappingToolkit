@@ -18,13 +18,13 @@
 
 import logging
 logging.basicConfig(level=logging.ERROR)
-import util.ee_authenticate
-util.ee_authenticate.initialize()
+import cmt.ee_authenticate
+cmt.ee_authenticate.initialize()
 
 import time
 
-import util.domain
-from radar.active_contour import *
+import cmt.domain
+from cmt.radar.active_contour import *
 
 import sys
 import PIL
@@ -33,7 +33,7 @@ import numpy
 from PyQt4 import QtGui, QtCore
 app = QtGui.QApplication(sys.argv)
 
-domain = util.domain.Domain('config/domains/uavsar/mississippi.xml')
+domain = cmt.domain.Domain('config/domains/uavsar/mississippi.xml')
 #result = active_contour(domain)
 
 def active_contour_step(local_image, snake, step):

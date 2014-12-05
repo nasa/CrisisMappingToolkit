@@ -47,9 +47,9 @@ except ImportError:
         """
     raise
 
-from mapclient_qt import MapViewWidget, prettyPrintEE, ABOUT_TEXT
+from cmt.mapclient_qt import MapViewWidget, prettyPrintEE, ABOUT_TEXT
 
-import modis.flood_algorithms
+import cmt.modis.flood_algorithms
 
 
 # Calendar widget to select a date

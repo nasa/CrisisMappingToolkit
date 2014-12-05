@@ -17,8 +17,8 @@
 
 import logging
 logging.basicConfig(level=logging.ERROR)
-import util.ee_authenticate
-util.ee_authenticate.initialize()
+import cmt.ee_authenticate
+cmt.ee_authenticate.initialize()
 import matplotlib
 matplotlib.use('tkagg')
 
@@ -205,7 +205,7 @@ else:
 if args.date:
     lake = all_lakes.get(0).getInfo()
     ee_lake = ee.Feature(all_lakes.get(0))
-    from util.mapclient_qt import centerMap, addToMap
+    from cmt.mapclient_qt import centerMap, addToMap
     ee_bounds = ee_lake.geometry().buffer(1000)
     collection = get_image_collection(ee_bounds, start_date, end_date)
     landsat = ee.Image(collection.first())

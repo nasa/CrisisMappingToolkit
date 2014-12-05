@@ -17,8 +17,8 @@
 
 import logging
 logging.basicConfig(level=logging.ERROR)
-import util.ee_authenticate
-import matplotlib
+import cmt.ee_authenticate
+#import matplotlib
 #matplotlib.use('tkagg') # Needed to display a histogram
 
 import os
@@ -26,11 +26,11 @@ import sys
 import ee
 import functools
 
-import util.domain
-from radar.flood_algorithms import *
+import cmt.domain
+from cmt.radar.flood_algorithms import *
 
-from util.debug_gui  import centerMap, addToMap
-from util.evaluation import evaluate_approach
+from cmt.mapclient_qt import centerMap, addToMap
+from cmt.util.evaluation import evaluate_approach
 
 '''
 Tool for testing radar based flood detection algorithms using a simple GUI.
@@ -59,10 +59,9 @@ if len(sys.argv) < 2:
     print 'Usage: detect_flood_radar.py domain.xml'
     sys.exit(0)
 
-util.ee_authenticate.initialize()
-
+cmt.ee_authenticate.initialize()
 # Fetch data set information
-domain = util.domain.Domain(sys.argv[1])
+domain = cmt.domain.Domain(sys.argv[1])
 
 # Display the Landsat, MODIS, and ground truth data for the data set
 centerMap(domain.center[0], domain.center[1], 11)

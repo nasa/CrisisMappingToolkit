@@ -24,10 +24,10 @@ import scipy.special
 import scipy.optimize
 
 import histogram
-import matplotlib
+#import matplotlib
 #matplotlib.use('tkagg')
-import matplotlib.pyplot as plt
-from util.mapclient_qt import addToMap
+#import matplotlib.pyplot as plt
+from cmt.mapclient_qt import addToMap
 
 #------------------------------------------------------------------------
 # - sar_martinis radar algorithm (find threshold by histogram splits on selected subregions)

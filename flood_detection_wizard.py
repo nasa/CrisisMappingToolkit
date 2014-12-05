@@ -42,15 +42,15 @@ import logging
 logging.basicConfig(level=logging.ERROR)
 
 
-import util.ee_authenticate
-util.ee_authenticate.initialize()
+import cmt.ee_authenticate
+cmt.ee_authenticate.initialize()
 
 
 
 # The GUI type for the project must be set like this!
-import util.mapclient_qt
-import util.production_gui
-util.mapclient_qt.gui_type = util.production_gui.ProductionGui
+import cmt.mapclient_qt
+import cmt.util.production_gui
+cmt.mapclient_qt.gui_type = cmt.util.production_gui.ProductionGui
 
 # --------------------------------------------------------------
 # Configuration
@@ -61,7 +61,7 @@ util.mapclient_qt.gui_type = util.production_gui.ProductionGui
 # main()
 
 # util/production_gui.py does all the work!
-util.mapclient_qt.addEmptyGui()
+cmt.mapclient_qt.addEmptyGui()
 
 
 

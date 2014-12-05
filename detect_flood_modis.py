@@ -17,20 +17,20 @@
 
 import logging
 logging.basicConfig(level=logging.ERROR)
-import util.ee_authenticate
-util.ee_authenticate.initialize()
-import matplotlib
+import cmt.ee_authenticate
+cmt.ee_authenticate.initialize()
+#import matplotlib
 #matplotlib.use('tkagg')
 
 import os
 import ee
 import functools
 
-import modis.domains
-from modis.flood_algorithms import *
+import cmt.modis.domains
+from cmt.modis.flood_algorithms import *
 
-from util.mapclient_qt import centerMap, addToMap
-from util.evaluation   import evaluate_approach
+from cmt.mapclient_qt import centerMap, addToMap
+from cmt.util.evaluation   import evaluate_approach
 
 '''
 Tool for testing MODIS based flood detection algorithms using a simple GUI.
@@ -41,7 +41,7 @@ Tool for testing MODIS based flood detection algorithms using a simple GUI.
 # Configuration
 
 # Specify the data set to use - see /modis/domains.py
-DOMAIN = modis.domains.BORDER
+DOMAIN = cmt.modis.domains.BORDER
 
 # Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
 ALGORITHMS = [DARTMOUTH, DIFFERENCE, DNNS, DNNS_DEM]
@@ -60,7 +60,7 @@ def evaluation_function(pair, alg):
 # main()
 
 # Fetch data set information
-d = modis.domains.retrieve_domain(DOMAIN)
+d = cmt.modis.domains.retrieve_domain(DOMAIN)
 
 # Display the Landsat and MODIS data for the data set
 centerMap(d.center[0], d.center[1], 11)

@@ -16,7 +16,7 @@
 # -----------------------------------------------------------------------------
 
 import ee
-from util.mapclient_qt import centerMap, addToMap
+from cmt.mapclient_qt import centerMap, addToMap
 
 from histogram import RadarHistogram
 

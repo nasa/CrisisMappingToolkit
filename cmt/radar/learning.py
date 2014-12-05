@@ -16,21 +16,19 @@
 # -----------------------------------------------------------------------------
 
 import ee
-from util.mapclient_qt import centerMap, addToMap
 
-import domains
 from histogram import RadarHistogram
-
 
 '''
 Use Earth Engine's classifier tool for water detection.
 '''
 
+#TODO: fix for new domain system
 def __learning_threshold(domain, algorithm):
-    training_domain = domains.get_radar_image(domains.TRAINING_DATA[domain.id])
+    training_domain = domain.training_domain
     classifier = ee.apply('TrainClassifier', {'image': training_domain.image,
                             'subsampling'       : 0.07,
-                            'training_image'    : domains.get_ground_truth(training_domain),
+                            'training_image'    : training_domain.ground_truth,
                             'training_band'     : 'b1',
                             'training_region'   : training_domain.bounds,
                             'max_classification': 2,

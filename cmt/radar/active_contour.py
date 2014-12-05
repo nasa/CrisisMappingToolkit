@@ -15,7 +15,7 @@
 # the License.
 # -----------------------------------------------------------------------------
 
-from util.local_ee_image import LocalEEImage
+from cmt.local_ee_image import LocalEEImage
 
 import ee
 
