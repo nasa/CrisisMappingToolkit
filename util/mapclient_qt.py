@@ -34,7 +34,7 @@ Tiles are referenced using a key of (level, x, y) throughout.
 Several of the functions are named to match the Google Maps Javascript API,
 and therefore violate style guidelines.
 
-Based on the TK map interface from Google Earth Engine.
+Based on the TK map interface from Google Earth Engine, in map_client.py.
 
 Terminology guide:
  - overlay = One of the things that can be displayed on the map.
@@ -799,7 +799,8 @@ def addToMap(eeobject, vis_params=None, name="", show=True):
             eeobject: The object to add to the map.
             vis_params: A dictionary of visualization parameters.   See
                         ee.data.getMapId().
-            *unused_args: Unused arguments, left for compatibility with the JS API.
+            name: The name of the image, to display in the drop down menu.
+            show: Whether the layer should be visible by default.
 
     This call exists to be an equivalent to the playground addToMap() call.
     It uses a global MapInstance to hang on to "the map".   If the MapInstance

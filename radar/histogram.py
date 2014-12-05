@@ -16,7 +16,6 @@
 # -----------------------------------------------------------------------------
 
 import ee
-import domains
 
 import math
 import numpy

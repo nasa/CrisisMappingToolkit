@@ -18,7 +18,6 @@
 import ee
 from util.mapclient_qt import centerMap, addToMap
 
-import domains
 from histogram import RadarHistogram
 
 
