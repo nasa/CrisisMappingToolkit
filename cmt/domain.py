@@ -168,8 +168,8 @@ class SensorObservation(object):
         # If any bands are already loaded (meaning we are in the domain file), apply this source info to them.
         for b in self.band_names:  
             self.__band_sources[b].update(default_source)
-        #if self.__mask_info != None:
-        #    self.__mask_info.update(default_source)
+        if self.__mask_info != None:
+            self.__mask_info.update(default_source)
 
 
         # load individual <band> tags
@@ -247,15 +247,13 @@ class SensorObservation(object):
             
         # Apply mask once all the bands are loaded
         if self.__mask_info != None:
-            #print self.__mask_info
             if 'self' in self.__mask_info and self.__mask_info['self']:
                 self.image = self.image.mask(self.image) # Apply self-mask
             elif 'eeid' in self.__mask_info: # Apply a mask from an external source
                 self.image = self.image.mask(ee.Image(self.__mask_info['eeid']).select([self.__mask_info['source']], ['b1']))
-            else: # It must be using one of the bands!
-                maskChannel = self.image.select([self.__mask_info['source']], ['b1'])
-                self.image  = self.image.mask(maskChannel)
-                
+            else:
+                raise Exception('Not enough mask information specified!')
+
         # Apply minimum and maximum value to all bands if specified
         #if self.minimum_value == None or  self.maximum_value == None:
         #    raise Exception('Minimum and maximum value not specified.')
