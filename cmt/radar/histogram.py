@@ -16,19 +16,14 @@
 # -----------------------------------------------------------------------------
 
 import ee
-import sys
-
 import math
 import numpy
 import scipy
 import scipy.special
 import scipy.optimize
 
-#try:
-#    import matplotlib
-#    import matplotlib.pyplot as plt
-#except:
-#    print >> sys.stderr, 'Cannot load matplotlib, visualization functionality unavailable.'
+import matplotlib
+import matplotlib.pyplot as plt
 
 '''
 This file contains tools for histogram based detection of water in radar images.
@@ -44,48 +39,49 @@ class RadarHistogram(object):
     BACKSCATTER_MODEL_DIP      = 3
     BACKSCATTER_MODEL_PEAK     = 4
 
-    def __init__(self, domain, backscatter_model = None):
+    def __init__(self, domain, sensor, backscatter_model = None):
         self.domain = domain
+        self.sensor = sensor
         self.backscatter_model = []
-        for i in range(len(domain.bands)):
+        for i in range(len(sensor.band_names)):
             if backscatter_model != None:
                 self.backscatter_model.append(backscatter_model)
             else:
-                if domain.water[domain.bands[i]]['model'] == 'peak':
+                if sensor.water_distributions[sensor.band_names[i]]['model'] == 'peak':
                     self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_PEAK)
-                elif domain.water[domain.bands[i]]['model'] == 'dip':
+                elif sensor.water_distributions[sensor.band_names[i]]['model'] == 'dip':
                     self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_DIP)
-                elif domain.water[domain.bands[i]]['model'] == 'lambda':
+                elif sensor.water_distributions[sensor.band_names[i]]['model'] == 'lambda':
                     self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_GAMMA)
                 else:
                     self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_GAUSSIAN)
         
-        self.hist_image = self.__preprocess_image(domain)
+        self.hist_image = self.__preprocess_image(sensor)
 
         self.histograms = self.__compute_histogram(self.hist_image)
         self.__find_thresholds()
     
-    def __preprocess_image(self, domain):
-        image = domain.image
-        if self.domain.log_scale:
+    def __preprocess_image(self, sensor):
+        image = sensor.image
+        if self.sensor.log_scale:
             image = image.log10()
         # clamp bands to specified water range
-        for b in domain.bands:
-            if 'range' in domain.water[b]:
-                other_bands = list(domain.bands)
+        for b in sensor.band_names:
+            if 'range' in sensor.water_distributions[b]:
+                other_bands = list(sensor.band_names)
                 other_bands.remove(b)
-                r = domain.water[b]['range']
+                r     = sensor.water_distributions[b]['range']
                 image = image.select([b], [b]).clamp(r[0], r[1]).addBands(image.select(other_bands, other_bands))
         return image
     
     def __compute_histogram(self, image):
         # buckets must be same for all bands
-        buckets = 128 if 'buckets' not in self.domain.water[self.domain.bands[0]] else self.domain.water[self.domain.bands[0]]['buckets']
+        buckets = 128 if 'buckets' not in self.sensor.water_distributions[self.sensor.band_names[0]] else self.sensor.water_distributions[self.sensor.band_names[0]]['buckets']
         histogram = image.reduceRegion(ee.Reducer.histogram(buckets, None, None), self.domain.bounds, 30, None, None, True).getInfo()
         h = []
     
-        for c in range(len(self.domain.bands)):
-            ch = self.domain.bands[c]
+        for c in range(len(self.sensor.band_names)):
+            ch = self.sensor.band_names[c]
             # ignore first bucket, too many... for UAVSAR in particular
             #histogram[ch]['bucketMin'] += histogram[ch]['bucketWidth']
             #histogram[ch]['histogram'] =  histogram[ch]['histogram'][1:]
@@ -123,7 +119,7 @@ class RadarHistogram(object):
         
         ind = numpy.arange(start=start, stop=start + width * len(values), step=width)[:-1]
         plt.bar(ind, height=values[:-1], width=width, color='b')
-        plt.ylabel(self.domain.bands[channel])
+        plt.ylabel(self.sensor.band_names[channel])
 
         bm = self.backscatter_model[channel]
         
@@ -165,7 +161,7 @@ class RadarHistogram(object):
         values = self.histograms[channel][2]
     
         # find the mode
-        temp = self.domain.water[self.domain.bands[channel]]['mode']
+        temp = self.sensor.water_distributions[self.sensor.band_names[channel]]['mode']
         (minv, maxv) = (temp['min'], temp['max'])
         i = int((minv - start) / width)
         biggest_bin = i
@@ -189,8 +185,8 @@ class RadarHistogram(object):
         if self.backscatter_model[channel] == RadarHistogram.BACKSCATTER_MODEL_DIP:
             return (local_min, None)
     
-        m = self.domain.minimum_value
-        if self.domain.log_scale:
+        m = self.sensor.minimum_value
+        if self.sensor.log_scale:
             m = math.log10(m)
         # find the other parameters of the distribution
         (value, result) = scipy.optimize.leastsq(self.__gamma_function_errors, [10], factor=1.0, args=(mode, mode, m, channel))
@@ -214,9 +210,9 @@ class RadarHistogram(object):
     def __find_thresholds(self):
         self.thresholds = []
         self.distributions = []
-        for c in range(len(self.domain.bands)):
+        for c in range(len(self.sensor.band_names)):
             (threshold, params) = self.__find_threshold_histogram(c)
-            if self.domain.log_scale:
+            if self.sensor.log_scale:
                 threshold = 10 ** threshold
             self.thresholds.append(threshold)
             self.distributions.append(params)
@@ -226,16 +222,16 @@ class RadarHistogram(object):
     
     def find_loose_thresholds(self, percentile=0.99):
         results = []
-        for c in range(len(self.domain.bands)):
+        for c in range(len(self.sensor.band_names)):
             (threshold, params) = (self.thresholds[c], self.distributions[c])
             if params != None:
                 t = self.__cdf_percentile(params, percentile, self.backscatter_model[c])
-                if self.domain.log_scale:
+                if self.sensor.log_scale:
                     t = 10 ** t
                 results.append(t)
             else:
                 # if finding dip or peak, find next local min / max as threshold
-                if self.domain.log_scale:
+                if self.sensor.log_scale:
                     threshold = math.log10(threshold)
                 start = self.histograms[c][0]
                 width = self.histograms[c][1]
@@ -253,16 +249,16 @@ class RadarHistogram(object):
                             break
                         i += 1
                 t = start + i * width
-                if self.domain.log_scale:
+                if self.sensor.log_scale:
                     t = 10 ** t
                 results.append(t)
         return results
 
     def show_histogram(self):
         plt.figure(1)
-        for c in range(len(self.domain.bands)):
-            ch = self.domain.bands[c]
-            plt.subplot(100 * len(self.domain.bands) + 10 + c + 1)
+        for c in range(len(self.sensor.band_names)):
+            ch = self.sensor.band_names[c]
+            plt.subplot(100 * len(self.sensor.band_names) + 10 + c + 1)
             self.__show_histogram(c)
         plt.show()
 

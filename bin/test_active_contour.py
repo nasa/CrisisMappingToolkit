@@ -26,9 +26,9 @@ except:
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
     import cmt.ee_authenticate
 cmt.ee_authenticate.initialize()
-
+ 
 import time
-
+ 
 import cmt.domain
 from cmt.radar.active_contour import *
 

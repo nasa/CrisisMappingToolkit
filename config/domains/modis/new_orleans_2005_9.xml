@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<domain>
+    <name>New Orleans</name>
+    
+    <sensors>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2005-09-07</start_date>
+            <end_date>2005-09-08</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>Landsat5</name>
+        <bands>
+          <source>
+            <start_date>2005-09-07</start_date>
+            <end_date>2005-09-08</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>NED13</name>
+      </sensor>
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>-90.3</lon>
+            <lat>29.90</lat>
+        </bottomleft>
+        <topright>
+            <lon>-89.76</lon>
+            <lat>30.07</lat>
+        </topright>
+    </bbox>
+    
+    <truth>18108519531116889794-17234028967417318364</truth>
+    <training_domain>slidell_2005_9</training_domain>
+    
+    <algorithm_params>
+      <modis_diff_threshold>1200</modis_diff_threshold>
+      
+      <modis_mask_threshold>4.5</modis_mask_threshold>
+      <modis_change_threshold>-3.0</modis_change_threshold>
+      
+      <dartmouth_threshold>0.75</dartmouth_threshold>
+    </algorithm_params>
+    
+</domain>
+

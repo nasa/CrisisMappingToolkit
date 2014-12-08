@@ -34,7 +34,7 @@ Tiles are referenced using a key of (level, x, y) throughout.
 Several of the functions are named to match the Google Maps Javascript API,
 and therefore violate style guidelines.
 
-Based on the TK map interface from Google Earth Engine, in map_client.py.
+Based on the TK map interface from Google Earth Engine.
 
 Terminology guide:
  - overlay = One of the things that can be displayed on the map.
@@ -398,7 +398,7 @@ class MapViewWidget(QtGui.QWidget):
         with self.qttiles_lock:
             self.qttiles = {}
         self.LoadTiles()
-    
+
     def __showAboutText(self):
         '''Pop up a little text box to display legal information'''
         QtGui.QMessageBox.about(self, 'about', ABOUT_TEXT)
@@ -408,6 +408,7 @@ class MapViewWidget(QtGui.QWidget):
 
         (lon, lat) = self.pixelCoordToLonLat(event.x(), event.y()) # The event returns pixel coordinates
         location_widget = QtGui.QWidgetAction(menu)
+        location_widget.setDefaultWidget(QtGui.QLabel("  Location: (%g, %g)" % (lon, lat)))
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(QtGui.QLabel("  Location: (%g, %g)" % (lon, lat)))
 
@@ -752,8 +753,37 @@ class GenericMapGui(QtGui.QMainWindow):
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
         self.mapWidget = MapViewWidget()
+
+
+        # Set up all the components in a vertical layout
+        vbox = QtGui.QVBoxLayout()
+        
+        ## Add a horizontal row of widgets at the top
+        #topHorizontalBox = QtGui.QHBoxLayout()
+        
+        #TOP_BUTTON_HEIGHT = 30
+        #TINY_BUTTON_WIDTH = 30
+        
+        ## Make a tiny "About" box for legal information
+        #self.aboutButton = QtGui.QPushButton('?', self)
+        #self.aboutButton.setMinimumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        #self.aboutButton.setMaximumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        #self.aboutButton.clicked[bool].connect(self.__showAboutText)
+        #topHorizontalBox.addStretch(1) # This pushes the button to the right side of the screen
+        #topHorizontalBox.addWidget(self.aboutButton)
+
+        ## Add the row of widgets on the top of the GUI
+        #vbox.addLayout(topHorizontalBox)
+        
+        # Add the main map widget
+        vbox.addWidget(self.mapWidget)
+
+        # QMainWindow requires that its layout be set in this manner
+        mainWidget = QtGui.QWidget()
+        mainWidget.setLayout(vbox)
+        self.setCentralWidget(mainWidget)
+
         # This is the initial window size, but the user can resize it.
-        self.setCentralWidget(self.mapWidget)
         self.setGeometry(100, 100, 720, 720) 
         self.setWindowTitle('EE Map View')
         self.show()
@@ -762,6 +792,10 @@ class GenericMapGui(QtGui.QMainWindow):
         """Handle keypress events."""
         if event.key() == QtCore.Qt.Key_Q:
             QtGui.QApplication.quit()
+
+    #def __showAboutText(self):
+    #    '''Pop up a little text box to display legal information'''
+    #    QtGui.QMessageBox.about(self, 'about', ABOUT_TEXT)
 
     def __getattr__(self, attr):
         '''Forward any unknown function call to MapViewWidget() widget we created'''
@@ -799,8 +833,7 @@ def addToMap(eeobject, vis_params=None, name="", show=True):
             eeobject: The object to add to the map.
             vis_params: A dictionary of visualization parameters.   See
                         ee.data.getMapId().
-            name: The name of the image, to display in the drop down menu.
-            show: Whether the layer should be visible by default.
+            *unused_args: Unused arguments, left for compatibility with the JS API.
 
     This call exists to be an equivalent to the playground addToMap() call.
     It uses a global MapInstance to hang on to "the map".   If the MapInstance

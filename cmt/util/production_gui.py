@@ -406,7 +406,7 @@ class ProductionGui(QtGui.QMainWindow):
         self.compositeModis = self.highResModis.addBands(self.lowResModis.select('sur_refl_b06'))
 
         # Extract the MODIS cloud mask
-        self.modisCloudMask = modis.flood_algorithms.getModisBadPixelMask(self.lowResModis)
+        self.modisCloudMask = cmt.modis.flood_algorithms.getModisBadPixelMask(self.lowResModis)
         self.modisCloudMask = self.modisCloudMask.mask(self.modisCloudMask)
 
         # Load a DEM
@@ -436,7 +436,7 @@ class ProductionGui(QtGui.QMainWindow):
         print '--> Change detection threshold = ' + str(self.detectParams.changeDetectThreshold)
         
         # Generate a new EE function
-        self.eeFunction = modis.flood_algorithms.history_diff_core(self.highResModis,
+        self.eeFunction = cmt.modis.flood_algorithms.history_diff_core(self.highResModis,
                                         self.floodDate, self.detectParams.waterMaskThreshold,
                                         self.detectParams.changeDetectThreshold, self.detectParams.statisticsRegion)
         self.eeFunction = self.eeFunction.mask(self.eeFunction)

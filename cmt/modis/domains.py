@@ -31,7 +31,7 @@ BAY_AREA         = 8
 BERKELEY         = 9
 NIGER            = 10
 
-# (name, bounding box, landsat date range, modis date range,
+# (name, bounding box(minLon, minLat, maxLon, maxLat), landsat date range, modis date range,
 # ground truth, dem (default SRTM), landsat type (default L5_L1T), landsat gain (default [1.9, 1.8, 1.0])
 __ALL_DOMAINS = [None, \
     ( 'Mississippi Border', (-91.23, 32.88, -91.02, 33.166), ('2011-05-08', '2011-05-11'), ('2011-05-08', '2011-05-11'), \

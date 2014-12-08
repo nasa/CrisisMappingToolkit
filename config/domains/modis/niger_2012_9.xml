@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Niger</name>
+    
+    <sensors>
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2012-10-20</start_date>
+            <end_date>2012-10-27</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>Landsat7</name>
+        <bands>
+          <source>
+            <start_date>2012-09-15</start_date>
+            <end_date>2012-11-08</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>SRTM90</name>
+      </sensor>
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>6.6</lon>
+            <lat>7.75</lat>
+        </bottomleft>
+        <topright>
+            <lon>7.1</lon>
+            <lat>8.15</lat>
+        </topright>
+    </bbox>
+    
+    <truth>18108519531116889794-13496919088645259843</truth>
+    
+    <algorithm_params>
+      <modis_diff_threshold>1200</modis_diff_threshold>
+      
+      <modis_mask_threshold>4.5</modis_mask_threshold>
+      <modis_change_threshold>-3.0</modis_change_threshold>
+      
+      <dartmouth_threshold>0.65</dartmouth_threshold>
+    </algorithm_params>
+    
+</domain>
+

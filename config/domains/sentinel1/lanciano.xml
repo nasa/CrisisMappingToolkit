@@ -1,23 +1,27 @@
 <?xml version="1.0"?>
 <domain>
     <name>Lanciano</name>
-    <sensor>Sentinel1</sensor>
-    <bands>
-        <band>
-            <name>vv</name>
-            <source>
-                <eeid>18108519531116889794-15063535589376921925</eeid>
-                <name>b1</name>
-            </source>
-        </band>
-        <band>
-            <name>vh</name>
-            <source>
-                <eeid>18108519531116889794-10203767773364605611</eeid>
-                <name>b1</name>
-            </source>
-        </band>
-    </bands>
+    <sensors>
+      <sensor>
+        <name>Sentinel1</name>
+        <bands>
+            <band>
+                <name>vv</name>
+                <source>
+                    <eeid>18108519531116889794-15063535589376921925</eeid>
+                    <name>b1</name>
+                </source>
+            </band>
+            <band>
+                <name>vh</name>
+                <source>
+                    <eeid>18108519531116889794-10203767773364605611</eeid>
+                    <name>b1</name>
+                </source>
+            </band>
+        </bands>
+      </sensor>
+    </sensors>
     <bbox>
         <bottomleft>
             <lon>14.15</lon>

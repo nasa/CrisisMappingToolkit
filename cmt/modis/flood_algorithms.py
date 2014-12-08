@@ -40,12 +40,12 @@ DNNS_REVISED       = 11
 def __compute_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
     
-    band1 = domain.high_res_modis.select(['sur_refl_b01']) # pRED
-    band2 = domain.high_res_modis.select(['sur_refl_b02']) # pNIR
+    band1 = domain.modis.sur_refl_b01 # pRED
+    band2 = domain.modis.sur_refl_b02 # pNIR
 
     # Other bands must be used at lower resolution
-    band3 = domain.low_res_modis.select(['sur_refl_b03']) # pBLUE
-    band6 = domain.low_res_modis.select(['sur_refl_b06']) # pSWIR
+    band3 = domain.modis.sur_refl_b03 # pBLUE
+    band6 = domain.modis.sur_refl_b06 # pSWIR
 
     NDVI = (band2.subtract(band1)).divide(band2.add(band1));
     # Normalized difference water index
@@ -104,24 +104,23 @@ def xiao(domain, b):
                           multi-temporal MODIS images, Remote Sensing of Environment, 2006.'''
     return b['LSWI'].subtract(b['NDVI']).gte(0.05).Or(b['LSWI'].subtract(b['EVI']).gte(0.05)).select(['sur_refl_b02'], ['b1']);
 
-# TODO: Remove this?
-# A good modis_diff threshold value for each of our domains
-MODIS_DIFF_THRESHOLDS = {
-        BORDER         : 1200,
-        BORDER_JUNE    : 1550,
-        ARKANSAS_CITY  : 1200,
-        KASHMORE       : 350,
-        KASHMORE_NORTH : 350,
-        NEW_ORLEANS    : 1200,
-        SLIDELL        : 1200,
-        BAY_AREA       : 650,
-        BERKELEY       : 650,
-        NIGER          : 1200}
+## A good modis_diff threshold value for each of our domains
+#MODIS_DIFF_THRESHOLDS = {
+#        BORDER         : 1200,
+#        BORDER_JUNE    : 1550,
+#        ARKANSAS_CITY  : 1200,
+#        KASHMORE       : 350,
+#        KASHMORE_NORTH : 350,
+#        NEW_ORLEANS    : 1200,
+#        SLIDELL        : 1200,
+#        BAY_AREA       : 650,
+#        BERKELEY       : 650,
+#        NIGER          : 1200}
 
 def modis_diff(domain, b, threshold=None):
     '''Compute (b2-b1) < threshold, a simple water detection index.'''
     if threshold == None: # If no threshold value passed in, load it based on the data set.
-        threshold = MODIS_DIFF_THRESHOLDS[domain.id]
+        threshold = domain.algorithm_params['modis_diff_threshold']
     return b['b2'].subtract(b['b1']).lte(threshold).select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
 
 
@@ -133,7 +132,7 @@ def __create_learning_image(domain, b):
 
 def earth_engine_classifier(domain, b, classifier_name):
     '''Apply EE classifier tool using a ground truth image.'''
-    training_domain = retrieve_domain(TRAINING_DOMAINS[domain.id])
+    training_domain = domain.training_domain
     training_image  = __create_learning_image(training_domain, __compute_indices(training_domain))
     classifier = ee.apply("TrainClassifier", {  # Call the EE classifier
             'image'             : training_image,
@@ -190,7 +189,7 @@ def dnns(domain, b):
     
     # Compute (b2 - b1) < threshold, a simple water detection algorithm.  Treat the result as "pure water" pixels.
     PURE_WATER_THRESHOLD_RATIO = 1.0
-    pureWaterThreshold = MODIS_DIFF_THRESHOLDS[domain.id] * PURE_WATER_THRESHOLD_RATIO
+    pureWaterThreshold = domain.algorithm_params['modis_diff_threshold'] * PURE_WATER_THRESHOLD_RATIO
     purewater = modis_diff(domain, b, pureWaterThreshold)
     
     # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.
@@ -281,14 +280,25 @@ def dnns_dem(domain, b):
     ## Treating the DEM values contained in the MODIS pixel as a histogram, find the N'th percentile
     ##  where N is the water fraction computed by DNNS.  That should be the height of the flood water.
     #modisPixelKernel = ee.Kernel.square(MODIS_PIXEL_SIZE_METERS, 'meters', False)
-    #domain.dem.mask(water_fraction).reduceNeighborhood(ee.Reducer.percentile(), modisPixelKernel)
+    #dem.mask(water_fraction).reduceNeighborhood(ee.Reducer.percentile(), modisPixelKernel)
     # --> We would like to compute a percentile here, but this would require a different reducer input for each pixel!
     
 
+    # Get the DEM from the domain -> This could be a function somewhere!
+    hasNedDem = False
+    for s in domain.sensor_list:
+        if s.sensor_name.lower() == 'ned13':
+            hasNedDem = True
+            break
+    if hasNedDem:#'ned13' in domain.sensor_list:
+        dem = domain.ned13.image
+    else:
+        dem = domain.srtm90.image
+    
     # Get min and max DEM height within each water containing pixel
-    # - If a DEM pixel contains any water then the water level must be at least that high.
-    dem_min = domain.dem.mask(water_fraction).focal_min(MODIS_PIXEL_SIZE_METERS, 'square', 'meters')
-    dem_max = domain.dem.mask(water_fraction).focal_max(MODIS_PIXEL_SIZE_METERS, 'square', 'meters')
+    # - If a DEM pixel contains any water then the water level must be at least that high.    
+    dem_min = dem.mask(water_fraction).focal_min(MODIS_PIXEL_SIZE_METERS, 'square', 'meters')
+    dem_max = dem.mask(water_fraction).focal_max(MODIS_PIXEL_SIZE_METERS, 'square', 'meters')
     
     # Approximation, linearize each tile's fraction point
     # - The water percentage is used as a percentage between the two elevations
@@ -321,36 +331,37 @@ def dnns_dem(domain, b):
     #addToMap(allowed_water_mask, {'min': 0, 'max': 1}, 'allowed_water', False);
     #addToMap(water_high, {'min': 0, 'max': 100}, 'water_high', False);
     #addToMap(average_high, {'min': 0, 'max': 100}, 'average_high', False);
-    #addToMap(domain.dem, {'min': 0, 'max': 100}, 'DEM', False);
+    #addToMap(dem, {'min': 0, 'max': 100}, 'DEM', False);
     
     # Classify DEM pixels as flooded based on being under the local water elevation or being completely flooded.
-    #return domain.dem.lte(average_high).Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
-    dem_water = domain.dem.lte(average_high).mask(water_fraction) # Mask prevents pixels with 0% water from being labeled as water
+    #return dem.lte(average_high).Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
+    dem_water = dem.lte(average_high).mask(water_fraction) # Mask prevents pixels with 0% water from being labeled as water
     return dem_water.Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
 
-
-# Tuned thresholds for the history_diff tool below
-HISTORY_THRESHOLDS = {
-        BORDER         : (3.5,     -3.5),
-        BORDER_JUNE    : (6.5,     -3.5),
-        ARKANSAS_CITY  : (6.5,     -3.5),
-        KASHMORE       : (4.5,     -3.0),
-        KASHMORE_NORTH : (4.5,     -3.0),
-        NEW_ORLEANS    : (4.5,     -3.0),
-        SLIDELL        : (4.5,     -3.0),
-        BAY_AREA       : (3.5,     -2.0),
-        BERKELEY       : (3.5,     -2.0)
-    }
+#
+## Tuned thresholds for the history_diff tool below
+#HISTORY_THRESHOLDS = {
+#        BORDER         : (3.5,     -3.5),
+#        BORDER_JUNE    : (6.5,     -3.5),
+#        ARKANSAS_CITY  : (6.5,     -3.5),
+#        KASHMORE       : (4.5,     -3.0),
+#        KASHMORE_NORTH : (4.5,     -3.0),
+#        NEW_ORLEANS    : (4.5,     -3.0),
+#        SLIDELL        : (4.5,     -3.0),
+#        BAY_AREA       : (3.5,     -2.0),
+#        BERKELEY       : (3.5,     -2.0)
+#    }
 
 
 def history_diff(domain, b):
     '''Wrapper function for passing domain data into history_diff_core'''
     
-    # Load pre-selected constants for this domain
-    (dev_thresh, change_thresh) = HISTORY_THRESHOLDS[domain.id]
+    # Load pre-selected constants for this domain   
+    dev_thresh    = domain.algorithm_params['modis_mask_threshold']
+    change_thresh = domain.algorithm_params['modis_change_threshold']
     
     # Call the core algorithm with all the parameters it needs from the domain
-    return history_diff_core(domain.high_res_modis, domain.date, dev_thresh, change_thresh, domain.bounds)
+    return history_diff_core(domain.modis, domain.modis.get_date(), dev_thresh, change_thresh, domain.bounds)
     
 def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
     '''Leverage historical data and the permanent water mask to improve the threshold method'''
@@ -429,23 +440,29 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
 
 
 
-DARTMOUTH_THRESHOLDS = {
-        BORDER         : 0.75,
-        BORDER_JUNE    : 0.75,
-        ARKANSAS_CITY  : 0.75,
-        KASHMORE       : 0.65,
-        KASHMORE_NORTH : 0.65,
-        NEW_ORLEANS    : 0.75,
-        SLIDELL        : 0.75,
-        BAY_AREA       : 0.55,
-        BERKELEY       : 0.55
-    }
+
+
+
+
+
+#DARTMOUTH_THRESHOLDS = {
+#        BORDER         : 0.75,
+#        BORDER_JUNE    : 0.75,
+#        ARKANSAS_CITY  : 0.75,
+#        KASHMORE       : 0.65,
+#        KASHMORE_NORTH : 0.65,
+#        NEW_ORLEANS    : 0.75,
+#        SLIDELL        : 0.75,
+#        BAY_AREA       : 0.55,
+#        BERKELEY       : 0.55
+#    }
 
 def dartmouth(domain, b):
     '''A flood detection method from the Dartmouth Flood Observatory'''
     A = 500
     B = 2500
-    return b['b2'].add(A).divide(b['b1'].add(B)).lte(DARTMOUTH_THRESHOLDS[domain.id]).select(['sur_refl_b02'], ['b1'])
+    dartmouth_threshold = domain.algorithm_params['dartmouth_threshold']
+    return b['b2'].add(A).divide(b['b1'].add(B)).lte(dartmouth_threshold).select(['sur_refl_b02'], ['b1'])
 
 
 # This algorithm is not too different from the corrected DNNS algorithm.
@@ -469,7 +486,7 @@ def dnns_revised(domain, b):
     composite_image = b['b1'].addBands(b['b2']).addBands(b['b6'])
     
     # Compute (b2 - b1) < threshold, a simple water detection algorithm.  Treat the result as "pure water" pixels.
-    pureWaterThreshold = MODIS_DIFF_THRESHOLDS[domain.id] * PURE_WATER_THRESHOLD_RATIO
+    pureWaterThreshold = domain.algorithm_params['modis_diff_threshold'] * PURE_WATER_THRESHOLD_RATIO
     pureWater = modis_diff(domain, b, pureWaterThreshold)
     
     # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.

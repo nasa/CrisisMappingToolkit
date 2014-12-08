@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Mississippi Border May 2011 </name>
+    
+    <sensors>
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2011-05-08</start_date>
+            <end_date>2011-05-11</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>Landsat5</name>
+        <bands>
+          <source>
+            <start_date>2011-05-08</start_date>
+            <end_date>2011-05-11</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>NED13</name>
+      </sensor>
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>-91.23</lon>
+            <lat>32.88</lat>
+        </bottomleft>
+        <topright>
+            <lon>-91.02</lon>
+            <lat>33.166</lat>
+        </topright>
+    </bbox>
+    
+    <truth>18108519531116889794-00161330875310406093</truth>
+    <training_domain>kashmore_north_2010_8</training_domain>
+    
+    <algorithm_params>
+      <modis_diff_threshold>1200</modis_diff_threshold>
+      
+      <modis_mask_threshold>3.5</modis_mask_threshold>
+      <modis_change_threshold>-3.5</modis_change_threshold>
+      
+      <dartmouth_threshold>0.75</dartmouth_threshold>
+    </algorithm_params>
+    
+</domain>
+

@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<sensor>
+    <name>NED13</name>
+    <bands>
+        <band>
+            <source>
+              <name>elevation</name>
+              <eeid>ned_13</eeid>
+            </source>
+            <name>elevation</name>
+        </band>
+    </bands>
+    <range>
+        <minimum>-418</minimum>
+        <maximum>8848</maximum>
+    </range>
+</sensor>
+

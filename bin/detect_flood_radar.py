@@ -24,7 +24,8 @@ except:
     import os.path
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
     import cmt.ee_authenticate
-#import matplotlib
+
+import matplotlib
 #matplotlib.use('tkagg') # Needed to display a histogram
 
 import os
@@ -35,7 +36,7 @@ import functools
 import cmt.domain
 from cmt.radar.flood_algorithms import *
 
-from cmt.mapclient_qt import centerMap, addToMap
+from cmt.mapclient_qt    import centerMap, addToMap
 from cmt.util.evaluation import evaluate_approach
 
 '''
@@ -46,9 +47,10 @@ Tool for testing radar based flood detection algorithms using a simple GUI.
 # --------------------------------------------------------------
 # Configuration
 
-ALGORITHMS = [MATGEN]
-#ALGORITHMS = [MATGEN, DECISION_TREE, RANDOM_FORESTS, SVM]
+#ALGORITHMS = [MATGEN]
+ALGORITHMS = [MATGEN, DECISION_TREE, RANDOM_FORESTS, SVM]
 #ALGORITHMS = [ACTIVE_CONTOUR]
+#ALGORITHMS = [RANDOM_FORESTS]
 
 # --------------------------------------------------------------
 # Functions
@@ -58,22 +60,31 @@ def evaluation_function(pair, alg):
     precision, recall = pair
     print '%s: (%4g, %4g)' % (get_algorithm_name(alg), precision, recall)
 
+
+# TODO: This could live elsewhere
+def visualizeDomain(domain, show=True):
+    '''Draw all the sensors and ground truth from a domain'''
+    centerMap(domain.center[0], domain.center[1], 11)
+    for s in domain.sensor_list:
+        apply(addToMap, s.visualize(show=show))
+    if domain.ground_truth != None:
+        addToMap(domain.ground_truth, {}, 'Ground Truth', False)
+
 # --------------------------------------------------------------
 # main()
 
+# Get the domain XML file from the command line arguments
 if len(sys.argv) < 2:
     print 'Usage: detect_flood_radar.py domain.xml'
     sys.exit(0)
 
 cmt.ee_authenticate.initialize()
+
 # Fetch data set information
 domain = cmt.domain.Domain(sys.argv[1])
 
-# Display the Landsat, MODIS, and ground truth data for the data set
-centerMap(domain.center[0], domain.center[1], 11)
-apply(addToMap, domain.visualize())
-if domain.ground_truth != None:
-    addToMap(domain.ground_truth, {}, 'Ground Truth', False)
+# Display radar and ground truth 
+visualizeDomain(domain)
 
 #print im.image.getDownloadUrl({'name' : 'sar', 'region':ee.Geometry.Rectangle(-91.23, 32.88, -91.02, 33.166).toGeoJSONString(), 'scale': 6.174})
 

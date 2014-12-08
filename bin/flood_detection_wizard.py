@@ -41,7 +41,6 @@
 import logging
 logging.basicConfig(level=logging.ERROR)
 
-
 try:
     import cmt.ee_authenticate
 except:
@@ -50,6 +49,7 @@ except:
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
     import cmt.ee_authenticate
 cmt.ee_authenticate.initialize()
+
 
 
 

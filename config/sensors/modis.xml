@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<sensor>
+    <name>MODIS</name>
+    <bands>
+        <source><collection>MOD09GA</collection></source>
+        <band>
+            <source>
+              <name>sur_refl_b01</name>
+              <collection>MOD09GQ</collection>
+            </source>
+            <name>sur_refl_b01</name>
+        </band>
+        <band>
+            <source>
+              <name>sur_refl_b02</name>
+              <collection>MOD09GQ</collection>
+            </source>
+            <name>sur_refl_b02</name>
+        </band>
+        <band>
+            <source><name>sur_refl_b03</name></source>
+            <name>sur_refl_b03</name>
+        </band>
+        <band>
+            <source><name>sur_refl_b04</name></source>
+            <name>sur_refl_b04</name>
+        </band>
+        <band>
+            <source><name>sur_refl_b05</name></source>
+            <name>sur_refl_b05</name>
+        </band>
+        <band>
+            <source><name>sur_refl_b06</name></source>
+            <name>sur_refl_b06</name>
+        </band>        
+        <band>
+            <source><name>sur_refl_b07</name></source>
+            <name>sur_refl_b07</name>
+        </band>
+        <band>
+            <source><name>state_1km</name></source>
+            <name>state_1km</name>
+        </band>
+        <display_bands>sur_refl_b01, sur_refl_b02, sur_refl_b06</display_bands>
+    </bands>
+    <range>
+        <minimum>0</minimum>
+        <maximum>3000</maximum>
+    </range>
+</sensor>
+

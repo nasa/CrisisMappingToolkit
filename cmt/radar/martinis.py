@@ -24,22 +24,23 @@ import scipy.special
 import scipy.optimize
 
 import histogram
-#import matplotlib
+import matplotlib
 #matplotlib.use('tkagg')
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from cmt.mapclient_qt import addToMap
 
 #------------------------------------------------------------------------
-# - sar_martinis radar algorithm (find threshold by histogram splits on selected subregions)
+''' sar_martinis radar algorithm (find threshold by histogram splits on selected subregions)
 
-# Algorithm from paper:
-#    "Towards operational near real-time flood detection using a split-based
-#    automatic thresholding procedure on high resolution TerraSAR-X data"
-#    by S. Martinis, A. Twele, and S. Voigt, Nat. Hazards Earth Syst. Sci., 9, 303-314, 2009
+ Algorithm from paper:
+    "Towards operational near real-time flood detection using a split-based
+    automatic thresholding procedure on high resolution TerraSAR-X data"
+    by S. Martinis, A. Twele, and S. Voigt, Nat. Hazards Earth Syst. Sci., 9, 303-314, 2009
 
 
-# This algorithm seems extremely sensitive to multiple threshold and
-#  scale parameters.  So far it has not worked well on any data set.
+ This algorithm seems extremely sensitive to multiple threshold and
+  scale parameters.  So far it has not worked well on any data set.
+'''
 
 
 def getBoundingBox(bounds):
@@ -108,7 +109,8 @@ def sar_martinis(domain):
     GREEN_PALETTE = '000000, 00FF00'
     GRAY_PALETTE  = '000000, FFFFFF'
     
-    radarImage = domain.image
+    sensor     = domain.sensor_list[0] # Only expecting one sensor
+    radarImage = sensor.image
 
     # Many papers reccomend a median type filter to remove speckle noise.
     

@@ -211,7 +211,7 @@ else:
 if args.date:
     lake = all_lakes.get(0).getInfo()
     ee_lake = ee.Feature(all_lakes.get(0))
-    from cmt.mapclient_qt import centerMap, addToMap
+    from cmd.mapclient_qt import centerMap, addToMap
     ee_bounds = ee_lake.geometry().buffer(1000)
     collection = get_image_collection(ee_bounds, start_date, end_date)
     landsat = ee.Image(collection.first())

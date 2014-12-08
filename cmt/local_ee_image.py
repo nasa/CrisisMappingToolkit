@@ -35,6 +35,8 @@ import matplotlib.pyplot as plt
 import PyQt4
 from PyQt4 import QtCore, QtGui
 
+# The default URL to fetch tiles from.  We could pull this from the EE library,
+# however this doesn't have any other dependencies on that yet, so let's not.
 BASE_URL = 'https://earthengine.googleapis.com'
 
 TEMP_FILE_DIR = tempfile.gettempdir()
@@ -55,6 +57,7 @@ class LocalEEImage(object):
         scale was downloaded previously, a cached image may be used. If a name is not specified,
         no caching is performed.
         """
+
         image_name = image_name.replace(' ', '') # can't have space in filename
         if image_name == None:
             image_name = uuid.uuid4()

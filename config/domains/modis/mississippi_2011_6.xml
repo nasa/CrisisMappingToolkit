@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Mississipi Border June 2011</name>
+    
+    <sensors>
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2011-06-12</start_date>
+            <end_date>2011-06-13</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>Landsat5</name>
+        <bands>
+          <source>
+            <start_date>2011-06-10</start_date>
+            <end_date>2011-06-12</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>NED13</name>
+      </sensor>
+    </sensors>
+
+    <bbox>
+        <bottomleft>
+            <lon>-91.23</lon>
+            <lat>32.88</lat>
+        </bottomleft>
+        <topright>
+            <lon>-91.02</lon>
+            <lat>33.166</lat>
+        </topright>
+    </bbox>
+    
+    <truth>18108519531116889794-12921502713420913455</truth>
+    <training_domain>mississippi_2011_5</training_domain>
+    
+    <algorithm_params>
+      <modis_diff_threshold>1550</modis_diff_threshold>
+      
+      <modis_mask_threshold>6.5</modis_mask_threshold>
+      <modis_change_threshold>-3.5</modis_change_threshold>
+      
+      <dartmouth_threshold>0.75</dartmouth_threshold>
+    </algorithm_params>
+    
+</domain>
+

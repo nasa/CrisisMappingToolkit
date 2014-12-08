@@ -1,10 +1,14 @@
 <?xml version="1.0"?>
 <domain>
     <name>Mississippi 2011 Flood - Arkansas City</name>
-    <sensor>UAVSAR</sensor>
-    <bands>
-        <source><eeid>18108519531116889794-12113912950916481117</eeid></source>
-    </bands>
+    <sensors>
+      <sensor>
+        <name>UAVSAR</name>
+        <bands>
+            <source><eeid>18108519531116889794-12113912950916481117</eeid></source>
+        </bands>
+      </sensor>
+    </sensors>
     <bbox>
         <bottomleft>
             <lon>-91.32</lon>

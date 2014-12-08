@@ -478,8 +478,9 @@ class Snake(object):
 
 
 def initialize_active_contour(domain):
-    #local_image = LocalEEImage(domain.image, domain.bbox, 6.174, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.id))
-    local_image = LocalEEImage(domain.image, domain.bbox, 25, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.name))
+    sensor = domain.sensor_list[0] # Only expecting one sensor
+    #local_image = LocalEEImage(sensor.image, domain.bbox, 6.174, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.id))
+    local_image = LocalEEImage(sensor.image, domain.bbox, 25, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.name))
     (w, h) = local_image.size()
     B              = w / 25
     VERTICAL_CELLS = 20

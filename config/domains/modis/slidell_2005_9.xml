@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Slidell 2005 Flood</name>
+    <sensors>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2005-09-07</start_date>
+            <end_date>2005-09-08</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>Landsat5</name>
+        <bands>
+          <source>
+            <start_date>2005-09-07</start_date>
+            <end_date>2005-09-08</end_date>
+          </source>
+        </bands>
+        <display_gains>1.5, 1.5, 1.0</display_gains>
+      </sensor>
+      
+      <sensor>
+        <name>NED13</name>
+      </sensor>
+      
+    </sensors>
+    <bbox>
+        <bottomleft>
+            <lon>-89.88</lon>
+            <lat>30.18</lat>
+        </bottomleft>
+        <topright>
+            <lon>-89.75</lon>
+            <lat>30.32</lat>
+        </topright>
+    </bbox>
+    <truth>18108519531116889794-15363260755447510668</truth>
+    
+    <algorithm_params>
+      <modis_diff_threshold>1200</modis_diff_threshold>
+      
+      <modis_mask_threshold>4.5</modis_mask_threshold>
+      <modis_change_threshold>-3.0</modis_change_threshold>
+      
+      <dartmouth_threshold>0.75</dartmouth_threshold>
+    </algorithm_params>
+    
+</domain>
+
