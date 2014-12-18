@@ -114,7 +114,7 @@ class ProductionGui(QtGui.QMainWindow):
         TOP_SMALL_BUTTON_WIDTH  = 100
         
         # Add a date selector to the top row of widgets
-        DEFAULT_START_DATE = ee.Date.fromYMD(2006, 7, 18)
+        DEFAULT_START_DATE = ee.Date.fromYMD(2010, 8, 25)
         self.floodDate = DEFAULT_START_DATE
         dateString     = '2006/7/18' # TODO: Generate from the default start date
         self.dateButton = QtGui.QPushButton(dateString, self)
@@ -269,28 +269,30 @@ class ProductionGui(QtGui.QMainWindow):
         MODIS_RANGE  = [0, 3000]
         DEM_RANGE    = [0, 1000]
         if self.landsatPrior:
-            self.mapWidget.addToMap(self.landsatPrior, {'bands': ['30', '20', '10'], 'gain': LANDSAT_GAIN
-                                                        }, 'LANDSAT Pre-Flood',     False)
+            vis_params = {'bands': ['30', '20', '10'], 'gain': LANDSAT_GAIN}
+            self.mapWidget.addToMap(self.landsatPrior, vis_params, 'LANDSAT Pre-Flood', False)
         else:
             print 'Failed to find prior LANDSAT image!'
         if self.landsatPost:
-            self.mapWidget.addToMap(self.landsatPost, {'bands': ['30', '20', '10'], 'gain': LANDSAT_GAIN
-                                                       }, 'LANDSAT Post-Flood',    True)
+            vis_params = {'bands': ['30', '20', '10'], 'gain': LANDSAT_GAIN}
+            self.mapWidget.addToMap(self.landsatPost, vis_params, 'LANDSAT Post-Flood', True)
         else:
             print 'Failed to find post LANDSAT image!'
         if self.compositeModis:
-            self.mapWidget.addToMap(self.compositeModis, {'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06'],
-                                                          'min': MODIS_RANGE[0], 'max': MODIS_RANGE[1]}, 'MODIS Channels 1/2/6',  False)
+            vis_params = {'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06'],
+                          'min': MODIS_RANGE[0], 'max': MODIS_RANGE[1]}
+            self.mapWidget.addToMap(self.compositeModis, vis_params, 'MODIS Channels 1/2/6', False)
         else:
             print 'Failed to find MODIS image!'
         if self.modisCloudMask:
-            self.mapWidget.addToMap(self.modisCloudMask, {'min': 0, 'max': 1, 'palette': '000000, FF0000'},
-                                    '1km Bad MODIS pixels', False)
+            vis_params = {'min': 0, 'max': 1, 'palette': '000000, FF0000'}
+            self.mapWidget.addToMap(self.modisCloudMask, vis_params, '1km Bad MODIS pixels', False)
         else:
             print 'Failed to find MODIS Cloud Mask image!'
 
         if self.demImage:
-            self.mapWidget.addToMap(self.demImage, {'min': DEM_RANGE[0], 'max': DEM_RANGE[1]}, 'Digital Elevation Map', False)
+            vis_params = {'min': DEM_RANGE[0], 'max': DEM_RANGE[1]}
+            self.mapWidget.addToMap(self.demImage, vis_params, 'Digital Elevation Map', False)
         else:
             print 'Failed to find DEM!'
 
@@ -322,7 +324,7 @@ class ProductionGui(QtGui.QMainWindow):
         geoLimited = eeImageCollection.filterBounds(bounds.centroid())
         
         dateList = []
-        index = 0
+        index    = 0
         for f in geoLimited.getInfo()['features']:
             imageDate = None
             # Landsat images do not have consistent header information so try multiple names here.
@@ -338,7 +340,7 @@ class ProductionGui(QtGui.QMainWindow):
                 dateList.append((imageDate, index))
             index += 1
         if not dateList: # Could not read any dates, just pick the first image.
-            return geoLimited.limit(1).mean()
+            return (geoLimited.limit(1).mean(), 'NA')
 
         # Now select the first or last image, sorting on date but also retrieving the index.
         if chooseLast: # Latest date
@@ -346,7 +348,7 @@ class ProductionGui(QtGui.QMainWindow):
         else: # First date
             bestDate = min(dateList)
 
-        return ee.Image(geoLimited.toList(255).get(bestDate[1]))
+        return (ee.Image(geoLimited.toList(255).get(bestDate[1])), bestDate)
 
 
     def __isInUnitedStates(self):
@@ -393,8 +395,13 @@ class ProductionGui(QtGui.QMainWindow):
         priorLandsatCollection = ee.ImageCollection(LANDSAT_TYPE).filterDate(landsatPriorStartDate, landsatPriorEndDate)
         postLandsatCollection  = ee.ImageCollection(LANDSAT_TYPE).filterDate(landsatPostStartDate,  landsatPostEndDate)
 
-        self.landsatPrior = self.__pickLandsatImage(priorLandsatCollection, bounds, chooseLast=True)
-        self.landsatPost  = self.__pickLandsatImage(postLandsatCollection,  bounds)
+        self.landsatPrior, priorLsDate = self.__pickLandsatImage(priorLandsatCollection, bounds, chooseLast=True)
+        self.landsatPost,  postLsDate  = self.__pickLandsatImage(postLandsatCollection,  bounds)
+        
+        if priorLsDate:
+            print 'Selected prior landsat date: ' + str(priorLsDate)
+        if postLsDate:
+            print 'Selected post  landsat date: ' + str(postLsDate)
         
         # Select the bands to view
         self.landsatPrior = self.__selectLandsatBands(self.landsatPrior)
