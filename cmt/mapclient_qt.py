@@ -148,11 +148,6 @@ def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_param
         print 'ERROR: Must have GDAL installed in order to save images!'
         return False
 
-    print '-- vis_params passed to downloadEeImage'
-    print vis_params
-    print '--'
-    print eeObject.getInfo()
-
     # Get a list of all the band names in the object
     band_names = []
     if vis_params and ('bands' in vis_params): # Band names were specified
@@ -166,7 +161,6 @@ def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_param
                 print 'Warning: Limiting recorded file to first three band names!'
                 break
             
-    print 'band_names: ' + str(band_names)    
     if (len(band_names) != 3) and (len(band_names) != 1):
         raise Exception('Only 1 and 3 channel output images supported!')
     
@@ -182,21 +176,9 @@ def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_param
     else:
         download_object = eeObject.visualize(band_names)
     
-    print '=====================================================\n\n'
-    print 'download_object.getInfo()'
-    print download_object.getInfo()
-    print scale
-    eeGeom = apply(ee.Geometry.Rectangle, bbox).toGeoJSONString()
-    print eeGeom
-    print '---'
-    
-    # Why am I getting this error in the production GUI????
-    #   ee.ee_exception.EEException: {u'message': u'Invalid asset ID.', u'code': 400}
-    
     # Retrieve a download URL from Earth Engine
-    
+    eeGeom = apply(ee.Geometry.Rectangle, bbox).toGeoJSONString()    
     url = download_object.getDownloadUrl({'name' : name, 'scale': scale, 'crs': 'EPSG:4326', 'region': eeGeom})
-    #url = eeObject.getDownloadUrl({'name' : name, 'scale': scale, 'crs': 'EPSG:4326', 'region': eeGeom})
     
     # Generate a temporary path for the packed download file
     temp_prefix = 'mapclient_temp_download_%s' % (name)
@@ -232,8 +214,6 @@ def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_param
     for b in color_names:
         band_filename  = name + '.' + b + '.tif'
         extracted_path = os.path.join(TEMP_FILE_DIR, band_filename)
-        print 'band_filename  = ' + band_filename
-        print 'extracted_path = ' + extracted_path
         z.extract(band_filename, TEMP_FILE_DIR)
         temp_band_files.append(extracted_path)
         band_files_string += ' ' + extracted_path
@@ -289,9 +269,6 @@ class MapViewOverlay(object):
         self.show        = show        # True/False if the overlay is currently being displayed.
         self.vis_params  = vis_params  # EE-style visualization parameters string.
         self.opacity     = 1.0         # Current opacity level for display - starts at 1.0
-        
-        print 'Init vis params'
-        print self.vis_params
 
 
 # The map will display a stack of these when you right click on it.
@@ -448,8 +425,6 @@ class MapViewWidget(QtGui.QWidget):
 
     def addOverlay(self, inputTileManager, eeobject, name, show, vis_params):   # pylint: disable=g-bad-name
         """Add an overlay to the map."""
-        print 'Add overlay vis_params:'
-        print vis_params
         self.overlays.append(MapViewOverlay(inputTileManager, eeobject, name, show, vis_params))
         self.LoadTiles()
 
@@ -585,16 +560,15 @@ class MapViewWidget(QtGui.QWidget):
         
         metersPerPixel = self.getApproxMetersPerPixel()
         scale = metersPerPixel
-        print 'Scale = ' + str(scale)
         
         # Pop open a window to get a file name from the user
         file_path = str(QtGui.QFileDialog.getSaveFileName(self, 'Save image to', DEFAULT_SAVE_DIR))
         
-        print '*********************************************'
-        print str(overlayToSave)
+        # This will be used as a file name so it must be legal
+        saveName = overlayToSave.name.replace(' ', '_').replace('/', '-')
         
         #print overlayToSave.eeobject.getInfo()
-        downloadEeImage(overlayToSave.eeobject, current_view_bbox, scale, file_path, overlayToSave.name, overlayToSave.vis_params)
+        downloadEeImage(overlayToSave.eeobject, current_view_bbox, scale, file_path, saveName, overlayToSave.vis_params)
 
     def contextMenuEvent(self, event):
         menu = QtGui.QMenu(self)
@@ -793,10 +767,6 @@ class MapViewWidget(QtGui.QWidget):
                 self.executing_threads.pop(0)
             return result
 
-        print 'addToMap vis_params'
-        print vis_params
-
-        # TODO: What is happening to vis_params here???????
         with self.thread_lock:
             self.executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(self.executing_threads)),
                         lambda a : self.addOverlay(MakeTileManager(a), eeobject, name, show, vis_params)))
