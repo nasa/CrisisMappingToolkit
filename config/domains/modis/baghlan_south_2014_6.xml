@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Baghlan 2014 Flood - South</name>
+    
+    <sensors>
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2014-06-13</start_date>
+            <end_date>2014-06-14</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>Landsat8</name>
+        <bands>
+          <source>
+            <start_date>2014-06-18</start_date>
+            <end_date>2014-06-19</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+          <name>SRTM90</name>
+      </sensor>
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>68.5832</lon>
+            <lat>35.9991</lat>
+        </bottomleft>
+        <topright>
+            <lon>68.6872</lon>
+            <lat>36.0694</lat>
+        </topright>
+    </bbox>
+    
+    <truth>00000</truth>
+    <training_domain>baghlan_2014_6</training_domain>
+    
+    <algorithm_params>
+      <modis_diff_threshold>350</modis_diff_threshold>
+      
+      <modis_mask_threshold>4.5</modis_mask_threshold>
+      <modis_change_threshold>-3.0</modis_change_threshold>
+      
+      <dartmouth_threshold>0.65</dartmouth_threshold>
+    </algorithm_params>
+    
+</domain>
+
