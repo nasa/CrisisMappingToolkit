@@ -57,6 +57,9 @@ import threading
 import urllib2
 import json
 import ee
+import os
+import tempfile
+import zipfile
 
 # check if the Python imaging libraries used by the mapclient module are installed
 try:
@@ -83,6 +86,11 @@ except ImportError:
 # The default URL to fetch tiles from.  We could pull this from the EE library,
 # however this doesn't have any other dependencies on that yet, so let's not.
 BASE_URL = 'https://earthengine.googleapis.com'
+
+# Default directory to save images to
+DEFAULT_SAVE_DIR = os.path.abspath(__file__)
+
+TEMP_FILE_DIR = tempfile.gettempdir()
 
 # This is a URL pattern for creating an overlay from the google maps base map.
 # The z, x and y arguments at the end correspond to level, x, y here.
@@ -111,6 +119,134 @@ def prettyPrintEE(eeObjectInfo):
     '''Convenient function for printing an EE object with tabbed formatting (pass in result of .getInfo())'''
     print(json.dumps(eeObjectInfo, sort_keys=True, indent=2))
 
+def which(program):
+    '''Tests if a given command line tool is available, replicating the "which" function'''
+    import os
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
+
+
+
+def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_params=None):
+    '''Downloads an Earth Engine image object to the specified path'''
+
+    # For now we require a GDAL installation in order to save images
+    if not(which('gdalbuildvrt') and which('gdal_translate')):
+        print 'ERROR: Must have GDAL installed in order to save images!'
+        return False
+
+    # Get a list of all the band names in the object
+    band_names = []
+    if vis_params and ('bands' in vis_params): # Band names were specified
+        band_names = vis_params['bands']
+        if ',' in band_names: # If needed, convert from string to list
+            band_names = band_names.replace(' ', '').split(',')
+    else: # Grab the first three band names
+        for b in eeObject.getInfo()['bands']:
+            band_names.append(b['id'])
+            if len(band_names) >= 3:
+                print 'Warning: Limiting recorded file to first three band names!'
+                break
+            
+    if (len(band_names) != 3) and (len(band_names) != 1):
+        raise Exception('Only 1 and 3 channel output images supported!')
+    
+    # Handle selected visualization parameters
+    if ('min' in vis_params) and ('max' in vis_params): # User specified scaling
+        download_object = eeObject.visualize(band_names, min=vis_params['min'], max=vis_params['max'])
+    elif 'gain' in vis_params:
+        # Extract the floating point gain values
+        gain_text = vis_params['gain'].replace(' ', '').split(',')
+        gain_vals = [float(x) for x in gain_text]
+   
+        download_object = eeObject.visualize(band_names, gain_vals)
+    else:
+        download_object = eeObject.visualize(band_names)
+    
+    # Retrieve a download URL from Earth Engine
+    eeGeom = apply(ee.Geometry.Rectangle, bbox).toGeoJSONString()    
+    url = download_object.getDownloadUrl({'name' : name, 'scale': scale, 'crs': 'EPSG:4326', 'region': eeGeom})
+    
+    # Generate a temporary path for the packed download file
+    temp_prefix = 'mapclient_temp_download_%s' % (name)
+    zip_name    = temp_prefix + '.zip'
+    zip_path    = os.path.join(TEMP_FILE_DIR, zip_name) 
+    
+    # Download the packed file
+    print 'Downloading image...'
+    data = urllib2.urlopen(url)
+    with open(zip_path, 'wb') as fp:
+        while True:
+            chunk = data.read(16 * 1024)
+            if not chunk: break
+            fp.write(chunk)
+    print 'Download complete!'
+    
+    # Each band get packed seperately in the zip file.
+    z = zipfile.ZipFile(zip_path, 'r')
+    
+    ## All the transforms should be the same so we only read the first one.
+    ## - The transform is the six numbers that make up the CRS matrix (pixel to lat/lon conversion)
+    #transform_file = z.open(name + '.' + band_names[0] + '.tfw', 'r')
+    #transform = [float(line) for line in transform_file]
+    
+    # Extract each of the band images into a temporary file
+    # - Eventually the download function is supposed to pack everything in to one file!  https://groups.google.com/forum/#!topic/google-earth-engine-developers/PlgCvJz2Zko
+    temp_band_files = []
+    band_files_string = ''
+    if len(band_names) == 1:
+        color_names = ['vis-gray']
+    else:
+        color_names = ['vis-red', 'vis-green', 'vis-blue']
+    for b in color_names:
+        band_filename  = name + '.' + b + '.tif'
+        extracted_path = os.path.join(TEMP_FILE_DIR, band_filename)
+        z.extract(band_filename, TEMP_FILE_DIR)
+        temp_band_files.append(extracted_path)
+        band_files_string += ' ' + extracted_path
+        
+    # Generate an intermediate vrt file
+    vrt_path = os.path.join(TEMP_FILE_DIR, temp_prefix + '.vrt')
+    cmd = 'gdalbuildvrt -separate -resolution highest ' + vrt_path +' '+ band_files_string
+    #print cmd
+    os.system(cmd)
+    if not os.path.exists(vrt_path):
+        raise Exception('Failed to create VRT file!')
+    
+    # Convert to the output file
+    cmd = 'gdal_translate -ot byte '+ vrt_path + ' ' +file_path
+    #print cmd
+    os.system(cmd)
+    
+    # Clean up vrt file
+    os.remove(vrt_path)
+    
+    # Check for output file
+    if not os.path.exists(file_path):
+        raise Exception('Failed to create output image file!')
+        
+    # Clean up temporary files
+    for b in temp_band_files:
+        os.remove(b)
+    os.remove(zip_path)
+    
+    print 'Finished saving ' + file_path
+    return True
+    
+
 class WaitForEEResult(threading.Thread):
     '''Runs a user defined function on an Earth Engine function object and waits for the result.'''
     def __init__(self, eefunction, function):
@@ -121,6 +257,7 @@ class WaitForEEResult(threading.Thread):
         self.start()
     def run(self):
         self.function(self.eefunction())
+
 
 
 class MapViewOverlay(object):
@@ -387,6 +524,11 @@ class MapViewWidget(QtGui.QWidget):
 
             self.level += direction
             self.LoadTiles()
+            
+            # Notes on level/zoom:
+            #  : pixels_per_lon_degree = (mercator_range / 360.0) * (2**level)
+            #  : Each level of zoom doubles pixels_per_degree
+
 
     def wheelEvent(self, event):
         self.Zoom(event, 1 if event.delta() > 0 else -1)
@@ -402,29 +544,64 @@ class MapViewWidget(QtGui.QWidget):
     def __showAboutText(self):
         '''Pop up a little text box to display legal information'''
         QtGui.QMessageBox.about(self, 'about', ABOUT_TEXT)
+    
+    def __saveCurrentView(self):
+        '''Saves the current map view to disk as a GeoTIFF'''
+        
+        # Get the handle of the currently active overlay
+        # - This is what we will save to disk
+        overlayToSave = None
+        for o in self.overlays:
+            if o.show:
+                overlayToSave = o
+        assert(overlayToSave != None) # Should at least be the google base map!
+        
+        current_view_bbox = self.GetMapBoundingBox()
+        
+        metersPerPixel = self.getApproxMetersPerPixel()
+        scale = metersPerPixel
+        
+        # Pop open a window to get a file name from the user
+        file_path = str(QtGui.QFileDialog.getSaveFileName(self, 'Save image to', DEFAULT_SAVE_DIR))
+        
+        # This will be used as a file name so it must be legal
+        saveName = overlayToSave.name.replace(' ', '_').replace('/', '-')
+        
+        #print overlayToSave.eeobject.getInfo()
+        downloadEeImage(overlayToSave.eeobject, current_view_bbox, scale, file_path, saveName, overlayToSave.vis_params)
 
     def contextMenuEvent(self, event):
         menu = QtGui.QMenu(self)
 
+        TOP_BUTTON_HEIGHT  = 20
+        TINY_BUTTON_WIDTH  = 50
+        LARGE_BUTTON_WIDTH = 150
+
+        # Set up text showing the location which was right-clicked
         (lon, lat) = self.pixelCoordToLonLat(event.x(), event.y()) # The event returns pixel coordinates
         location_widget = QtGui.QWidgetAction(menu)
         location_widget.setDefaultWidget(QtGui.QLabel("  Location: (%g, %g)" % (lon, lat)))
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(QtGui.QLabel("  Location: (%g, %g)" % (lon, lat)))
 
+        # Add a "save image" button
+        saveButton = QtGui.QPushButton('Save Current View', self)
+        saveButton.setMinimumSize(LARGE_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        saveButton.setMaximumSize(LARGE_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        saveButton.clicked[bool].connect(self.__saveCurrentView)
+        hbox.addWidget(saveButton)
+
+        # Make a tiny "About" box for legal information
         aboutButton = QtGui.QPushButton('About', self)
+        aboutButton.setMinimumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        aboutButton.setMaximumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         aboutButton.clicked[bool].connect(self.__showAboutText)
         hbox.addWidget(aboutButton)
         
-        TOP_BUTTON_HEIGHT = 20
-        TINY_BUTTON_WIDTH = 50
-        # Make a tiny "About" box for legal information
-        aboutButton.setMinimumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        aboutButton.setMaximumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        # Add the location and button to the pop up menu
         mainWidget = QtGui.QWidget()
         mainWidget.setLayout(hbox)
         location_widget.setDefaultWidget(mainWidget)
-
         menu.addAction(location_widget)
 
         # Add a toggle for each layer and put it in the right click menu
@@ -433,6 +610,8 @@ class MapViewWidget(QtGui.QWidget):
             item   = MapViewOverlayInfoWidget(self, i, event.x(), event.y())
             action.setDefaultWidget(item)
             menu.addAction(action)
+            
+        # Now pop up the new window!
         menu.popup(QtGui.QCursor.pos())
     
     def getPixel(self, layer, x, y):
@@ -484,6 +663,36 @@ class MapViewWidget(QtGui.QWidget):
     def resizeEvent(self, event):
         """Handle resize events."""
         self.LoadTiles()
+    
+    def getApproxMetersPerPixel(self):
+        '''Returns the approximate meters per pixel at the current location/zoom'''
+        # The actual value differs in the X and Y direction and across the image
+        
+        mercator_range = 256.0
+        scale = 2 ** self.level
+        pixels_per_degree = (mercator_range / 360.0) * scale
+        
+        # Get the lat/lon of the center pixel
+        width, height = self.width(), self.height()
+        lon,   lat    = self.pixelCoordToLonLat(width/2, height/2)
+        
+        # Formula to compute the length of a degree at this latitude
+        m1 = 111132.92
+        m2 = -559.82
+        m3 = 1.175
+        m4 = -0.0023
+        p1 = 111412.84
+        p2 = -93.5
+        p3 = 0.118
+        lat_len_meters  = m1 + (m2 * math.cos(2 * lat)) + (m3 * math.cos(4 * lat)) + (m4 * math.cos(6 * lat))
+        long_len_meters = (p1 * math.cos(lat)) + (p2 * math.cos(3 * lat)) + (p3 * math.cos(5 * lat))
+
+        # Just take the average of the vertical and horizontal size
+        meters_per_degree =  (lat_len_meters + long_len_meters) / 2
+        # Convert to pixel units
+        meters_per_pixel  = meters_per_degree / pixels_per_degree
+        return meters_per_pixel
+    
     
     def pixelCoordToLonLat(self, column, row):
         '''Return the longitude and latitude of a pixel in the map'''
@@ -561,6 +770,7 @@ class MapViewWidget(QtGui.QWidget):
         with self.thread_lock:
             self.executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(self.executing_threads)),
                         lambda a : self.addOverlay(MakeTileManager(a), eeobject, name, show, vis_params)))
+
 
     def removeFromMap(self, eeobject):
         '''Removes an overlay from the map by matching its EE object'''

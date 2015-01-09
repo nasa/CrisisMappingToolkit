@@ -106,7 +106,8 @@ for a in range(len(ALGORITHMS)):
     addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color}, alg, False)
 
     # Compare the algorithm output to the ground truth and print the results
-    evaluate_approach(functools.partial(evaluation_function, alg=ALGORITHMS[a]), result, domain.ground_truth, domain.bounds, is_algorithm_fractional(ALGORITHMS[a]))
+    if domain.ground_truth:
+        evaluate_approach(functools.partial(evaluation_function, alg=ALGORITHMS[a]), result, domain.ground_truth, domain.bounds, is_algorithm_fractional(ALGORITHMS[a]))
 
 #addToMap(domain.dem, {min:25, max:50}, 'DEM', false);
 

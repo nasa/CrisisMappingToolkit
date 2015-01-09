@@ -35,6 +35,7 @@
               <source><name>80</name></source>
               <name>B8</name>
           </band>
+          <resolution>30</resolution>
           <display_bands>B3, B2, B1</display_bands>
     </bands>
     <range>

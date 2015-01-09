@@ -49,10 +49,10 @@ class LocalEEImage(object):
         """Constructs a LocalEEImage.
 
         Arguments:
-        eeobject -- The ee.Image object to download.
-        bbox -- A four-tuple describing the bounds to download, (lon0, lat0, lon1, lat1).
-        scale -- The scale in meters of the image to download.
-        bands -- A list containing the names of the bands in eeobject to download.
+        eeobject   -- The ee.Image object to download.
+        bbox       -- A four-tuple describing the bounds to download, (lon0, lat0, lon1, lat1).
+        scale      -- The scale in meters of the image to download.
+        bands      -- A list containing the names of the bands in eeobject to download.
         image_name -- A unique name for this image. If an image of the same name, bbox and
         scale was downloaded previously, a cached image may be used. If a name is not specified,
         no caching is performed.
@@ -85,7 +85,7 @@ class LocalEEImage(object):
         for b in bands:
             bandfilename = image_name + '.' + b + '.tif'
             z.extract(bandfilename, '/tmp')
-            self.images[b] = plt.imread('/tmp/' + bandfilename)
+            self.images[b] = plt.imread('/tmp/' + bandfilename) # TODO: Fix in windows!!!!!!
         
         self.image_name = image_name
         self.bands      = bands

@@ -9,6 +9,7 @@
               <collection>MOD09GQ</collection>
             </source>
             <name>sur_refl_b01</name>
+            <resolution>250</resolution>
         </band>
         <band>
             <source>
@@ -16,6 +17,7 @@
               <collection>MOD09GQ</collection>
             </source>
             <name>sur_refl_b02</name>
+            <resolution>250</resolution>
         </band>
         <band>
             <source><name>sur_refl_b03</name></source>
@@ -40,7 +42,9 @@
         <band>
             <source><name>state_1km</name></source>
             <name>state_1km</name>
+            <resolution>1000</resolution>
         </band>
+        <resolution>500</resolution>
         <display_bands>sur_refl_b01, sur_refl_b02, sur_refl_b06</display_bands>
     </bands>
     <range>

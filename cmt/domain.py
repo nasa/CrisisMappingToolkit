@@ -39,8 +39,9 @@ class SensorObservation(object):
         self.image         = None      # EE image object containing the selected sensor bands
         self.band_names    = []        # The name assigned to each band
         self.log_scale     = False     # True if the sensor uses a log 10 scale
-        self.minimum_value = None # Min and max sensor values (shared across bands)
+        self.minimum_value = None      # Min and max sensor values (shared across bands)
         self.maximum_value = None
+        self.band_resolutions    = dict() # Specified resolution of each band in meters
         self.water_distributions = dict() # Info about water characteristics in each band
 
         # You can also access each band as a member variable, e.g. self.hv
@@ -132,8 +133,8 @@ class SensorObservation(object):
         return d
 
     def __load_bands(self, root_element):
-        '''read the band specification and load it into __band_sources and __mask_source.
-            does not load the bands'''
+        '''Read the band specification and load it into __band_sources and __mask_source.
+            Does not load the bands'''
         # Look for default water distribution info at the top level
         default_water = dict()
         for d in root_element.findall('distribution'):
@@ -162,14 +163,19 @@ class SensorObservation(object):
             self.__display_gains = display_gain_list
 
 
-        # shared source information (e.g., all bands have same eeid) is loaded directly in <bands><source>
+        # shared information (e.g., all bands have same eeid) is loaded directly in <bands>
         #print 'Reading default source...'
-        default_source = self.__load_source(bands)
+        default_source = self.__load_source(bands) # Located in <bands><source>
         # If any bands are already loaded (meaning we are in the domain file), apply this source info to them.
         for b in self.band_names:  
             self.__band_sources[b].update(default_source)
         if self.__mask_info != None:
             self.__mask_info.update(default_source)
+        resolution = bands.find('resolution')
+        if resolution != None: # <bands><resolution>
+            default_resolution = float(resolution.text)
+        else:
+            default_resolution = 10 # Default resolution is 10 meters if not specified!
 
 
         # load individual <band> tags
@@ -197,6 +203,15 @@ class SensorObservation(object):
                 if d.get('name').lower() == 'water':
                     self.water_distributions[name].update(self.__load_distribution(d))
                     
+            # Load resolution for this band
+            resolution = b.find('resolution')
+            if resolution != None:
+                self.band_resolutions[name] = float(resolution.text)
+            else:
+                self.band_resolutions[name] = default_resolution
+            #print 'For band name ' + name + ' found resolution = ' + str(self.band_resolutions[name])
+                
+                    
         # read mask, in <mask> tag
         mask = bands.find('mask')
         if mask != None:
@@ -211,7 +226,6 @@ class SensorObservation(object):
                     raise Exception('Mask specified with no source!')
                 else:
                     self.__mask_info.update(self.__load_source(mask))
-            #self.__mask_info.update(default_source) # Apply the default source info to the mask
 
 
 
@@ -224,6 +238,7 @@ class SensorObservation(object):
         for i in range(len(self.band_names)):
             thisBandName = self.band_names[i]
             source       = self.__band_sources[thisBandName]
+            #print '======================================='
             #print 'Loading band: ' + thisBandName
             #print source
             if 'mosaic' in source:
@@ -234,6 +249,7 @@ class SensorObservation(object):
             elif ('collection' in source) and ('start_date' in source) and ('end_date' in source):
                 # Select a single image from an Earth Engine image collection
                 im = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date']).limit(1).mean();
+                #print im.getInfo()
             else: # Not enough information was provided!
                 raise Exception('Incomplete source information for band: ' + thisBandName)
                 
@@ -244,6 +260,8 @@ class SensorObservation(object):
                 self.image = self.image.addBands(band)
             # set band as member variable, e.g., self.__dict__['hv'] is equivalent to self.hv
             self.__dict__[thisBandName] = band
+            
+        #print self.image.getInfo()
             
         # Apply mask once all the bands are loaded
         if self.__mask_info != None:
@@ -331,7 +349,6 @@ class SensorObservation(object):
         if self.__display_bands != None: # The user has specified display bands
             if len(self.__display_bands) != 3:
                 raise Exception('')
-            
             
             b0         = self.image.select(self.__display_bands[0])
             b1         = self.image.select(self.__display_bands[1])

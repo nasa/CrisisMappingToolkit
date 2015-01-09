@@ -9,6 +9,7 @@
             </source>
             <name>elevation</name>
         </band>
+        <resolution>10</resolution>
     </bands>
     <range>
         <minimum>-418</minimum>
