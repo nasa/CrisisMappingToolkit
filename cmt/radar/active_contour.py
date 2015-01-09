@@ -25,6 +25,11 @@ import math
 Active Contour (snake) water detector based on the paper:
     "Flood boundary delineation from Synthetic Aperture Radar imagery using a
      statistical active contour model. M. S. Horritt , D. C. Mason & A. J. Luckman"
+     
+     
+     Use a large set of small adaptive contour objects to trace the boundaries
+     of a flood.  The small contours can merge with each other to more cleanly
+     span larger sections of water.
 '''
 
 

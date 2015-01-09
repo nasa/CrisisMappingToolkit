@@ -3,6 +3,10 @@
     <name>New Orleans</name>
     
     <sensors>
+
+      <sensor>
+        <name>NED13</name>
+      </sensor>
     
       <sensor>
         <name>MODIS</name>
@@ -23,10 +27,7 @@
           </source>
         </bands>
       </sensor>
-      
-      <sensor>
-        <name>NED13</name>
-      </sensor>
+
     </sensors>
     
     <bbox>

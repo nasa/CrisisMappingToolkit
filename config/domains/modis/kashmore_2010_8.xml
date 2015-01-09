@@ -3,6 +3,11 @@
     <name>Kashmore 2010 Flood</name>
     
     <sensors>
+
+      <sensor>
+          <name>SRTM90</name>
+      </sensor>
+
       <sensor>
         <name>MODIS</name>
         <bands>
@@ -24,9 +29,6 @@
         <display_gains>1.5, 1.6, 1.0</display_gains>
       </sensor>
       
-      <sensor>
-          <name>SRTM90</name>
-      </sensor>
     </sensors>
     
     <bbox>

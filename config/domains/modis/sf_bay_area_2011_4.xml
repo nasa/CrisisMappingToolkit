@@ -3,6 +3,11 @@
     <name>SF Bay area</name>
     
     <sensors>
+
+      <sensor>
+        <name>NED13</name>
+      </sensor>
+
       <sensor>
         <name>MODIS</name>
         <bands>
@@ -23,9 +28,6 @@
         </bands>
       </sensor>
       
-      <sensor>
-        <name>NED13</name>
-      </sensor>
     </sensors>
     
     <bbox>

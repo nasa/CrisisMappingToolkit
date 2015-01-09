@@ -3,6 +3,11 @@
     <name>Mississippi Border May 2011 </name>
     
     <sensors>
+
+      <sensor>
+        <name>NED13</name>
+      </sensor>
+
       <sensor>
         <name>MODIS</name>
         <bands>
@@ -22,10 +27,7 @@
           </source>
         </bands>
       </sensor>
-      
-      <sensor>
-        <name>NED13</name>
-      </sensor>
+
     </sensors>
     
     <bbox>
