@@ -6,6 +6,10 @@
 
       <sensor>
         <name>NED13</name>
+        <range>
+          <minimum>20</minimum>
+          <maximum>70</maximum>
+        </range>
       </sensor>
 
       <sensor>
@@ -51,6 +55,8 @@
       <modis_change_threshold>-3.5</modis_change_threshold>
       
       <dartmouth_threshold>0.75</dartmouth_threshold>
+      
+      <dem_threshold>27</dem_threshold>
     </algorithm_params>
     
 </domain>
