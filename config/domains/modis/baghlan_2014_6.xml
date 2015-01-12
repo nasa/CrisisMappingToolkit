@@ -3,12 +3,17 @@
     <name>Baghlan 2014 Flood</name>
     
     <sensors>
+
+      <sensor>
+          <name>SRTM90</name>
+      </sensor>
+
       <sensor>
         <name>MODIS</name>
         <bands>
           <source>
-            <start_date>2014-06-13</start_date>
-            <end_date>2014-06-14</end_date>
+            <start_date>2014-06-19</start_date>
+            <end_date>2014-06-20</end_date>
           </source>
         </bands>
       </sensor>
@@ -23,14 +28,11 @@
         </bands>
       </sensor>
       
-      <sensor>
-          <name>SRTM90</name>
-      </sensor>
     </sensors>
     
     <bbox>
         <bottomleft>
-            <lon>69.703</lon>
+            <lon>68.6824</lon>
             <lat>36.19</lat>
         </bottomleft>
         <topright>
@@ -39,9 +41,9 @@
         </topright>
     </bbox>
     
-    <truth>00000</truth>
+    <truth>18108519531116889794-05246071950673775877</truth>
     <training_domain>baghlan_south_2014_6</training_domain>
-    
+   
     <algorithm_params>
       <modis_diff_threshold>350</modis_diff_threshold>
       
