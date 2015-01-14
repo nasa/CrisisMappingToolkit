@@ -248,8 +248,7 @@ class SensorObservation(object):
                 im = ee.Image(source['eeid'])
             elif ('collection' in source) and ('start_date' in source) and ('end_date' in source):
                 # Select a single image from an Earth Engine image collection
-                im = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date']).limit(1).mean();
-                #print im.getInfo()
+                im = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date']).mean();
             else: # Not enough information was provided!
                 raise Exception('Incomplete source information for band: ' + thisBandName)
                 

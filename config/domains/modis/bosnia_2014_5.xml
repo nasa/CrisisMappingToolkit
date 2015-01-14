@@ -3,6 +3,11 @@
     <name>Bosnia Herzegovina 2014 Flood</name>
     
     <sensors>
+    
+      <sensor>
+          <name>SRTM90</name>
+      </sensor>
+    
       <sensor>
         <name>MODIS</name>
         <bands>
@@ -17,27 +22,25 @@
         <name>Landsat8</name>
         <bands>
           <source>
-            <start_date>2014-05-22</start_date>
+            <start_date>2014-05-21</start_date>
             <end_date>2014-05-23</end_date>
           </source>
         </bands>
-      </sensor>
-      
-      <sensor>
-          <name>SRTM90</name>
-      </sensor>
+      </sensor>     
+
     </sensors>
     
     <bbox>
         <bottomleft>
-            <lon>18.0904</lon>
-            <lat>44.8948</lat>
+            <lon>18.5072</lon>
+            <lat>44.919</lat>
         </bottomleft>
         <topright>
-            <lon>18.7798</lon>
-            <lat>45.1888</lat>
+            <lon>18.809</lon>
+            <lat>45.1006</lat>
         </topright>
     </bbox>
+
     
     <truth>18108519531116889794-10343636198137636421</truth>
     <training_domain>bosnia_west_2014_5</training_domain>
@@ -49,6 +52,8 @@
       <modis_change_threshold>-3.0</modis_change_threshold>
       
       <dartmouth_threshold>0.65</dartmouth_threshold>
+      
+      <dem_threshold>79</dem_threshold>
     </algorithm_params>
     
 </domain>
