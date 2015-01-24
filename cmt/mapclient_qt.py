@@ -350,7 +350,7 @@ class MapViewOverlayInfoWidget(QtGui.QWidget):
         text = ''
         for i in range(len(names)):
             # If bands were defined for this layer, only display the names of the selected bands.
-            if 'bands' in vis_params:    
+            if vis_params and ('bands' in vis_params):
                 if not (names[i] in vis_params['bands']): # WARNING: This parsing could be more robust!
                     continue
             

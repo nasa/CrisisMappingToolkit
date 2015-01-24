@@ -38,6 +38,8 @@ def threshold(domain, historical_domain=None):
     '''An implementation of the paper:
            Matgen, Hostache, Schumann, et. al. "Towards an automated SAR-based flood monitoring system:
            Lessons learned from two case studies." Physics and Chemistry of the Earth, 2011.
+           
+        TODO: ????
     '''    
     
     sensor = domain.sensor_list[0] # We are only expecting one sensor

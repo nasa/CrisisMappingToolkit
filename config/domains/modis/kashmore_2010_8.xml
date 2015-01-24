@@ -3,6 +3,15 @@
     <name>Kashmore 2010 Flood</name>
     
     <sensors>
+
+      <sensor>
+          <name>SRTM90</name>
+          <range>
+              <minimum>70</minimum>
+              <maximum>120</maximum>
+          </range>
+      </sensor>
+
       <sensor>
         <name>MODIS</name>
         <bands>
@@ -24,9 +33,6 @@
         <display_gains>1.5, 1.6, 1.0</display_gains>
       </sensor>
       
-      <sensor>
-          <name>SRTM90</name>
-      </sensor>
     </sensors>
     
     <bbox>
@@ -50,6 +56,8 @@
       <modis_change_threshold>-3.0</modis_change_threshold>
       
       <dartmouth_threshold>0.65</dartmouth_threshold>
+      
+      <dem_threshold>80</dem_threshold>
     </algorithm_params>
     
 </domain>

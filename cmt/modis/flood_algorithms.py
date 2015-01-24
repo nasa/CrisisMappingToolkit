@@ -36,6 +36,8 @@ DNNS_DEM           = 8
 DIFFERENCE_HISTORY = 9
 DARTMOUTH          = 10
 DNNS_REVISED       = 11
+DEM_THRESHOLD      = 12
+MARTINIS_TREE      = 13
 
 def __compute_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
@@ -54,9 +56,12 @@ def __compute_indices(domain):
     EVI = band2.subtract(band1).multiply(2.5).divide( band2.add(band1.multiply(6)).subtract(band3.multiply(7.5)).add(1));
     # Land surface water index
     LSWI = (band2.subtract(band6)).divide(band2.add(band6));
+    # Convenience measure
+    DVEL = EVI.subtract(LSWI)
 
     return {'b1': band1, 'b2': band2, 'b3': band3, 'b6': band6,
-            'NDVI': NDVI, 'NDWI': NDWI, 'EVI': EVI, 'LSWI': LSWI}
+            'NDVI': NDVI, 'NDWI': NDWI, 'EVI': EVI, 'LSWI': LSWI, 'DVEL': DVEL,
+            'pRED': band1, 'pNIR': band2, 'pBLUE': band3, 'pSWIR': band6}
 
 
 
@@ -78,7 +83,7 @@ def getModisBadPixelMask(lowResModis):
    
     # Get the cloud_state bits and find cloudy areas.
     cloudBits = getQABits(qaBand, 0, 1, 'cloud_state')
-    cloud     = cloudBits.eq(1).Or(cloudBits.eq(2))
+    cloud = cloudBits.eq(1).Or(cloudBits.eq(2))
 
     return cloud # The second part of this, the land water flag, does not work well at all.
     
@@ -89,6 +94,15 @@ def getModisBadPixelMask(lowResModis):
     #mask = landWaterFlag.neq(7).And(cloud.Not())
     #return mask
 
+
+def dem_threshold(domain, b):
+    '''Just use a height threshold on the DEM!'''
+
+    # TODO: Load this from the domain parameters!
+    heightLevel = 0
+
+    dem = domain.get_dem().image
+    return dem.lt(heightLevel)
 
 
 
@@ -102,7 +116,11 @@ def evi(domain, b):
 
 def xiao(domain, b):
     '''Method from paper: Xiao, Boles, Frolking, et. al. Mapping paddy rice agriculture in South and Southeast Asia using
-                          multi-temporal MODIS images, Remote Sensing of Environment, 2006.'''
+                          multi-temporal MODIS images, Remote Sensing of Environment, 2006.
+                          
+        This method implements a very simple decision tree from several standard MODIS data products.
+        The default constants were tuned for (wet) rice paddy detection.
+    '''
     return b['LSWI'].subtract(b['NDVI']).gte(0.05).Or(b['LSWI'].subtract(b['EVI']).gte(0.05)).select(['sur_refl_b02'], ['b1']);
 
 ## A good modis_diff threshold value for each of our domains
@@ -119,7 +137,10 @@ def xiao(domain, b):
 #        NIGER          : 1200}
 
 def modis_diff(domain, b, threshold=None):
-    '''Compute (b2-b1) < threshold, a simple water detection index.'''
+    '''Compute (b2-b1) < threshold, a simple water detection index.
+    
+       This method may be all that is needed in cases where the threshold can be hand tuned.
+    '''
     if threshold == None: # If no threshold value passed in, load it based on the data set.
         threshold = domain.algorithm_params['modis_diff_threshold']
     return b['b2'].subtract(b['b1']).lte(threshold).select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
@@ -164,6 +185,10 @@ def dnns(domain, b):
         "Li, Sun, Yu, et. al. "A new short-wave infrared (SWIR) method for
         quantitative water fraction derivation and evaluation with EOS/MODIS
         and Landsat/TM data." IEEE Transactions on Geoscience and Remote Sensing, 2013."
+        
+        The core idea of this algorithm is to compute local estimates of a "pure water"
+        and "pure land" pixel and compute each pixel's water percentage as a mixed
+        composition of those two pure spectral types.
     '''
     
     # This algorithm has some differences from the original paper implementation.
@@ -270,7 +295,13 @@ def dnns(domain, b):
 def dnns_dem(domain, b):
     '''Enhance the DNNS result with high resolution DEM information, adapted from the paper:
         "Li, Sun, Goldberg, and Stefanidis. "Derivation of 30-m-resolution
-        water maps from TERRA/MODIS and SRTM." Remote Sensing of Environment, 2013."'''
+        water maps from TERRA/MODIS and SRTM." Remote Sensing of Environment, 2013."
+        
+        This enhancement to the DNNS_DEM algorithm combines a higher resolution DEM with
+        input pixels that have a percent flooded value.  Based on the percentage and DEM
+        values, the algorithm classifies each higher resolution DEM pixel as either
+        flooded or dry.
+        '''
     
     MODIS_PIXEL_SIZE_METERS = 250
     
@@ -284,17 +315,8 @@ def dnns_dem(domain, b):
     #dem.mask(water_fraction).reduceNeighborhood(ee.Reducer.percentile(), modisPixelKernel)
     # --> We would like to compute a percentile here, but this would require a different reducer input for each pixel!
     
-
-    # Get the DEM from the domain -> This could be a function somewhere!
-    hasNedDem = False
-    for s in domain.sensor_list:
-        if s.sensor_name.lower() == 'ned13':
-            hasNedDem = True
-            break
-    if hasNedDem:#'ned13' in domain.sensor_list:
-        dem = domain.ned13.image
-    else:
-        dem = domain.srtm90.image
+    # Get whichever DEM is loaded in the domain
+    dem = domain.get_dem().image
     
     # Get min and max DEM height within each water containing pixel
     # - If a DEM pixel contains any water then the water level must be at least that high.    
@@ -365,7 +387,12 @@ def history_diff(domain, b):
     return history_diff_core(domain.modis, domain.modis.get_date(), dev_thresh, change_thresh, domain.bounds)
     
 def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
-    '''Leverage historical data and the permanent water mask to improve the threshold method'''
+    '''Leverage historical data and the permanent water mask to improve the threshold method.
+    
+       This method computes statistics from the permanent water mask to set a good b2-b1
+       water detection threshold.  It also adds pixels which have a b2-b1 level significantly
+       lower than the historical seasonal average.
+    '''
 
     # Retrieve all the MODIS images for the region in the last several years
     NUM_YEARS_BACK         = 5
@@ -459,7 +486,10 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
 #    }
 
 def dartmouth(domain, b):
-    '''A flood detection method from the Dartmouth Flood Observatory'''
+    '''A flood detection method from the Dartmouth Flood Observatory.
+    
+        This method is a refinement of the simple b2-b1 detection method.
+    '''
     A = 500
     B = 2500
     dartmouth_threshold = domain.algorithm_params['dartmouth_threshold']
@@ -585,6 +615,125 @@ def dnns_revised(domain, b):
     return waterOff.select(['sur_refl_b01'], ['b1']) # Rename sur_refl_b02 to b1
 
 
+
+def compute_dem_slope_degrees(dem, resolution):
+    '''Computes a slope in degrees for each pixel of the DEM'''
+    
+    deriv = dem.derivative()
+    dZdX    = deriv.select(['elevation_x']).divide(resolution)
+    dZdY    = deriv.select(['elevation_y']).divide(resolution)
+    slope = dZdX.multiply(dZdX).add(dZdY.multiply(dZdY)).sqrt().reproject("EPSG:4269", None, resolution); 
+    RAD2DEG = 180 / 3.14159
+    slopeAngle = slope.atan().multiply(RAD2DEG);
+    return slopeAngle
+
+
+def martinis_tree(domain, b):
+    '''Based on Figure 3 from "A Multi-Scale Flood Monitoring System Based on Fully
+        Automatic MODIS and TerraSAR-X Processing Chains" by 
+        Sandro Martinis, Andre Twele, Christian Strobl, Jens Kersten and Enrico Stein
+        
+       Some steps had to be approximated such as the cloud filtering.  The main pixel
+       classification steps are implemented as accurately as can be determined from 
+       the figure.
+'''
+    # Note: Nodes with the same name are numbered top to bottom, left to right in order
+    #       to distinguish which one a variable represents.
+
+    # ---- Apply the initial classification at the top of the figure ----
+    # Indices already computed in the 'b' object
+    clouds        = b['pBLUE'].gte(0.27)
+    temp1         = b['EVI'].lte(0.3 ).And(b['DVEL'].lte(0.05))
+    temp2         = b['EVI'].lte(0.05).And(b['LSWI'].lte(0.00))
+    nonFlood1     = b['EVI'].gt(0.3).And(temp1.Not())
+    waterRelated1 = temp1.Or(temp2)
+    nonFlood2     = temp1.And(temp2.Not())
+    
+    #addToMap(b['EVI'],  {'min': 0, 'max': 1}, 'EVI',   False)
+    #addToMap(b['LSWI'], {'min': 0, 'max': 1}, 'LSWI',  False)
+    #addToMap(b['DVEL'], {'min': 0, 'max': 1}, 'DVEL',  False)
+    #addToMap(waterRelated1, {'min': 0, 'max': 1}, 'waterRelated1',  False)
+    
+    # ---- Apply DEM filtering ----
+    
+    # Retrieve the dem compute slopes
+    demSensor       = domain.get_dem()
+    dem             = demSensor.image
+    demSlopeDegrees = compute_dem_slope_degrees(demSensor.image, demSensor.band_resolutions[demSensor.band_names[0]])
+    #addToMap(demSlopeDegrees, {'min': 0, 'max': 90}, 'DEM slope',  False)
+    
+    # Filter regions of high slope
+    highSlope = demSlopeDegrees.gt(10).Or( demSlopeDegrees.gt(8).And(dem.gt(2000)) )
+    
+    waterRelated2 = waterRelated1.And(highSlope.Not())
+    nonFlood3     = waterRelated1.And(highSlope).Or(nonFlood2)
+    
+    mixture1 = waterRelated2.And(b['EVI'].gt(0.1))
+    flood1   = waterRelated2.And(b['EVI'].lte(0.1))
+    
+    #addToMap(waterRelated2, {'min': 0, 'max': 1}, 'waterRelated2',  False)
+    
+    # ---- Approximate region growing ----
+    
+    # Earth Engine can't do a real region grow so approximate one with a big dilation
+    REGION_GROW_SIZE = 35 # Pixels
+    expansionKernel  = ee.Kernel.circle(REGION_GROW_SIZE, 'pixels', False)
+    
+    # Region growing 1
+    temp1 = b['EVI'].lte(0.31).And(b['DVEL'].lte(0.07))
+    temp2 = b['EVI'].lte(0.06).And(b['LSWI'].lte(0.01))
+    relaxedConditions      = temp1.Or(temp2)
+    potentialExpansionArea = waterRelated2.convolve(expansionKernel).And(nonFlood3)
+    waterRelated3          = potentialExpansionArea.And(relaxedConditions)
+    
+    mixture3 = waterRelated3.And(b['EVI'].gt(0.1))
+    flood3   = waterRelated3.And(b['EVI'].lte(0.1))
+    
+    # Region growing 2
+    potentialExpansionArea = flood1.convolve(expansionKernel).And(mixture1)
+    mixture2 = potentialExpansionArea.And(b['LSWI'].lt(0.08))
+    flood2   = potentialExpansionArea.And(b['LSWI'].gte(0.08))
+    
+    #addToMap(nonFlood1, {'min': 0, 'max': 1}, 'nonFlood1',  False)
+    #addToMap(nonFlood2, {'min': 0, 'max': 1}, 'nonFlood2',  False)
+    #addToMap(nonFlood3, {'min': 0, 'max': 1}, 'nonFlood3',  False)
+    #
+    #addToMap(mixture1, {'min': 0, 'max': 1}, 'mixture1',  False)
+    #addToMap(mixture2, {'min': 0, 'max': 1}, 'mixture2',  False)
+    #addToMap(mixture3, {'min': 0, 'max': 1}, 'mixture3',  False)
+    #addToMap(waterRelated3, {'min': 0, 'max': 1}, 'waterRelated3',  False)
+    
+    # ---- Apply water mask ----
+    
+    waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'])
+
+    # Not sure how exactly the paper does this but we don't care about anything in the permanent water mask!
+    recedingWater = nonFlood3.And(waterMask)
+    
+    mergedFlood   = flood1.Or(flood2).Or(flood3)
+    standingWater = mergedFlood.And(waterMask)
+    flood4        = mergedFlood.And(waterMask.Not())
+
+    # ---- Cloud handling? ----
+
+    # In place of the complicated cloud geometery, just remove pixels
+    #  that are flagged as bad in the input MODIS imagery.
+    badModisPixels = getModisBadPixelMask(domain.modis.image)
+
+    flood5 = flood4.And(badModisPixels.Not())
+
+    # ---- Time series handling ----
+    # --> This step is not included
+
+    fullMixture = mixture2.Or(mixture3)
+    #addToMap(fullMixture, {'min': 0, 'max': 1}, 'fullMixture',  False)
+
+    # Generate the binary flood detection output we are interested in
+    outputFlood = flood5.Or(standingWater)
+
+    return outputFlood.select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
+
+
 # End of algorithm definitions
 #=======================================================================================================
 #=======================================================================================================
@@ -606,7 +755,9 @@ __ALGORITHMS = {
         DNNS_REVISED       : ('DNNS Revised',            dnns_revised,   False, '00FF00'),
         DNNS_DEM           : ('DNNS with DEM',           dnns_dem,       False, '9900FF'),
         DIFFERENCE_HISTORY : ('Difference with History', history_diff,   False, '0099FF'),
-        DARTMOUTH          : ('Dartmouth',               dartmouth,      False, '33CCFF')
+        DARTMOUTH          : ('Dartmouth',               dartmouth,      False, '33CCFF'),
+        DEM_THRESHOLD      : ('DEM Threshold',           dem_threshold,  False, 'FFCC33'),
+        MARTINIS_TREE      : ('Martinis Tree',           martinis_tree,  False, 'CC0066')
 }
 
 

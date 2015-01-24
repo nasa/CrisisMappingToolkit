@@ -248,12 +248,12 @@ class SensorObservation(object):
                 im = ee.Image(source['eeid'])
             elif ('collection' in source) and ('start_date' in source) and ('end_date' in source):
                 # Select a single image from an Earth Engine image collection
-                im = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date']).limit(1).mean();
-                #print im.getInfo()
+                im = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date']).mean();
             else: # Not enough information was provided!
                 raise Exception('Incomplete source information for band: ' + thisBandName)
                 
             band = im.select([source['source']], [thisBandName])
+            #print band.getInfo()
             if self.image == None:
                 self.image = band
             else:
@@ -261,8 +261,9 @@ class SensorObservation(object):
             # set band as member variable, e.g., self.__dict__['hv'] is equivalent to self.hv
             self.__dict__[thisBandName] = band
             
+        #print '---------------------------'
         #print self.image.getInfo()
-            
+        #    
         # Apply mask once all the bands are loaded
         if self.__mask_info != None:
             if 'self' in self.__mask_info and self.__mask_info['self']:
@@ -278,6 +279,9 @@ class SensorObservation(object):
         if (self.minimum_value != None) and (self.maximum_value != None):
             self.image = self.image.clamp(self.minimum_value, self.maximum_value)
 
+        #print '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
+        #print self.image.getInfo()
+        #print '\n\n\n'
 
     def __load_range(self, tag):
         '''read a <range> tag'''
@@ -408,6 +412,22 @@ class Domain(object):
         self.__load_xml(xml_file, is_training) # Call function to initialize from the XML file
 
 
+    def get_dem(self):
+        '''Returns a DEM image object if one is loaded'''
+        
+        # Use ned13 DEM if available, otherwise use the global srtm90 DEM.
+        hasNedDem = False
+        for s in self.sensor_list:
+            if s.sensor_name.lower() == 'ned13':
+                hasNedDem = True
+                break
+        if hasNedDem:
+            return self.ned13
+        else:
+            return self.srtm90
+
+    
+
     def __load_bbox(self, root):
         '''read a bbox, <bbox>'''
         b = None
@@ -419,6 +439,8 @@ class Domain(object):
                             [bl.find('lon'), bl.find('lat'), tr.find('lon'), tr.find('lat')]))
             except:
                 raise Exception("Failed to load bounding box for domain.")
+        if (b[0] > b[2]) or (b[1] > b[3]): # Check that min and max values are properly ordered
+            raise Exception("Illegal bounding box values!")
         return b
 
     def __load_xml(self, xml_file, is_training=False):

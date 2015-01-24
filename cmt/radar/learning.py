@@ -40,13 +40,13 @@ def __learning_threshold(domain, algorithm):
     return classified;
 
 def decision_tree(domain):
-    '''Use "Cart" method'''
+    '''Use "Cart" method: Classification and Regression Tree'''
     return __learning_threshold(domain, 'Cart')
 def random_forests(domain):
-    '''Use "RifleSerialClassifier" method'''
+    '''Use "RifleSerialClassifier" method: A Random Forest technique'''
     return __learning_threshold(domain, 'RifleSerialClassifier')
 def svm(domain):
-    '''Use "Pegasos" method'''
+    '''Use "Pegasos" method: Primal Estimated sub-GrAdient SOlver for SVM'''
     return __learning_threshold(domain, 'Pegasos')
 
 

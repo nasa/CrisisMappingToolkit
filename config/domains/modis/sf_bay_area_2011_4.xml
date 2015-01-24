@@ -3,6 +3,15 @@
     <name>SF Bay area</name>
     
     <sensors>
+
+      <sensor>
+        <name>NED13</name>
+        <range>
+          <minimum>0</minimum>
+          <maximum>80</maximum>
+        </range>
+      </sensor>
+
       <sensor>
         <name>MODIS</name>
         <bands>
@@ -23,9 +32,6 @@
         </bands>
       </sensor>
       
-      <sensor>
-        <name>NED13</name>
-      </sensor>
     </sensors>
     
     <bbox>
@@ -49,6 +55,8 @@
       <modis_change_threshold>-2.0</modis_change_threshold>
       
       <dartmouth_threshold>0.55</dartmouth_threshold>
+      
+      <dem_threshold>2.5</dem_threshold>
     </algorithm_params>
     
 </domain>
