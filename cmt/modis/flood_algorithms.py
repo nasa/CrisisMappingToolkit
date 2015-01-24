@@ -78,7 +78,7 @@ def getModisBadPixelMask(lowResModis):
    
     # Get the cloud_state bits and find cloudy areas.
     cloudBits = getQABits(qaBand, 0, 1, 'cloud_state')
-    cloud     = cloudBits.expression("b(0) == 1 || b(0) == 2")
+    cloud     = cloudBits.eq(1).Or(cloudBits.eq(2))
 
     return cloud # The second part of this, the land water flag, does not work well at all.
     
@@ -94,10 +94,11 @@ def getModisBadPixelMask(lowResModis):
 
 def evi(domain, b):
     '''Simple EVI based classifier'''
-    no_clouds = b['b3'].lte(2100).select(['sur_refl_b03'], ['b1'])
+    #no_clouds = b['b3'].lte(2100).select(['sur_refl_b03'], ['b1'])
     criteria1 = b['EVI'].lte(0.3).And(b['LSWI'].subtract(b['EVI']).gte(0.05)).select(['sur_refl_b02'], ['b1'])
     criteria2 = b['EVI'].lte(0.05).And(b['LSWI'].lte(0.0)).select(['sur_refl_b02'], ['b1'])
-    return no_clouds.And(criteria1.Or(criteria2))
+    #return no_clouds.And(criteria1.Or(criteria2))
+    return criteria1.Or(criteria2)
 
 def xiao(domain, b):
     '''Method from paper: Xiao, Boles, Frolking, et. al. Mapping paddy rice agriculture in South and Southeast Asia using
