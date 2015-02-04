@@ -39,6 +39,7 @@ import cmt.util.processManyLakes
 from cmt.util.processManyLakes import LakeDataLoggerBase
 import cmt.modis.flood_algorithms
 import cmt.util.evaluation
+from cmt.mapclient_qt import downloadEeImage
 
 
 class LoggingClass(LakeDataLoggerBase):
@@ -46,12 +47,18 @@ class LoggingClass(LakeDataLoggerBase):
     
     def __init__(self, logDirectory, ee_lake):
         '''Open and prep the output file'''
+        # Base class init function
+        LakeDataLoggerBase.__init__(self, logDirectory, ee_lake)
         
         # Open the file
-        filePath        = LakeDataLoggerBase._computeUniquePath(self, logDirectory, ee_lake)
-        print 'DEBUG: Opening log file ' + filePath
-        existingFile    =  os.path.exists(filePath)
-        self.fileHandle = open(filePath, 'a+') # Append mode
+        filePrefix      = LakeDataLoggerBase.computeLakePrefix(self)
+        self.logFolder  = filePrefix + os.path.sep
+        if not os.path.exists(self.logFolder): # Create folder if it does not exist
+            os.mkdir(self.logFolder)
+        logPath         = os.path.join(self.logFolder, 'MODIS_log.txt')
+        existingFile    = os.path.exists(logPath) # Check if the file already exists
+        print 'DEBUG: Opening log file ' + logPath
+        self.fileHandle = open(logPath, 'a+') # Append mode
         
         # Write the header if the file is new
         if not existingFile:
@@ -61,7 +68,19 @@ class LoggingClass(LakeDataLoggerBase):
         '''Close the file on destruction'''
         if self.fileHandle:
             self.fileHandle.close()
-       
+
+    def saveImage(self, classifiedImage, ee_bounds, imageName, waterMask, modisImage):
+        '''Records a diagnostic image to the log directory'''
+        
+        # Currently we are not using the modis image
+        # Red channel is detected, blue channel is water mask, green is constant zero.
+        mergedImage = classifiedImage.addBands(ee.Image(0)).addBands(waterMask)
+        vis_params = {'min': 0, 'max': 1} # Binary image data
+        
+        DISPLAY_RESOLUTION = 30 # Display at a higher resolution to make things prettier
+        imagePath          = os.path.join(self.logFolder, imageName + '.tif')
+        return downloadEeImage(mergedImage, ee_bounds, DISPLAY_RESOLUTION, imagePath, 'dummyName', vis_params)
+
     def findRecordByDate(self, date):
         '''Searches for a record with a particular date and returns it'''
         
@@ -82,18 +101,18 @@ class LoggingClass(LakeDataLoggerBase):
         
         raise Exception('Should never get here!')
     
-    def addDataRecord(self, dataRecord):
+    def addDataRecord(self, dataRecord, ee_image=None, ee_bounds=None, resolution=None):
         '''Adds a new record to the log'''
         
         # Add the fixed elements
-        s = dataRecord['date']+', '+dataRecord['satellite']+', '
+        s = dataRecord['date']+', '+dataRecord['satellite']
         
         # Add all the algorithm results
         for k in dataRecord:
             v = dataRecord[k]
             if k in ['date', 'satellite']: # Don't double-write these
                 continue
-            s += ' '+k+', '+str(v[0])+', '+str(v[1]) + '\n'
+            s += ', '+k+', '+str(v[0])+', '+str(v[1])
         
         self.fileHandle.write(s) # The string is automatically written to the end of the file
         
@@ -111,6 +130,22 @@ def isRegionInUnitedStates(region):
     # Check if the input region is entirely within the US
     result     = nationGeo.contains(region)
     return (str(result.getInfo()) == 'True')
+
+# TODO: Move to a common file!
+def unComputeRectangle(eeRect):
+    '''"Decomputes" an ee Rectangle object so more functions will work on it'''
+    # This function is to work around some dumb EE behavior
+
+    LON = 0 # Helper constants
+    LAT = 1    
+    rectCoords  = eeRect.getInfo()['coordinates']    # EE object -> dictionary -> string
+    minLon      = rectCoords[0][0][LON]           # Exctract the numbers from the string
+    minLat      = rectCoords[0][0][LAT]
+    maxLon      = rectCoords[0][2][LON]
+    maxLat      = rectCoords[0][2][LAT]
+    bbox        = [minLon, minLat, maxLon, maxLat]   # Pack in order
+    eeRectFixed = apply(ee.Geometry.Rectangle, bbox) # Convert back to EE rectangle object
+    return eeRectFixed
 
 class Object(object):
     '''Helper class to let us add attributes to empty objects'''
@@ -136,7 +171,6 @@ class FakeDomain(Object):
     
     def get_dem(self):
         '''Returns a DEM image object if one is loaded'''
-        
         try: # Find out which DEM is loaded
             dem = self.ned13
         except:
@@ -147,12 +181,13 @@ class FakeDomain(Object):
         return dem
 
 
+# TODO: Do something a little smarter here!
 def compute_simple_binary_threshold(valueImage, classification, bounds):
     '''Computes a threshold for a value given examples in a classified binary image'''
     
     # Seperate the values by the binary classification
-    valueInFalse = valueImage.And(classification.Not())
-    valueInTrue  = valueImage.And(classification)
+    valueInFalse = valueImage.mask(classification.Not())
+    valueInTrue  = valueImage.mask(classification)
     meanFalse    = valueInFalse.reduceRegion(ee.Reducer.mean(),   bounds) # Set up EE math
     meanTrue     = valueInTrue.reduceRegion( ee.Reducer.mean(),   bounds)
     stdFalse     = valueInFalse.reduceRegion(ee.Reducer.stdDev(), bounds)
@@ -166,6 +201,14 @@ def compute_simple_binary_threshold(valueImage, classification, bounds):
     meanDiff  = meanTrue - meanFalse
     stdRatio  = stdFalse / (stdTrue + stdFalse)
     threshold = meanFalse + meanDiff*stdRatio
+
+    #print 'meanFalse = ' + str(meanFalse)    
+    #print 'meanTrue  = ' + str(meanTrue)
+    #print 'stdFalse  = ' + str(stdFalse)
+    #print 'stdTrue   = ' + str(stdTrue)
+    #print 'meanDiff  = ' + str(meanDiff)
+    #print 'stdRatio  = ' + str(stdRatio)
+    #print 'threshold = ' + str(threshold)
     
     return threshold
 
@@ -179,23 +222,31 @@ def compute_algorithm_parameters(training_domain):
     
     modisDiff    = b['b2'].subtract(b['b1'])
     dartmouthVal = b['b2'].add(500).divide(b['b1'].add(2500))
-    demHeight = training_domain.get_dem().image
+    demHeight    = training_domain.get_dem().image
     
     # These values are computed by comparing the algorithm output in land/water regions
     # - To be passed in to the threshold function a consistent band name is needed
     algorithm_params = dict()
+    #print 'MODIS DIFF THRESHOLD'
     algorithm_params['modis_diff_threshold'  ] = compute_simple_binary_threshold(modisDiff,    waterMask, bounds)
+    #print 'DARTMOUTH'
     algorithm_params['dartmouth_threshold'   ] = compute_simple_binary_threshold(dartmouthVal, waterMask, bounds)
+    #print 'DEM'
     algorithm_params['dem_threshold'         ] = compute_simple_binary_threshold(demHeight.select(['elevation'], ['sur_refl_b02']), waterMask, bounds)
     
     # These would be tougher to compute so we just use some general purpose values
     algorithm_params['modis_mask_threshold'  ] =  4.5
     algorithm_params['modis_change_threshold'] = -3.0
+
+    #print 'Computed the following algorithm parameters: '
+    #print algorithm_params
+    #print '8888888888888888888888888888888888888888888888888888888888888888888888888888'
+    
     
     return algorithm_params
 
 
-def processing_function(bounds, image, image_date):
+def processing_function(bounds, image, image_date, logger):
     '''Detect water using multiple MODIS algorithms and compare to the permanent water mask'''
 
     MAX_CLOUD_PERCENTAGE = 0.05
@@ -208,6 +259,9 @@ def processing_function(bounds, image, image_date):
     # Get the permanent water mask
     # - We change the band name to make this work with the evaluation function call further down
     waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
+    
+    # Needed to change EE formats for later function calls
+    rectBounds = unComputeRectangle(bounds.bounds()) 
     
     #print '=========================================='
     #print image.getInfo()
@@ -265,7 +319,12 @@ def processing_function(bounds, image, image_date):
     # Finally, compute a set of algorithm parameters for this image
     # - We use the training image and the water mask to estimate good values where possible.
     fakeDomain.algorithm_params = compute_algorithm_parameters(trainingDomain)
-    
+
+
+    #vis_params = {'min': 1000, 'max': 3000} # Binary image data
+    #downloadEeImage(trainingDomain.get_dem().image, rectBounds, 30, '/home/smcmich1/data/Floods/lakeStudy/Mono_Lake/demTest.tif', 'dem', vis_params)
+    #raise Exception('debug')
+        
     
     # TODO: Fetch and insert other required information as needed!
     
@@ -274,13 +333,13 @@ def processing_function(bounds, image, image_date):
                      (cmt.modis.flood_algorithms.EVI                , 'EVI'),
                      (cmt.modis.flood_algorithms.XIAO               , 'XIAO'),
                      (cmt.modis.flood_algorithms.DIFFERENCE         , 'Difference'),
-                     #(cmt.modis.flood_algorithms.CART               , 'CART'),
-                     ##(cmt.modis.flood_algorithms.SVM                , 'SVM'),
-                     ##(cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests'),
+                     (cmt.modis.flood_algorithms.CART               , 'CART'),
+                     (cmt.modis.flood_algorithms.SVM                , 'SVM'),
+                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests'),
                      ##(cmt.modis.flood_algorithms.DNNS               , 'DNNS'),
                      ###(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised'),
                      ##(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM'),
-                     ##(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History'),
+                     #(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History'),
                      (cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth'),
                      (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree') ]
 
@@ -296,7 +355,7 @@ def processing_function(bounds, image, image_date):
        
         print 'Evaluating detection results...'
         
-        rectBounds = bounds.bounds()
+        
         
         # Compare the detection result to the water mask
         isFractional = False # Currently not using fractional evaluation, but maybe we should for DNSS-DEM
@@ -308,8 +367,12 @@ def processing_function(bounds, image, image_date):
         # Store the results for this algorithm
         waterResults[a[1]] = (precision, recall)
         
+        # Save image of results so we can look at them later
         
-        # TODO: Save images of results so we can manually evaluate them!
+        
+        
+        imageName = 'alg_' + a[1].replace(' ', '_')
+        logger.saveImage(detectedWater, rectBounds, imageName, waterMask, image)
     
     # Return the results for each algorithm
     waterResults['satellite'] = 'MODIS'

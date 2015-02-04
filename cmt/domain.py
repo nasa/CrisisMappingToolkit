@@ -238,7 +238,7 @@ class SensorObservation(object):
         for i in range(len(self.band_names)):
             thisBandName = self.band_names[i]
             source       = self.__band_sources[thisBandName]
-            #print '======================================='
+            print '======================================='
             #print 'Loading band: ' + thisBandName
             #print source
             if 'mosaic' in source:
@@ -251,6 +251,8 @@ class SensorObservation(object):
                 im = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date']).mean();
             else: # Not enough information was provided!
                 raise Exception('Incomplete source information for band: ' + thisBandName)
+                
+            print im.getInfo()
                 
             band = im.select([source['source']], [thisBandName])
             #print band.getInfo()

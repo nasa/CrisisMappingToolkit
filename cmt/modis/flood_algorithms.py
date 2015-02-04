@@ -39,7 +39,7 @@ DNNS_REVISED       = 11
 DEM_THRESHOLD      = 12
 MARTINIS_TREE      = 13
 
-def __compute_indices(domain):
+def compute_modis_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
     
     band1 = domain.modis.sur_refl_b01 # pRED
@@ -94,15 +94,34 @@ def getModisBadPixelMask(lowResModis):
     #mask = landWaterFlag.neq(7).And(cloud.Not())
     #return mask
 
+def getCloudPercentage(lowResModis, region):
+    '''Returns the percentage of a region flagged as clouds by the MODIS metadata'''
+
+    MODIS_CLOUD_RESOLUTION = 1000 # Clouds are flagged at this resolution
+
+    # Divide the number of cloud pixels by the total number of pixels
+    #oneMask    = ee.Image(1.0) 
+    cloudMask  = getModisBadPixelMask(lowResModis)
+    #print oneMask.getInfo()
+    print 'TODO: Fix cloud percentage!'
+    return 0.0 # TODO: Why is the next line failing???
+    #rectBounds = region.bounds()
+    #areaCount  = oneMask.reduceRegion(  ee.Reducer().sum(), rectBounds, MODIS_CLOUD_RESOLUTION)
+    cloudCount = cloudMask.reduceRegion(ee.Reducer().mean(), rectBounds, MODIS_CLOUD_RESOLUTION)
+    #print areaCount
+    #return 0
+    print cloudCount
+    return cloudCount
+    #percentage = cloudCound['sum'] / areaCount['sum']
+    #return percentage
+    
 
 def dem_threshold(domain, b):
     '''Just use a height threshold on the DEM!'''
 
-    # TODO: Load this from the domain parameters!
-    heightLevel = 0
-
-    dem = domain.get_dem().image
-    return dem.lt(heightLevel)
+    heightLevel = domain.algorithm_params['dem_threshold']
+    dem         = domain.get_dem().image
+    return dem.lt(heightLevel).select(['elevation'], ['b1'])
 
 
 
@@ -767,7 +786,7 @@ def detect_flood(domain, algorithm):
         approach = __ALGORITHMS[algorithm]
     except:
         return None
-    return (approach[0], approach[1](domain, __compute_indices(domain)))
+    return (approach[0], approach[1](domain, compute_modis_indices(domain)))
 
 def get_algorithm_name(algorithm):
     '''Return the text name of an algorithm.'''
