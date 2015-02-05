@@ -37,7 +37,7 @@ import cmt.domain
 from cmt.modis.flood_algorithms import *
 
 from cmt.mapclient_qt    import centerMap, addToMap
-from cmt.util.evaluation import evaluate_approach
+import cmt.util.evaluation
 
 '''
 Tool for testing MODIS based flood detection algorithms using a simple GUI.
@@ -101,7 +101,7 @@ for a in range(len(ALGORITHMS)):
 
     # Compare the algorithm output to the ground truth and print the results
     if domain.ground_truth:
-        evaluate_approach(functools.partial(evaluation_function, alg=ALGORITHMS[a]), result, domain.ground_truth, domain.bounds, is_algorithm_fractional(ALGORITHMS[a]))
+        cmt.util.evaluation.evaluate_approach_thread(functools.partial(evaluation_function, alg=ALGORITHMS[a]), result, domain.ground_truth, domain.bounds, is_algorithm_fractional(ALGORITHMS[a]))
 
 
 

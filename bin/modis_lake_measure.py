@@ -168,7 +168,7 @@ class FakeDomain(Object):
             self.srtm90.image      = ee.Image('CGIAR/SRTM90_V4') # The default 90m global DEM
             self.srtm90.band_names = ['elevation']
             self.srtm90.band_resolutions = {'elevation': 90}
-    
+       
     def get_dem(self):
         '''Returns a DEM image object if one is loaded'''
         try: # Find out which DEM is loaded
@@ -251,17 +251,18 @@ def processing_function(bounds, image, image_date, logger):
 
     MAX_CLOUD_PERCENTAGE = 0.05
 
+    # Needed to change EE formats for later function calls
+    eeDate     = ee.Date(image_date)
+    rectBounds = unComputeRectangle(bounds.bounds()) 
+
     # First check the input image for clouds.  If there are too many just raise an exception.
-    cloudPercentage = cmt.modis.flood_algorithms.getCloudPercentage(image, bounds)
+    cloudPercentage = cmt.modis.flood_algorithms.getCloudPercentage(image, rectBounds)
     if cloudPercentage > MAX_CLOUD_PERCENTAGE:
         raise Exception('Input image has too many cloud pixels!')
 
     # Get the permanent water mask
     # - We change the band name to make this work with the evaluation function call further down
     waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
-    
-    # Needed to change EE formats for later function calls
-    rectBounds = unComputeRectangle(bounds.bounds()) 
     
     #print '=========================================='
     #print image.getInfo()
@@ -277,6 +278,7 @@ def processing_function(bounds, image, image_date, logger):
     fakeDomain.modis.sur_refl_b03 = image.select('sur_refl_b03')
     fakeDomain.modis.sur_refl_b06 = image.select('sur_refl_b06')
     fakeDomain.modis.image        = image
+    fakeDomain.modis.get_date     = lambda: eeDate
     fakeDomain.ground_truth       = waterMask
     fakeDomain.bounds             = bounds
     fakeDomain.add_dem(bounds)
@@ -284,7 +286,6 @@ def processing_function(bounds, image, image_date, logger):
     # Also need to set up a bunch of training information
     
     # First we pick a training image.  We just use the same lake one year in the past.
-    eeDate        = ee.Date(image_date)
     trainingStart = eeDate.advance(-1.0, 'year')
     trainingEnd   = eeDate.advance(10.0, 'day') 
     # Fetch a MODIS image for training
@@ -296,7 +297,7 @@ def processing_function(bounds, image, image_date, logger):
     trainingImage = None
     for i in range(len(modisTrainingInfo)):
         thisImage       = ee.Image(modisTrainingList.get(i))
-        cloudPercentage = cmt.modis.flood_algorithms.getCloudPercentage(thisImage, bounds)
+        cloudPercentage = cmt.modis.flood_algorithms.getCloudPercentage(thisImage, rectBounds)
         if cloudPercentage < MAX_CLOUD_PERCENTAGE:
             trainingImage = thisImage
             break
@@ -329,19 +330,19 @@ def processing_function(bounds, image, image_date, logger):
     # TODO: Fetch and insert other required information as needed!
     
     # Define a list of all the algorithms we want to test
-    algorithmList = [(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold'),
+    algorithmList = [#(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold'),
                      (cmt.modis.flood_algorithms.EVI                , 'EVI'),
-                     (cmt.modis.flood_algorithms.XIAO               , 'XIAO'),
-                     (cmt.modis.flood_algorithms.DIFFERENCE         , 'Difference'),
-                     (cmt.modis.flood_algorithms.CART               , 'CART'),
-                     (cmt.modis.flood_algorithms.SVM                , 'SVM'),
-                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests'),
-                     ##(cmt.modis.flood_algorithms.DNNS               , 'DNNS'),
+                     #(cmt.modis.flood_algorithms.XIAO               , 'XIAO'),
+                     #(cmt.modis.flood_algorithms.DIFFERENCE         , 'Difference'),
+                     #(cmt.modis.flood_algorithms.CART               , 'CART'),
+                     #(cmt.modis.flood_algorithms.SVM                , 'SVM'),
+                     #(cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests'),
+                     #(cmt.modis.flood_algorithms.DNNS               , 'DNNS'),
                      ###(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised'),
-                     ##(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM'),
-                     #(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History'),
-                     (cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth'),
-                     (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree') ]
+                     #(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM'),
+                     (cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History'),
+                     (cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth')]#,
+                     #(cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree') ]
 
    
     # Loop through each algorithm
@@ -355,24 +356,21 @@ def processing_function(bounds, image, image_date, logger):
        
         print 'Evaluating detection results...'
         
-        
-        
         # Compare the detection result to the water mask
         isFractional = False # Currently not using fractional evaluation, but maybe we should for DNSS-DEM
         (precision, recall) = cmt.util.evaluation.evaluate_approach(detectedWater, waterMask, rectBounds, isFractional)
         
-        #print 'Evaluation results:'
-        #print str(precision) + ' ' + str(recall)
+        print 'Evaluation results: ' + str(precision) + ' ' + str(recall)
         
         # Store the results for this algorithm
         waterResults[a[1]] = (precision, recall)
         
         # Save image of results so we can look at them later
-        
-        
-        
         imageName = 'alg_' + a[1].replace(' ', '_')
-        logger.saveImage(detectedWater, rectBounds, imageName, waterMask, image)
+        try:
+            logger.saveImage(detectedWater, rectBounds, imageName, waterMask, image)
+        except Exception,e:
+            print 'Saving results image failed with exception --> ' + str(e)
     
     # Return the results for each algorithm
     waterResults['satellite'] = 'MODIS'
