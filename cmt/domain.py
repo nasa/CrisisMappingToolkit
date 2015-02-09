@@ -257,6 +257,8 @@ class SensorObservation(object):
             else: # Not enough information was provided!
                 raise Exception('Incomplete source information for band: ' + thisBandName)
                 
+            #print im.getInfo()
+                
             band = im.select([source['source']], [thisBandName])
             #print band.getInfo()
             if self.image == None:

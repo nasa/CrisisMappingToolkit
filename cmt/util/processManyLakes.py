@@ -89,7 +89,6 @@ def get_image_collection_modis(bounds, start_date, end_date):
                       'num_observations_500m','sur_refl_b03','sur_refl_b04','sur_refl_b05','sur_refl_b06','sur_refl_b07',
                       'QC_500m','obscov_500m','iobs_res','q_scan','num_observations_250m', 'sur_refl_b01','sur_refl_b02','QC_250m','obscov']
     collection    = roughJoined.select(band_names_in, band_names_out)
-    
     return collection
 
 
@@ -103,30 +102,29 @@ class LakeDataLoggerBase(object):
     
     def __init__(self, logDirectory, ee_lake):
         '''Initialize with lake information'''
-        self.ee_lake          = ee_lake
-        self.output_directory = __computeUniquePath(logDirectory, ee_lake)
-        
+        self.ee_lake        = ee_lake
+        self.base_directory = logDirectory       
        
-    def _computeUniquePath(self, logDirectory, ee_lake):
-        '''Returns a unique file path for this lake in the log directory'''
+    def computeLakePrefix(self):
+        '''Returns a file prefix for this lake in the log directory'''
        
-        name = ee_lake.getInfo()['properties']['LAKE_NAME']
+        name = self.ee_lake.getInfo()['properties']['LAKE_NAME']
         if not name:
             raise Exception('Cannot process a lake without a name!')
-        safe_name  = name.replace(' ', '_')
-        outputPath = os.path.join(logDirectory, safe_name + '.txt')
-        return outputPath
-       
+        safe_name = name.replace(' ', '_')
+        prefix    = os.path.join(self.base_directory, safe_name)
+        return prefix
+    
     def findRecordByDate(self, date):
         '''Searches for a record with a particular date and returns it'''
         return None
     
     def addDataRecord(self, dataRecord):
-        '''Adds a new record to the log'''
+        '''Adds a new record to the log and optionally save an image'''
         return True
 
 
-def sample_processing_function(bounds, image, image_date):
+def sample_processing_function(bounds, image, image_date, logger):
     '''Returns a dictionary of results.
        This is the type of function that can be passed to "process_lake"'''
     return {'water_count' : 1, 'cloud_count': 2}
@@ -150,7 +148,7 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
     # Take the lake boundary and expand it out in all directions by 1000 meters
     ee_bounds     = ee_lake.geometry().buffer(1000)
     # Fetch all the landsat 5 imagery covering the lake on the date range
-    collection    = image_fetching_function(ee_bounds, start_date, end_date)
+    collection = image_fetching_function(ee_bounds, start_date, end_date)
     ee_image_list = collection.toList(1000000)
     
     num_images_found = len(ee_image_list.getInfo())
@@ -191,18 +189,18 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
         
         # Call processing algorithms on the lake with second try in case EE chokes.
         #try:
-        r = processing_function(ee_bounds, this_ee_image, this_date)
+        result = processing_function(ee_bounds, this_ee_image, this_date, logger)
         #except Exception as e:
         #    print >> sys.stderr, 'Failure counting water...trying again. ' + str(e)
         #    time.sleep(5)
         #    r = processing_function(ee_bounds, this_ee_image, this_date).getInfo()['properties']
         #r = {'TEST': (1.0, 2.0), 'satellite': 'dummy'} # DEBUG
-        print r
+        print result
         
         # Append some metadata to the record and log it
         #r['sun_elevation'] = sun_elevation
-        r['date'] = this_date
-        logger.addDataRecord(r)
+        result['date'] = this_date
+        logger.addDataRecord(result)
 
     print 'Finished processing lake: ' + name
 

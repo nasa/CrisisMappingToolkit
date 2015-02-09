@@ -37,7 +37,7 @@ import cmt.domain
 from cmt.radar.flood_algorithms import *
 
 from cmt.mapclient_qt    import centerMap, addToMap
-from cmt.util.evaluation import evaluate_approach
+import cmt.util.evaluation
 
 '''
 Tool for testing radar based flood detection algorithms using a simple GUI.
@@ -100,7 +100,7 @@ for a in range(len(ALGORITHMS)):
     
     # Compare the algorithm output to the ground truth and print the results
     if domain.ground_truth != None:
-        evaluate_approach(functools.partial(evaluation_function, alg=alg), result, domain.ground_truth, domain.bounds)
+        cmt.util.evaluation.evaluate_approach_thread(functools.partial(evaluation_function, alg=alg), result, domain.ground_truth, domain.bounds)
 
 #addToMap(domain.groundTruth.mask(domain.groundTruth), {'min': 0, 'max' : 1, 'opacity' : 0.2}, 'Ground Truth', false);
 #addToMap(domain.dem, {min:25, max:50}, 'DEM', false);

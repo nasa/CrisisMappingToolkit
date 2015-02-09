@@ -31,30 +31,44 @@ class WaitForResult(threading.Thread):
     def run(self):
         self.finished_function(self.function())
 
-def __evaluate_approach(result, ground_truth, region, fractional=False):
+def evaluate_approach(result, ground_truth, region, fractional=False):
     '''Compare result to ground truth in region and compute precision and recall'''
     ground_truth = ground_truth.mask(ground_truth.mask().And(result.mask()))
 
     if fractional:  # Apply a MODIS pixel sized smoothing kernel ground truth
         ground_truth = ground_truth.convolve(ee.Kernel.square(250, 'meters', True))
     
-    
+    # TODO: Why are these in a weird format?
     # wrong  = ground_truth.multiply(-1).add(1).min(result);
     # missed = ground_truth.subtract(result).max(0.0);
     correct     = ground_truth.min(result);
-    # correct_sum = ee.data.getValue({'image': correct.stats(     30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-    # result_sum  = ee.data.getValue({'image': result.stats(      30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-    # truth_sum   = ee.data.getValue({'image': ground_truth.stats(30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-    correct_sum = correct.reduceRegion(ee.Reducer.sum(), region, 30).getInfo()['b1']
-    result_sum  = result.reduceRegion(ee.Reducer.sum(), region, 30).getInfo()['b1']
-    truth_sum = ground_truth.reduceRegion(ee.Reducer.sum(), region, 30).getInfo()['b1']
+    #correct_sum = ee.data.getValue({'image': correct.stats(     30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+    #result_sum  = ee.data.getValue({'image': result.stats(      30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+    #truth_sum   = ee.data.getValue({'image': ground_truth.stats(30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+    
+    # Try to evaluate at a high resolution but fall back to a lower one if it is too much for EE to handle.
+    LOW_RES_EVAL  = 100
+    HIGH_RES_EVAL = 400
+    try:
+        correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, LOW_RES_EVAL ).getInfo()['b1']
+    except:
+        correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, HIGH_RES_EVAL).getInfo()['b1']
+    try:
+        result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, LOW_RES_EVAL ).getInfo()['b1']
+    except:
+        result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, HIGH_RES_EVAL).getInfo()['b1']
+    try:
+        truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, LOW_RES_EVAL ).getInfo()['b1']
+    except:
+        truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, HIGH_RES_EVAL).getInfo()['b1']
+    
     precision   = 1.0 if (result_sum == 0.0) else (correct_sum / result_sum)
     recall      = 1.0 if (truth_sum  == 0.0) else (correct_sum / truth_sum)
     return (precision, recall)
 
 
-def evaluate_approach(evaluation_function, result, ground_truth, region, fractional=False):
+def evaluate_approach_thread(evaluation_function, result, ground_truth, region, fractional=False):
     '''Computes precision and recall of the given result/ground truth pair, then passes the result to the input function'''
-    WaitForResult(functools.partial(__evaluate_approach, result=result, ground_truth=ground_truth,
+    WaitForResult(functools.partial(evaluate_approach, result=result, ground_truth=ground_truth,
         region=region, fractional=fractional), evaluation_function)
 

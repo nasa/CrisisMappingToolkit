@@ -417,7 +417,7 @@ class ProductionGui(QtGui.QMainWindow):
         self.modisCloudMask = self.modisCloudMask.mask(self.modisCloudMask)
 
         # Load a DEM
-        demName = 'CGIAR/SRTM90_V4' # The default 30m global DEM
+        demName = 'CGIAR/SRTM90_V4' # The default 90m global DEM
         if (boundsInsideTheUS):
             demName = 'ned_13' # The US 10m DEM
         self.demImage = ee.Image(demName)

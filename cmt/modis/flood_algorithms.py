@@ -39,7 +39,7 @@ DNNS_REVISED       = 11
 DEM_THRESHOLD      = 12
 MARTINIS_TREE      = 13
 
-def __compute_indices(domain):
+def compute_modis_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
     
     band1 = domain.modis.sur_refl_b01 # pRED
@@ -94,15 +94,29 @@ def getModisBadPixelMask(lowResModis):
     #mask = landWaterFlag.neq(7).And(cloud.Not())
     #return mask
 
+def getCloudPercentage(lowResModis, region):
+    '''Returns the percentage of a region flagged as clouds by the MODIS metadata'''
+
+    MODIS_CLOUD_RESOLUTION = 1000 # Clouds are flagged at this resolution
+
+    # Divide the number of cloud pixels by the total number of pixels
+    oneMask    = ee.Image(1.0) 
+    cloudMask  = getModisBadPixelMask(lowResModis)
+    #print oneMask.getInfo()
+    #print region.getInfo()
+    areaCount  = oneMask.reduceRegion(  ee.Reducer.sum(), region, MODIS_CLOUD_RESOLUTION)
+    cloudCount = cloudMask.reduceRegion(ee.Reducer.mean(), region, MODIS_CLOUD_RESOLUTION)
+    percentage = cloudCount.getInfo()['cloud_state'] / areaCount.getInfo()['constant']
+    print 'Detected cloud percentage: ' + str(percentage)
+    return percentage
+    
 
 def dem_threshold(domain, b):
     '''Just use a height threshold on the DEM!'''
 
-    # TODO: Load this from the domain parameters!
-    heightLevel = 0
-
-    dem = domain.get_dem().image
-    return dem.lt(heightLevel)
+    heightLevel = domain.algorithm_params['dem_threshold']
+    dem         = domain.get_dem().image
+    return dem.lt(heightLevel).select(['elevation'], ['b1'])
 
 
 
@@ -146,7 +160,7 @@ def modis_diff(domain, b, threshold=None):
     return b['b2'].subtract(b['b1']).lte(threshold).select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
 
 
-def __create_learning_image(domain, b):
+def _create_learning_image(domain, b):
     '''Set up features for the classifier to be trained on: [b2, b2/b1, b2/b1, NDVI, NDWI]'''
     diff  = b['b2'].subtract(b['b1'])
     ratio = b['b2'].divide(b['b1'])
@@ -155,7 +169,7 @@ def __create_learning_image(domain, b):
 def earth_engine_classifier(domain, b, classifier_name):
     '''Apply EE classifier tool using a ground truth image.'''
     training_domain = domain.training_domain
-    training_image  = __create_learning_image(training_domain, __compute_indices(training_domain))
+    training_image  = _create_learning_image(training_domain, compute_modis_indices(training_domain))
     classifier = ee.apply("TrainClassifier", {  # Call the EE classifier
             'image'             : training_image,
             'subsampling'       : 0.5,
@@ -165,7 +179,7 @@ def earth_engine_classifier(domain, b, classifier_name):
             'max_classification': 2,
             'classifier_name'   : classifier_name
         })
-    classified = ee.call("ClassifyImage", __create_learning_image(domain, b), classifier).select(['classification'], ['b1']); 
+    classified = ee.call("ClassifyImage", _create_learning_image(domain, b), classifier).select(['classification'], ['b1']); 
     return classified;
 
 def cart(domain, b):
@@ -202,7 +216,7 @@ def dnns(domain, b):
     #       once the constants have been tuned!
     
     # Parameters
-    KERNEL_SIZE = 40 # The original paper used a 100x100 pixel box = 25,000 meters!
+    KERNEL_SIZE = 35 # The original paper used a 100x100 pixel box = 25,000 meters!
     PURELAND_THRESHOLD = 3500 # TODO: This will have to vary by domain!
     
     # Set up two square kernels of the same size
@@ -412,10 +426,12 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
         historyLow.merge( ee.ImageCollection('MOD09GA').filterDate(date.advance(yearMin, 'year'), date.advance(yearMax, 'year')).filterBounds(bounds));
     
     # Simple function implements the b2 - b1 difference method
-    flood_diff_function = (lambda x : x.select(['sur_refl_b02']).subtract(x.select(['sur_refl_b01'])))
+    # - Using two methods like this is a hack to get a call from modis_lake_measure.py to work!
+    flood_diff_function1 = lambda x : x.select(['sur_refl_b02']).subtract(x.select(['sur_refl_b01']))
+    flood_diff_function2 = lambda x : x.sur_refl_b02.subtract(x.sur_refl_b01)
     
     # Apply difference function to all images in history, then compute mean and standard deviation of difference scores.
-    historyDiff   = historyHigh.map(flood_diff_function)
+    historyDiff   = historyHigh.map(flood_diff_function1)
     historyMean   = historyDiff.mean()
     historyStdDev = historyDiff.reduce(ee.Reducer.stdDev())
     
@@ -427,7 +443,7 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
     #addToMap(historyStdDev, {'min' : 0, 'max' : 2000}, 'History stdDev', False)
     
     # Compute flood diff on current image and compare to historical mean/STD.
-    floodDiff   = flood_diff_function(high_res_modis)
+    floodDiff   = flood_diff_function2(high_res_modis)
     diffOfDiffs = floodDiff.subtract(historyMean)
     ddDivDev    = diffOfDiffs.divide(historyStdDev)
     changeFlood = ddDivDev.lt(change_thresh)  # Mark all pixels which are enough STD's away from the mean.
@@ -451,7 +467,7 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
     # Use the water mask statistics to compute a difference threshold, then find all pixels below the threshold.
     waterThreshold  = maskedMean.getInfo()['sur_refl_b02'] + dev_thresh*(maskedStdDev.getInfo()['sur_refl_b02']);
     #print 'Water threshold == ' + str(waterThreshold)
-    waterPixels     = flood_diff_function(high_res_modis).lte(waterThreshold)
+    waterPixels     = flood_diff_function2(high_res_modis).lte(waterThreshold)
     #waterPixels     = modis_diff(domain, b, waterThreshold)
     
     #addToMap(waterPixels,    {'min' : 0,   'max' : 1}, 'waterPixels',    False)
@@ -767,7 +783,7 @@ def detect_flood(domain, algorithm):
         approach = __ALGORITHMS[algorithm]
     except:
         return None
-    return (approach[0], approach[1](domain, __compute_indices(domain)))
+    return (approach[0], approach[1](domain, compute_modis_indices(domain)))
 
 def get_algorithm_name(algorithm):
     '''Return the text name of an algorithm.'''

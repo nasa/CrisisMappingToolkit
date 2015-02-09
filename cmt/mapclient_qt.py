@@ -139,7 +139,8 @@ def which(program):
     return None
 
 
-
+# TODO: Move to a utility file?
+# TODO: Is the name needed for anything?
 def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_params=None):
     '''Downloads an Earth Engine image object to the specified path'''
 
@@ -155,30 +156,37 @@ def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_param
         if ',' in band_names: # If needed, convert from string to list
             band_names = band_names.replace(' ', '').split(',')
     else: # Grab the first three band names
+        if len(eeObject.getInfo()['bands']) > 3:
+            print 'Warning: Limiting recorded file to first three band names!'
         for b in eeObject.getInfo()['bands']:
             band_names.append(b['id'])
-            if len(band_names) >= 3:
-                print 'Warning: Limiting recorded file to first three band names!'
+            if len(band_names) == 3:
                 break
             
     if (len(band_names) != 3) and (len(band_names) != 1):
         raise Exception('Only 1 and 3 channel output images supported!')
     
     # Handle selected visualization parameters
-    if ('min' in vis_params) and ('max' in vis_params): # User specified scaling
+    if vis_params and ('min' in vis_params) and ('max' in vis_params): # User specified scaling
         download_object = eeObject.visualize(band_names, min=vis_params['min'], max=vis_params['max'])
-    elif 'gain' in vis_params:
+    elif vis_params and ('gain' in vis_params):
         # Extract the floating point gain values
-        gain_text = vis_params['gain'].replace(' ', '').split(',')
-        gain_vals = [float(x) for x in gain_text]
-   
+        gain_text       = vis_params['gain'].replace(' ', '').split(',')
+        gain_vals       = [float(x) for x in gain_text]
         download_object = eeObject.visualize(band_names, gain_vals)
     else:
         download_object = eeObject.visualize(band_names)
     
+    # Handle input bounds as string or a rect object
+    if isinstance(bbox, basestring): 
+        eeRect = apply(ee.Geometry.Rectangle, bbox)
+    else:
+        eeRect = bbox
+    eeGeom = eeRect.toGeoJSONString()
+    
     # Retrieve a download URL from Earth Engine
-    eeGeom = apply(ee.Geometry.Rectangle, bbox).toGeoJSONString()    
     url = download_object.getDownloadUrl({'name' : name, 'scale': scale, 'crs': 'EPSG:4326', 'region': eeGeom})
+    #print 'Got download URL: ' + url
     
     # Generate a temporary path for the packed download file
     temp_prefix = 'mapclient_temp_download_%s' % (name)
@@ -191,7 +199,8 @@ def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_param
     with open(zip_path, 'wb') as fp:
         while True:
             chunk = data.read(16 * 1024)
-            if not chunk: break
+            if not chunk:
+                break
             fp.write(chunk)
     print 'Download complete!'
     
