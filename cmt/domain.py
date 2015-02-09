@@ -59,6 +59,11 @@ class SensorObservation(object):
         # Set up the EE image object using the band information
         self.__load_image(eeBounds)
 
+    def __str__(self):
+        return self.sensor_name
+
+    def __repr__(self):
+        return self.sensor_name
 
     def get_date(self):
         '''Returns the start date for the image if one was provided, None otherwise.'''
@@ -496,9 +501,8 @@ class Domain(object):
 
         # Load a ground truth image if one was specified
         # - These are always binary and loaded from an asset ID in Maps Engine.
-        # TODO: The ground truth should be masked to a sensor image in the eval function!
         truth_ee_id = root.find('truth')
         if truth_ee_id != None:
-            self.ground_truth = ee.Image(truth_ee_id.text).select(['b1']).clamp(0, 1).mask(self.sensor_list[0].image.select([self.sensor_list[0].band_names[0]]))
+            self.ground_truth = ee.Image(truth_ee_id.text).select(['b1']).clamp(0, 1)
 
 
