@@ -49,12 +49,12 @@
     <training_domain>kashmore_north_2010_8</training_domain>
     
     <algorithm_params>
-      <modis_diff_threshold>1200</modis_diff_threshold>
+      <modis_diff_threshold>1020</modis_diff_threshold>
       
       <modis_mask_threshold>3.5</modis_mask_threshold>
       <modis_change_threshold>-3.5</modis_change_threshold>
       
-      <dartmouth_threshold>0.75</dartmouth_threshold>
+      <dartmouth_threshold>0.72</dartmouth_threshold>
       
       <dem_threshold>27</dem_threshold>
     </algorithm_params>

@@ -49,7 +49,7 @@
     <training_domain>mississippi_2011_5</training_domain>
     
     <algorithm_params>
-      <modis_diff_threshold>1550</modis_diff_threshold>
+      <modis_diff_threshold>1150</modis_diff_threshold>
       
       <modis_mask_threshold>6.5</modis_mask_threshold>
       <modis_change_threshold>-3.5</modis_change_threshold>
