@@ -92,21 +92,32 @@ def parse_lake_results(name):
     results['area'   ] = area
     return (results, x_axis, y_axis, cloud_axis)
 
-def plot_results(features, dates, water, clouds, save_directory=None):
+def plot_results(features, dates, water, clouds, save_directory=None, ground_truth_file=None):
     fig, ax = plt.subplots()
-    ax.plot(dates, water, linestyle='-', color='b', linewidth=5)
-    ax.plot(dates, water, 'rs', ms=10)
+    water_line = ax.plot(dates, water, linestyle='-', color='b', linewidth=1, label='Landsat-5 Surface Area')
+    ax.plot(dates, water, 'gs', ms=3)
     #ax.bar(dates, water, color='b', width=15, linewidth=0)
     #ax.bar(dates, clouds, bottom=water, color='r', width=15, linewidth=0)
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
     ax.xaxis.set_minor_locator(mdates.MonthLocator())
-    
-    ax.format_xdata = mdates.DateFormatter('%m/%d/%Y')
-    ax.format_ydata = (lambda x : '%g km^2' % (x))
     ax.set_xlabel('Time')
+    ax.format_xdata = mdates.DateFormatter('%m/%d/%Y')
+
+    if ground_truth_file != None:
+        (ground_truth_dates, ground_truth_levels) = load_ground_truth(ground_truth_file)
+        ax2 = ax.twinx()
+        ground_truth_line = ax2.plot(ground_truth_dates, ground_truth_levels, linestyle='--', color='r', linewidth=2, label='Measured Elevation')
+        ax2.set_ylabel('Lake Elevation (ft)')
+        ax2.format_ydata = (lambda x : '%g ft' % (x))
+        ax2.set_ylim([6372, 6385.5])
+    
+    ax.format_ydata = (lambda x : '%g km^2' % (x))
     ax.set_ylabel('Lake Surface Area (km^2)')
     fig.suptitle(features['name']+ ' Surface Area from Landsat')
+    lns = water_line + ground_truth_line
+    labs = [l.get_label() for l in lns]
+    ax.legend(lns, labs, loc=4)
     
     ax.grid(True)
     fig.autofmt_xdate()
@@ -114,12 +125,30 @@ def plot_results(features, dates, water, clouds, save_directory=None):
     if save_directory != None:
         fig.savefig(os.path.join(save_directory, features['name'] + '.pdf'))
 
+def load_ground_truth(filename):
+    f = open(filename, 'r')
+    dates = []
+    levels = []
+    all_months = {'Jan' : 1, 'Feb' : 2, 'Mar' : 3, 'Apr' : 4, 'May' : 5, 'Jun' : 6,
+                  'Jul' : 7, 'Aug' : 8, 'Sep' : 9, 'Oct' : 10, 'Nov' : 11, 'Dec' : 12}
+    for line in f:
+        parts = line.split()
+        month = all_months[parts[0].split('-')[0]]
+        year = int(parts[0].split('-')[1])
+        if year > 50:
+          year = 1900 + year
+        else:
+          year = 2000 + year
+        dates.append(datetime.datetime(year, month, 1))
+        levels.append(float(parts[1]))
+    return (dates, levels)
 
 # --- Main script ---
 
 
 if len(sys.argv) > 1:
     (features, dates, water, clouds) = parse_lake_results(sys.argv[1])
+    #plot_results(features, dates, water, clouds, None, 'results/mono_lake_elevation.txt')
     plot_results(features, dates, water, clouds)
     plt.show()
 else:
