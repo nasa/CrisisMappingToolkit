@@ -202,7 +202,7 @@ def dnns(domain, b):
     #       once the constants have been tuned!
     
     # Parameters
-    KERNEL_SIZE = 41 # The original paper used a 100x100 pixel box = 25,000 meters!
+    KERNEL_SIZE = 40 # The original paper used a 100x100 pixel box = 25,000 meters!
     PURELAND_THRESHOLD = 3500 # TODO: This will have to vary by domain!
     
     # Set up two square kernels of the same size
@@ -214,9 +214,10 @@ def dnns(domain, b):
     composite_image = b['b1'].addBands(b['b2']).addBands(b['b6'])
     
     # Compute (b2 - b1) < threshold, a simple water detection algorithm.  Treat the result as "pure water" pixels.
-    PURE_WATER_THRESHOLD_RATIO = 1.0
     pureWaterThreshold = domain.algorithm_params['modis_diff_threshold'] * PURE_WATER_THRESHOLD_RATIO
-    purewater = modis_diff(domain, b, pureWaterThreshold)
+    purewater = cart(domain, b)
+    #PURE_WATER_THRESHOLD_RATIO = 1.0
+    #purewater = modis_diff(domain, b, pureWaterThreshold)
     
     # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.
     AVERAGE_SCALE_METERS = 250 # This value seems to have no effect on the results
@@ -226,7 +227,7 @@ def dnns(domain, b):
     # For each pixel, compute the number of nearby pure water pixels
     purewatercount = purewater.convolve(kernel)
     # Get mean of nearby pure water (b1,b2,b6) values for each pixel with enough pure water nearby
-    MIN_PUREWATER_NEARBY = 100
+    MIN_PUREWATER_NEARBY = 1
     purewaterref = purewater.multiply(composite_image).convolve(kernel).multiply(purewatercount.gte(MIN_PUREWATER_NEARBY)).divide(purewatercount)
     # For pixels that did not have enough pure water nearby, just use the global average water value
     purewaterref = purewaterref.add(averagewaterimage.multiply(purewaterref.Not()))
@@ -281,14 +282,13 @@ def dnns(domain, b):
     # Set pure water to 1.  We don't have a good set of pure land pixels.
     water_fraction = water_fraction.add(purewater).clamp(0, 1)
     
-    #addToMap(fraction,       {'min': 0, 'max': 1},   'fraction', False)
+    #addToMap(fraction, {'min': 0, 'max': 1},   'fraction', False)
     #addToMap(purewater,      {'min': 0, 'max': 1},   'pure water', False)
-    #addToMap(pureland,       {'min': 0, 'max': 1},   'pure land', False)
+    #addToMap(pureLand,       {'min': 0, 'max': 1},   'pure land', False)
     #addToMap(purewatercount, {'min': 0, 'max': 300}, 'pure water count', False)
     #addToMap(purelandcount,  {'min': 0, 'max': 300}, 'pure land count', False)
     #addToMap(water_fraction, {'min': 0, 'max': 5},   'water_fractionDNNS', False)
     #addToMap(purewaterref,   {'min': 0, 'max': 3000, 'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06']}, 'purewaterref', False)
-    #addToMap(averageland,    {'min': 0, 'max': 3000, 'bands': ['sur_refl_b01']}, 'averageland', False)
     
     return water_fraction.select(['sum_2'], ['b1']) # Rename sum_2 to b1
 
