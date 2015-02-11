@@ -140,8 +140,7 @@ def which(program):
 
 
 # TODO: Move to a utility file?
-# TODO: Is the name needed for anything?
-def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_params=None):
+def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
     '''Downloads an Earth Engine image object to the specified path'''
 
     # For now we require a GDAL installation in order to save images
@@ -185,11 +184,12 @@ def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_param
     eeGeom = eeRect.toGeoJSONString()
     
     # Retrieve a download URL from Earth Engine
-    url = download_object.getDownloadUrl({'name' : name, 'scale': scale, 'crs': 'EPSG:4326', 'region': eeGeom})
+    dummy_name = 'EE_image'
+    url = download_object.getDownloadUrl({'name' : dummy_name, 'scale': scale, 'crs': 'EPSG:4326', 'region': eeGeom})
     #print 'Got download URL: ' + url
     
     # Generate a temporary path for the packed download file
-    temp_prefix = 'mapclient_temp_download_%s' % (name)
+    temp_prefix = 'mapclient_temp_download_' + dummy_name
     zip_name    = temp_prefix + '.zip'
     zip_path    = os.path.join(TEMP_FILE_DIR, zip_name) 
     
@@ -209,7 +209,7 @@ def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_param
     
     ## All the transforms should be the same so we only read the first one.
     ## - The transform is the six numbers that make up the CRS matrix (pixel to lat/lon conversion)
-    #transform_file = z.open(name + '.' + band_names[0] + '.tfw', 'r')
+    #transform_file = z.open(dummy_name + '.' + band_names[0] + '.tfw', 'r')
     #transform = [float(line) for line in transform_file]
     
     # Extract each of the band images into a temporary file
@@ -221,7 +221,7 @@ def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_param
     else:
         color_names = ['vis-red', 'vis-green', 'vis-blue']
     for b in color_names:
-        band_filename  = name + '.' + b + '.tif'
+        band_filename  = dummy_name + '.' + b + '.tif'
         extracted_path = os.path.join(TEMP_FILE_DIR, band_filename)
         z.extract(band_filename, TEMP_FILE_DIR)
         temp_band_files.append(extracted_path)
@@ -240,17 +240,17 @@ def downloadEeImage(eeObject, bbox, scale, file_path, name='EE_image', vis_param
     #print cmd
     os.system(cmd)
     
-    # Clean up vrt file
-    os.remove(vrt_path)
+    ### Clean up vrt file
+    ##os.remove(vrt_path)
     
     # Check for output file
     if not os.path.exists(file_path):
         raise Exception('Failed to create output image file!')
         
-    # Clean up temporary files
-    for b in temp_band_files:
-        os.remove(b)
-    os.remove(zip_path)
+    ### Clean up temporary files
+    ##for b in temp_band_files:
+    ##    os.remove(b)
+    ##os.remove(zip_path)
     
     print 'Finished saving ' + file_path
     return True
@@ -573,11 +573,11 @@ class MapViewWidget(QtGui.QWidget):
         # Pop open a window to get a file name from the user
         file_path = str(QtGui.QFileDialog.getSaveFileName(self, 'Save image to', DEFAULT_SAVE_DIR))
         
-        # This will be used as a file name so it must be legal
-        saveName = overlayToSave.name.replace(' ', '_').replace('/', '-')
+        ## This will be used as a file name so it must be legal
+        #saveName = overlayToSave.name.replace(' ', '_').replace('/', '-')
         
         #print overlayToSave.eeobject.getInfo()
-        downloadEeImage(overlayToSave.eeobject, current_view_bbox, scale, file_path, saveName, overlayToSave.vis_params)
+        downloadEeImage(overlayToSave.eeobject, current_view_bbox, scale, file_path, overlayToSave.vis_params)
 
     def contextMenuEvent(self, event):
         menu = QtGui.QMenu(self)

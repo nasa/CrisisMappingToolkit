@@ -34,6 +34,7 @@ cmt.ee_authenticate.initialize()
 import sys
 import time
 import os
+import csv
 import ee
 import cmt.util.processManyLakes
 from cmt.util.processManyLakes import LakeDataLoggerBase
@@ -55,7 +56,7 @@ class LoggingClass(LakeDataLoggerBase):
         self.logFolder  = filePrefix + os.path.sep
         if not os.path.exists(self.logFolder): # Create folder if it does not exist
             os.mkdir(self.logFolder)
-        logPath         = os.path.join(self.logFolder, 'MODIS_log.txt')
+        logPath         = os.path.join(self.logFolder, 'MODIS_log.csv')
         existingFile    = os.path.exists(logPath) # Check if the file already exists
         print 'DEBUG: Opening log file ' + logPath
         self.fileHandle = open(logPath, 'a+') # Append mode
@@ -69,7 +70,7 @@ class LoggingClass(LakeDataLoggerBase):
         if self.fileHandle:
             self.fileHandle.close()
 
-    def saveImage(self, classifiedImage, ee_bounds, imageName, waterMask, modisImage):
+    def saveImage(self, classifiedImage, ee_bounds, imageName, waterMask, modisImage, resolution=30):
         '''Records a diagnostic image to the log directory'''
         
         # Currently we are not using the modis image
@@ -77,9 +78,8 @@ class LoggingClass(LakeDataLoggerBase):
         mergedImage = classifiedImage.addBands(ee.Image(0)).addBands(waterMask)
         vis_params = {'min': 0, 'max': 1} # Binary image data
         
-        DISPLAY_RESOLUTION = 30 # Display at a higher resolution to make things prettier
         imagePath          = os.path.join(self.logFolder, imageName + '.tif')
-        return downloadEeImage(mergedImage, ee_bounds, DISPLAY_RESOLUTION, imagePath, 'dummyName', vis_params)
+        return downloadEeImage(mergedImage, ee_bounds, resolution, imagePath, vis_params)
 
     def findRecordByDate(self, date):
         '''Searches for a record with a particular date and returns it'''
@@ -117,6 +117,37 @@ class LoggingClass(LakeDataLoggerBase):
         self.fileHandle.write(s) # The string is automatically written to the end of the file
         
         return True
+    
+    @staticmethod
+    def readAllEntries(logPath):
+        '''Reads the entire contents of the log file into a list of dictionaries'''
+    
+        fileHandle = open(logPath, 'r')
+        fileHandle.readline() # Skip header line
+        dataList = []
+        while True:
+            # Read the next line
+            line = fileHandle.readline()
+            
+            # If we hit the end of the file return the dictionary
+            if not line:
+                return dataList
+            
+            # Put all the parts of the line into a dictionary
+            thisDict = {}
+            parts    = line.split(',')
+            numAlgs  = (len(parts) - 2) / 3 # Date, MODIS, (alg name, precision, recall)...
+            thisDict['date'] = parts[0]
+            for i in range(numAlgs): # Loop through each algorithm
+                startIndex = i*3 + 2
+                algName    = parts[startIndex  ].strip()
+                precision  = float(parts[startIndex+1])
+                recall     = float(parts[startIndex+2])
+                thisDict[algName] = (precision, recall) # Store the pair of results for the algorithm
+
+            dataList.append(thisDict)
+
+        raise Exception('Should never get here!')
 
 
 # TODO: Move to a common file!!!!!!!!
@@ -128,7 +159,7 @@ def isRegionInUnitedStates(region):
     nation     = ee.Feature(nationList.filter(ee.Filter.eq('Country', 'United States')).first())
     nationGeo  = ee.Geometry(nation.geometry())
     # Check if the input region is entirely within the US
-    result     = nationGeo.contains(region)
+    result     = nationGeo.contains(region, 1)
     return (str(result.getInfo()) == 'True')
 
 # TODO: Move to a common file!
@@ -146,6 +177,7 @@ def unComputeRectangle(eeRect):
     bbox        = [minLon, minLat, maxLon, maxLat]   # Pack in order
     eeRectFixed = apply(ee.Geometry.Rectangle, bbox) # Convert back to EE rectangle object
     return eeRectFixed
+
 
 class Object(object):
     '''Helper class to let us add attributes to empty objects'''
@@ -196,19 +228,12 @@ def compute_simple_binary_threshold(valueImage, classification, bounds):
     meanTrue     = meanTrue.getInfo()[ 'sur_refl_b02']
     stdFalse     = stdFalse.getInfo()[ 'sur_refl_b02']
     stdTrue      = stdTrue.getInfo()[  'sur_refl_b02']
+
     
     # Just pick a point between the means based on the ratio of standard deviations
     meanDiff  = meanTrue - meanFalse
     stdRatio  = stdFalse / (stdTrue + stdFalse)
     threshold = meanFalse + meanDiff*stdRatio
-
-    #print 'meanFalse = ' + str(meanFalse)    
-    #print 'meanTrue  = ' + str(meanTrue)
-    #print 'stdFalse  = ' + str(stdFalse)
-    #print 'stdTrue   = ' + str(stdTrue)
-    #print 'meanDiff  = ' + str(meanDiff)
-    #print 'stdRatio  = ' + str(stdRatio)
-    #print 'threshold = ' + str(threshold)
     
     return threshold
 
@@ -238,12 +263,34 @@ def compute_algorithm_parameters(training_domain):
     algorithm_params['modis_mask_threshold'  ] =  4.5
     algorithm_params['modis_change_threshold'] = -3.0
 
-    #print 'Computed the following algorithm parameters: '
-    #print algorithm_params
-    #print '8888888888888888888888888888888888888888888888888888888888888888888888888888'
-    
+    print 'Computed the following algorithm parameters: '
+    print algorithm_params
     
     return algorithm_params
+
+
+#from cmt.mapclient_qt import centerMap, addToMap
+#centerMap(-119, 38, 11)
+
+
+def getAlgorithmList():
+    '''Return the list of available algorithms'''
+
+    algorithmList = [(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold'),
+                     (cmt.modis.flood_algorithms.EVI                , 'EVI'),
+                     (cmt.modis.flood_algorithms.XIAO               , 'XIAO'),
+                     (cmt.modis.flood_algorithms.DIFFERENCE         , 'Difference'),
+                     (cmt.modis.flood_algorithms.CART               , 'CART'),
+                     (cmt.modis.flood_algorithms.SVM                , 'SVM'),
+                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests'),
+                     (cmt.modis.flood_algorithms.DNNS               , 'DNNS'),
+                     #(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised'),
+                     (cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM'),
+                     (cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History'), # TODO: May need auto-thresholds!
+                     (cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth'),
+                     (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree') ]
+
+    return algorithmList
 
 
 def processing_function(bounds, image, image_date, logger):
@@ -282,6 +329,11 @@ def processing_function(bounds, image, image_date, logger):
     fakeDomain.ground_truth       = waterMask
     fakeDomain.bounds             = bounds
     fakeDomain.add_dem(bounds)
+    
+    #addToMap(image, {'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06'],
+    #                      'min': 0, 'max': 3000}, 'MODIS data', True)    
+    #addToMap(waterMask, {'min': 0, 'max': 1}, 'Water Mask', False)
+    #addToMap(fakeDomain.get_dem(), {'min': 1900, 'max': 2400}, 'DEM', False)
         
     # Also need to set up a bunch of training information
     
@@ -330,61 +382,167 @@ def processing_function(bounds, image, image_date, logger):
     # TODO: Fetch and insert other required information as needed!
     
     # Define a list of all the algorithms we want to test
-    algorithmList = [#(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold'),
-                     (cmt.modis.flood_algorithms.EVI                , 'EVI'),
-                     #(cmt.modis.flood_algorithms.XIAO               , 'XIAO'),
-                     #(cmt.modis.flood_algorithms.DIFFERENCE         , 'Difference'),
-                     #(cmt.modis.flood_algorithms.CART               , 'CART'),
-                     #(cmt.modis.flood_algorithms.SVM                , 'SVM'),
-                     #(cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests'),
-                     #(cmt.modis.flood_algorithms.DNNS               , 'DNNS'),
-                     ###(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised'),
-                     #(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM'),
-                     (cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History'),
-                     (cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth')]#,
-                     #(cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree') ]
+    algorithmList = getAlgorithmList()
 
    
     # Loop through each algorithm
     waterResults = dict()
     for a in algorithmList:
         
-        print 'Running algorithm ' + a[1]
-        
-        # Call function to generate the detected water map
-        detectedWater = cmt.modis.flood_algorithms.detect_flood(fakeDomain, a[0])[1]
-       
+        try:
+            print 'Running algorithm ' + a[1]
+            # Call function to generate the detected water map
+            detectedWater = cmt.modis.flood_algorithms.detect_flood(fakeDomain, a[0])[1]
+            #addToMap(detectedWater, {'min': 0, 'max': 1}, a[1], False)
+        except Exception,e:
+            print 'Detecting water failed with exception --> ' + str(e)
+
+
+        # Save image of results so we can look at them later
+        # - Try at a high resolution and if that fails try a lower resolution
+        imageName = 'alg_' + a[1].replace(' ', '_') +'_'+ str(image_date)
+        FULL_DEBUG_IMAGE_RESOLUTION    = 250  # Pixel resolution in meters
+        REDUCED_DEBUG_IMAGE_RESOLUTION = 1000
+        try: # High res output
+            logger.saveImage(detectedWater, rectBounds, imageName, waterMask, image, FULL_DEBUG_IMAGE_RESOLUTION)
+        except:
+            print 'Retrying download at lower resolution.'
+            try: # Low res output
+                logger.saveImage(detectedWater, rectBounds, imageName, waterMask, image, REDUCED_DEBUG_IMAGE_RESOLUTION)
+            except Exception,e:
+                print 'Saving results image failed with exception --> ' + str(e)
+
+
         print 'Evaluating detection results...'
         
-        # Compare the detection result to the water mask
-        isFractional = False # Currently not using fractional evaluation, but maybe we should for DNSS-DEM
-        (precision, recall) = cmt.util.evaluation.evaluate_approach(detectedWater, waterMask, rectBounds, isFractional)
-        
-        print 'Evaluation results: ' + str(precision) + ' ' + str(recall)
-        
-        # Store the results for this algorithm
-        waterResults[a[1]] = (precision, recall)
-        
-        # Save image of results so we can look at them later
-        imageName = 'alg_' + a[1].replace(' ', '_')
         try:
-            logger.saveImage(detectedWater, rectBounds, imageName, waterMask, image)
+            # Compare the detection result to the water mask
+            isFractional = False # Currently not using fractional evaluation, but maybe we should for DNSS-DEM
+            (precision, recall) = cmt.util.evaluation.evaluate_approach(detectedWater, waterMask, rectBounds, isFractional)
+            
+            # Store the results for this algorithm
+            print 'Evaluation results: ' + str(precision) + ' ' + str(recall)
+            waterResults[a[1]] = (precision, recall)
+            
         except Exception,e:
-            print 'Saving results image failed with exception --> ' + str(e)
+                print 'Evaluating results failed with exception --> ' + str(e)
+
     
     # Return the results for each algorithm
     waterResults['satellite'] = 'MODIS'
     return waterResults
 
 
+def compileLakeResults(resultsFolder):
+    '''Compiles a single csv file comparing algorithm results across lakes'''
+    
+    # Get a list of the algorithms to read
+    algorithmList = getAlgorithmList()
+        
+    # Create the output file
+    outputPath   = os.path.join(resultsFolder, 'compiledLogs.csv')
+    outputHandle = open(outputPath, 'w')
+    print 'Writing composite log file: ' + outputPath
+    
+    # Write a header line
+    headerLine = 'lake_name'
+    for a in algorithmList:
+        headerLine += ', '+ a[1] +'_precision, '+ a[1] +'_recall'
+    outputHandle.write(headerLine + '\n')
+        
+    # Define local helper function
+    def prListMean(prList):
+        '''Compute the mean of a list of precision/recall value pairs'''
+        count = len(prList)
+        pSum  = 0.0
+        rSum  = 0.0
+        for i in prList: # Sum the values
+            pSum += i[0]
+            rSum += i[1]
+        return (pSum/count, rSum/count) # Return the means
+    
+    # Loop through the directories
+    algMeans = dict()
+    for d in os.listdir(resultsFolder):
+
+        thisFolder = os.path.join(resultsFolder, d)
+        print thisFolder
+        if not (os.path.isdir(thisFolder)): # Skip non-folders
+            continue
+    
+        # Skip the directory if it does not contain MODIS_log.csv
+        logPath = os.path.join(thisFolder, 'MODIS_log.csv')
+        if not os.path.exists(logPath):
+            continue
+        print 'Reading log file ' + logPath
+        
+        # Read in the contents of the log file
+        dateResultsList = LoggingClass.readAllEntries(logPath)
+        
+        #print dateResultsList
+        
+        
+        # For each algorithm...
+        meanDict = dict()
+        for a in algorithmList:
+            alg = a[1] # Name of the current algorithm
+
+            # Compute the mean precision and recall across all dates for this lake
+            prList = []
+            for date in dateResultsList:
+                try:
+                    precision, recall = date[alg] # Get precision and recall
+                    prList.append( (precision, recall) )
+                except:
+                    print 'WARNING: Missing results for algorithm ' + alg + ' for lake ' + d
+                    
+            # Only record something if we got at least one result from the algorithm
+            if len(prList) > 0:
+                # Call local helper function to get the mean precision and recall values
+                meanDict[alg] = prListMean(prList)
+                
+                # Add the means for this algorithm to a list spanning all lakes
+                if alg in algMeans: # Add to existing list
+                    algMeans[alg].append(meanDict[alg])
+                else: # Start a new list
+                    algMeans[alg] = [meanDict[alg]]
+        
+        
+        # Build the next line of the output file
+        thisLine = d # The line starts with the lake name
+        for a in algorithmList:
+            alg = a[1]
+            try:
+                thisLine += ', '+ str(meanDict[alg][0]) +', '+ str(meanDict[alg][1]) # Add precision and recall
+            except:
+                thisLine += ', NA, NA' # Flag the results as no data!
+                print 'WARNING: Missing results for algorithm ' + alg + ' for lake ' + d
+        outputHandle.write(thisLine + '\n')
+               
+    # Add a final summary line containing the means for each algorithm across lakes
+    summaryLine = 'Means'
+    for a in algorithmList:
+        (precision, recall) = prListMean(algMeans[a[1]])
+        summaryLine += ', '+ str(precision) +', '+ str(recall) # Add precision and recall
+    outputHandle.write(summaryLine)
+    outputHandle.close() # All finished!
+
+    print 'Finished writing log file'
+    return 0
+
+
 
 #======================================================================================================
 def main():
 
-    # TODO: Command line arguments must specify one day long dates!
-
-    # Call main argument handling function from the supporting file
-    return cmt.util.processManyLakes.main(processing_function, LoggingClass, cmt.util.processManyLakes.get_image_collection_modis)
+    # Check for the compile logs input flag and if found just compile the logs
+    try:
+        pos = sys.argv.index('--compile-logs')
+    except: # Otherwise call the main argument handling function from the supporting file
+        return cmt.util.processManyLakes.main(processing_function, LoggingClass, cmt.util.processManyLakes.get_image_collection_modis)
+        
+    # Compile flag found, just compile the logs.
+    return compileLakeResults(sys.argv[pos+1])
 
 
 

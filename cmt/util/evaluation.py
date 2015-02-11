@@ -47,21 +47,18 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
     #truth_sum   = ee.data.getValue({'image': ground_truth.stats(30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
     
     # Try to evaluate at a high resolution but fall back to a lower one if it is too much for EE to handle.
-    LOW_RES_EVAL  = 100
-    HIGH_RES_EVAL = 400
-    try:
-        correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, LOW_RES_EVAL ).getInfo()['b1']
-    except:
-        correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, HIGH_RES_EVAL).getInfo()['b1']
-    try:
-        result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, LOW_RES_EVAL ).getInfo()['b1']
-    except:
-        result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, HIGH_RES_EVAL).getInfo()['b1']
-    try:
-        truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, LOW_RES_EVAL ).getInfo()['b1']
-    except:
-        truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, HIGH_RES_EVAL).getInfo()['b1']
+    HIGH_RES_EVAL = 500
+    LOW_RES_EVAL  = 2000
+    try: # High res first
+        correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, HIGH_RES_EVAL ).getInfo()['b1']
+        result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, HIGH_RES_EVAL ).getInfo()['b1']
+        truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, HIGH_RES_EVAL ).getInfo()['b1']
+    except: # If EE times out, try at a lower resolution.
+        correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, LOW_RES_EVAL).getInfo()['b1']
+        result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, LOW_RES_EVAL).getInfo()['b1']
+        truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, LOW_RES_EVAL).getInfo()['b1']
     
+    # Compute ratios, avoiding divide by zero.
     precision   = 1.0 if (result_sum == 0.0) else (correct_sum / result_sum)
     recall      = 1.0 if (truth_sum  == 0.0) else (correct_sum / truth_sum)
     return (precision, recall)

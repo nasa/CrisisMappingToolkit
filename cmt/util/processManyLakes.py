@@ -43,6 +43,9 @@ import ee
 
 #---------------------------------------------------------------------------
 
+
+
+
 def get_image_collection_landsat5(bounds, start_date, end_date):
     '''Retrieve Landsat 5 imagery for the selected location and dates.'''
 
@@ -54,17 +57,17 @@ def get_image_collection_landsat5(bounds, start_date, end_date):
     return collection
 
 
-def get_image_collection_modis(bounds, start_date, end_date):
+def get_image_collection_modis(region, start_date, end_date):
     '''Retrieve MODIS imagery for the selected location and dates.'''
 
     print 'Fetching MODIS data...'
 
-    ee_bounds    = bounds
-    ee_points    = ee.List(bounds.bounds().coordinates().get(0))
+    ee_points    = ee.List(region.bounds().coordinates().get(0))
     points       = ee_points.getInfo()
     points       = map(functools.partial(apply, ee.Geometry.Point), points)
     highResModis = ee.ImageCollection('MOD09GQ').filterDate(start_date, end_date).filterBounds(points[0]).filterBounds(points[1]).filterBounds(points[2]).filterBounds(points[3])
     lowResModis  = ee.ImageCollection('MOD09GA').filterDate(start_date, end_date).filterBounds(points[0]).filterBounds(points[1]).filterBounds(points[2]).filterBounds(points[3])
+    
     #print highResModis.getInfo()
     #print '================================='
     #print lowResModis.getInfo()['bands']
@@ -135,20 +138,47 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
     '''Computes lake statistics over a date range and writes them to a log file.
         processing_function is called with two arguments: a bounding box and an ee_image.'''
     
+    # The maximum lake size Earth Engine can handle in square kilometers
+    MAX_LAKE_SIZE = 5000
+    MAX_LATITUDE  = 55 # SRTM90 is not available beyond 60 latitude
+    
     # Extract the lake name (required!)
     name = lake['properties']['LAKE_NAME']
     if name == '':
         return
+
+    boundsInfo = ee_lake.geometry().bounds().getInfo()
     
-    print 'Processing lake: ' + name
+    maxAbsLat = 0
+    for coord in boundsInfo['coordinates'][0]:
+        lat = abs(coord[1])
+        if lat > maxAbsLat:
+            maxAbsLat = lat
+    if maxAbsLat > MAX_LATITUDE:
+        print name + ' is too high latitude, skipping it.'
+        return
     
-    # Set up logging object for this lake
-    logger = logging_class(output_directory, ee_lake)
+    # Compute the size of the area and quit if it is too big to handle
+    size = ee_lake.geometry().area(10).getInfo() / 1000000 # Convert answer to square kilometers
+    if size > MAX_LAKE_SIZE:
+        print name + ' is too large, skipping it.'
+        return
+    
 
     # Take the lake boundary and expand it out in all directions by 1000 meters
-    ee_bounds     = ee_lake.geometry().buffer(1000)
+    # - Need to use bounding boxes instead of exact geometeries, otherwise
+    #    Earth Engine's memory usage will explode!
+    ee_bounds = ee_lake.geometry().bounds().buffer(1000).bounds()
+    
+    print 'Processing lake: ' + name    
+
+
+    # Set up logging object for this lake
+    logger = logging_class(output_directory, ee_lake)
+    
+    
     # Fetch all the landsat 5 imagery covering the lake on the date range
-    collection = image_fetching_function(ee_bounds, start_date, end_date)
+    collection    = image_fetching_function(ee_bounds, start_date, end_date)
     ee_image_list = collection.toList(1000000)
     
     num_images_found = len(ee_image_list.getInfo())
@@ -188,14 +218,17 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
         
         
         # Call processing algorithms on the lake with second try in case EE chokes.
-        #try:
-        result = processing_function(ee_bounds, this_ee_image, this_date, logger)
-        #except Exception as e:
+        try:
+            result = processing_function(ee_bounds, this_ee_image, this_date, logger)
+            print result
+        except Exception as e:
+            print 'Processing failed, skipping this date --> ' + str(e)
+            continue
         #    print >> sys.stderr, 'Failure counting water...trying again. ' + str(e)
         #    time.sleep(5)
         #    r = processing_function(ee_bounds, this_ee_image, this_date).getInfo()['properties']
         #r = {'TEST': (1.0, 2.0), 'satellite': 'dummy'} # DEBUG
-        print result
+        
         
         # Append some metadata to the record and log it
         #r['sun_elevation'] = sun_elevation
@@ -259,19 +292,23 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
     
     
     lake_results    = []
+    #SKIP = 35
+    #count = 0
     for i in range(len(all_lakes_local)): # For each lake...
         # Get this one lake
         ee_lake = ee.Feature(all_lakes.get(i)) 
 
+        #count += 1
+        #if count < SKIP:
+        #    continue
+
+        #process_lake(all_lakes_local[i], ee_lake, start_date, end_date, args.results_dir, processing_function, logging_class, image_fetching_function)
     
-        process_lake(all_lakes_local[i], ee_lake, start_date, end_date, args.results_dir, processing_function, logging_class, image_fetching_function)
-    
-        
-        ## Spawn a processing thread for this lake
-        #lake_results.append(pool.apply_async(process_lake, args=(all_lakes_local[i], ee_lake,
-        #                                                         start_date, end_date,
-        #                                                         args.results_dir,
-        #                                                         processing_function, logging_class, image_fetching_function)))
+        # Spawn a processing thread for this lake
+        lake_results.append(pool.apply_async(process_lake, args=(all_lakes_local[i], ee_lake,
+                                                                 start_date, end_date,
+                                                                 args.results_dir,
+                                                                 processing_function, logging_class, image_fetching_function)))
     
     # Wait until all threads have finished
     print 'Waiting for all threads to complete...'
