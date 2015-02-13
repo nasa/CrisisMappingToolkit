@@ -105,7 +105,8 @@ def getCloudPercentage(lowResModis, region):
     #print oneMask.getInfo()
     #print region.getInfo()
     areaCount  = oneMask.reduceRegion(  ee.Reducer.sum(), region, MODIS_CLOUD_RESOLUTION)
-    cloudCount = cloudMask.reduceRegion(ee.Reducer.mean(), region, MODIS_CLOUD_RESOLUTION)
+    cloudCount = cloudMask.reduceRegion(ee.Reducer.sum(), region, MODIS_CLOUD_RESOLUTION)
+    print 'cloudCount = ' + str(cloudCount.getInfo()['cloud_state'])
     percentage = cloudCount.getInfo()['cloud_state'] / areaCount.getInfo()['constant']
     print 'Detected cloud percentage: ' + str(percentage)
     return percentage
@@ -137,8 +138,8 @@ def xiao(domain, b):
     '''
     return b['LSWI'].subtract(b['NDVI']).gte(0.05).Or(b['LSWI'].subtract(b['EVI']).gte(0.05)).select(['sur_refl_b02'], ['b1']);
 
-<<<<<<< HEAD
-def fai(domain, b):
+
+def floating_algae_index(domain, b):
     ''' Floating Algae Index. Method from paper: Feng, Hu, Chen, Cai, Tian, Gan,
     Assessment of inundation changes of Poyang Lake using MODIS observations
     between 2000 and 2010. Remote Sensing of Environment, 2012.
@@ -146,21 +147,6 @@ def fai(domain, b):
     FAI = b['b2'].subtract(b['b1'].add(b['b5'].subtract(b['b1']).multiply((859.0 - 645) / (1240 - 645))))
     return FAI
 
-## A good modis_diff threshold value for each of our domains
-#MODIS_DIFF_THRESHOLDS = {
-#        BORDER         : 1200,
-#        BORDER_JUNE    : 1550,
-#        ARKANSAS_CITY  : 1200,
-#        KASHMORE       : 350,
-#        KASHMORE_NORTH : 350,
-#        NEW_ORLEANS    : 1200,
-#        SLIDELL        : 1200,
-#        BAY_AREA       : 650,
-#        BERKELEY       : 650,
-#        NIGER          : 1200}
-
-=======
->>>>>>> Improvements to modis lake detector
 def modis_diff(domain, b, threshold=None):
     '''Compute (b2-b1) < threshold, a simple water detection index.
     
@@ -248,6 +234,8 @@ def dnns(domain, b):
     pureLand  = classes.lte(0.05)
     mixed = purewater.Not().And(pureLand.Not())
     #purewater = modis_diff(domain, b, pureWaterThreshold)
+    # Use a training classifier to determine pure water pixels
+    purewater = cart(domain, b) #TODO: Try out classifier mode and see if we can use probability to find partial water
     
     # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.
     AVERAGE_SCALE_METERS = 250 # This value seems to have no effect on the results

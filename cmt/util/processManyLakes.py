@@ -118,9 +118,9 @@ class LakeDataLoggerBase(object):
         prefix    = os.path.join(self.base_directory, safe_name)
         return prefix
     
-    def findRecordByDate(self, date):
-        '''Searches for a record with a particular date and returns it'''
-        return None
+    #def findRecordByDate(self, date):
+    #    '''Searches for a record with a particular date and returns it'''
+    #    return None
     
     def addDataRecord(self, dataRecord):
         '''Adds a new record to the log and optionally save an image'''
@@ -142,10 +142,12 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
     MAX_LAKE_SIZE = 5000
     MAX_LATITUDE  = 55 # SRTM90 is not available beyond 60 latitude
     
-    # Extract the lake name (required!)
+    # Extract the lake name
     name = lake['properties']['LAKE_NAME']
-    if name == '':
-        return
+    name = name.replace("'","") # Strip out weird characters
+    if name == '': # Can't proceed without the name!
+        print lake['properties']['LAKE_NAME']
+        raise Exception('No name present for lake!')
 
     boundsInfo = ee_lake.geometry().bounds().getInfo()
     
@@ -172,7 +174,6 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
     
     print 'Processing lake: ' + name    
 
-
     # Set up logging object for this lake
     logger = logging_class(output_directory, ee_lake)
     
@@ -190,12 +191,6 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
     for i in range(len(all_image_info)):
         
         
-        #for v in all_image_info[i]:
-        #    print '--------------------------------------------------------'
-        #    print v
-        #    print all_image_info[i][v]
-        
-        
         # Extract the date - look for it in several locations
         if 'DATE_ACQUIRED' in all_image_info[i]['properties']: # Landsat 5
             this_date = all_image_info[i]['properties']['DATE_ACQUIRED']
@@ -206,29 +201,18 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
             dateStart2 = text.find('_', dateStart1) + 1
             this_date  = text[dateStart2:].replace('_', '-')
         
-        # If we already loaded data that contained results for this image, don't re-process it!
-        # - In the future may need to check more than the date
-        if logger.findRecordByDate(this_date):
-            continue
         print 'Processing date ' + str(this_date)
         
         # Retrieve the image data and fetch the sun elevation (suggests the amount of light present)
         this_ee_image = ee.Image(ee_image_list.get(i))
-        #sun_elevation = all_image_info[i]['properties']['SUN_ELEVATION'] # Easily available in Landsat5
-        
+        #sun_elevation = all_image_info[i]['properties']['SUN_ELEVATION'] # Easily available in Landsat5       
         
         # Call processing algorithms on the lake with second try in case EE chokes.
         try:
             result = processing_function(ee_bounds, this_ee_image, this_date, logger)
-            print result
         except Exception as e:
             print 'Processing failed, skipping this date --> ' + str(e)
             continue
-        #    print >> sys.stderr, 'Failure counting water...trying again. ' + str(e)
-        #    time.sleep(5)
-        #    r = processing_function(ee_bounds, this_ee_image, this_date).getInfo()['properties']
-        #r = {'TEST': (1.0, 2.0), 'satellite': 'dummy'} # DEBUG
-        
         
         # Append some metadata to the record and log it
         #r['sun_elevation'] = sun_elevation
@@ -292,24 +276,24 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
     
     
     lake_results    = []
-    #SKIP = 35
-    #count = 0
+    SKIP = 50
+    count = 0
     for i in range(len(all_lakes_local)): # For each lake...
         # Get this one lake
         ee_lake = ee.Feature(all_lakes.get(i)) 
 
-        #count += 1
-        #if count < SKIP:
-        #    continue
+        count += 1
+        if count < SKIP:
+            continue
 
-        #process_lake(all_lakes_local[i], ee_lake, start_date, end_date, args.results_dir, processing_function, logging_class, image_fetching_function)
-    
-        # Spawn a processing thread for this lake
-        lake_results.append(pool.apply_async(process_lake, args=(all_lakes_local[i], ee_lake,
-                                                                 start_date, end_date,
-                                                                 args.results_dir,
-                                                                 processing_function, logging_class, image_fetching_function)))
-    
+        process_lake(all_lakes_local[i], ee_lake, start_date, end_date, args.results_dir, processing_function, logging_class, image_fetching_function)
+        
+        ## Spawn a processing thread for this lake
+        #lake_results.append(pool.apply_async(process_lake, args=(all_lakes_local[i], ee_lake,
+        #                                                         start_date, end_date,
+        #                                                         args.results_dir,
+        #                                                         processing_function, logging_class, image_fetching_function)))
+        #
     # Wait until all threads have finished
     print 'Waiting for all threads to complete...'
     for r in lake_results:
