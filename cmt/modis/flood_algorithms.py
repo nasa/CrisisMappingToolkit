@@ -137,6 +137,14 @@ def xiao(domain, b):
     '''
     return b['LSWI'].subtract(b['NDVI']).gte(0.05).Or(b['LSWI'].subtract(b['EVI']).gte(0.05)).select(['sur_refl_b02'], ['b1']);
 
+def fai(domain, b):
+    ''' Floating Algae Index. Method from paper: Feng, Hu, Chen, Cai, Tian, Gan,
+    Assessment of inundation changes of Poyang Lake using MODIS observations
+    between 2000 and 2010. Remote Sensing of Environment, 2012.
+    '''
+    FAI = b['b2'].subtract(b['b1'].add(b['b5'].subtract(b['b1']).multiply((859.0 - 645) / (1240 - 645))))
+    return FAI
+
 ## A good modis_diff threshold value for each of our domains
 #MODIS_DIFF_THRESHOLDS = {
 #        BORDER         : 1200,
@@ -166,11 +174,11 @@ def _create_learning_image(domain, b):
     ratio = b['b2'].divide(b['b1'])
     return b['b1'].addBands(b['b2']).addBands(diff).addBands(ratio).addBands(b['NDVI']).addBands(b['NDWI'])
 
-def earth_engine_classifier(domain, b, classifier_name):
+def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
     '''Apply EE classifier tool using a ground truth image.'''
     training_domain = domain.training_domain
     training_image  = _create_learning_image(training_domain, compute_modis_indices(training_domain))
-    classifier = ee.apply("TrainClassifier", {  # Call the EE classifier
+    args = {
             'image'             : training_image,
             'subsampling'       : 0.5,
             'training_image'    : training_domain.ground_truth,
@@ -178,7 +186,9 @@ def earth_engine_classifier(domain, b, classifier_name):
             'training_region'   : training_domain.bounds,
             'max_classification': 2,
             'classifier_name'   : classifier_name
-        })
+           }
+    args.update(extra_args)
+    classifier = ee.apply("TrainClassifier", args)  # Call the EE classifier
     classified = ee.call("ClassifyImage", _create_learning_image(domain, b), classifier).select(['classification'], ['b1']); 
     return classified;
 
@@ -228,9 +238,12 @@ def dnns(domain, b):
     composite_image = b['b1'].addBands(b['b2']).addBands(b['b6'])
     
     # Compute (b2 - b1) < threshold, a simple water detection algorithm.  Treat the result as "pure water" pixels.
-    pureWaterThreshold = domain.algorithm_params['modis_diff_threshold'] * PURE_WATER_THRESHOLD_RATIO
-    purewater = cart(domain, b)
     #PURE_WATER_THRESHOLD_RATIO = 1.0
+    #pureWaterThreshold = domain.algorithm_params['modis_diff_threshold'] * PURE_WATER_THRESHOLD_RATIO
+    classes = earth_engine_classifier(domain, b, 'Cart', {'classifier_mode' : 'probability'})
+    purewater = classes.gte(0.95)
+    pureLand  = classes.lte(0.05)
+    mixed = purewater.Not().And(pureLand.Not())
     #purewater = modis_diff(domain, b, pureWaterThreshold)
     
     # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.
@@ -247,7 +260,6 @@ def dnns(domain, b):
     purewaterref = purewaterref.add(averagewaterimage.multiply(purewaterref.Not()))
     
     # Compute a backup, global pure land value to use when pixels have none nearby.
-    pureLand             = b['b2'].subtract(b['b1']).gte(PURELAND_THRESHOLD).select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
     averagePureLand      = pureLand.mask(pureLand).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
     averagePureLandImage = ee.Image([averagePureLand.getInfo()['sur_refl_b01'], averagePureLand.getInfo()['sur_refl_b02'], averagePureLand.getInfo()['sur_refl_b06']])
     
@@ -294,11 +306,12 @@ def dnns(domain, b):
     #water_fraction = water_fraction.subtract(meanPureLandSix.multiply(water_fraction))
     #water_fraction = water_fraction.add(purewater.multiply(ee.Image(1.0).subtract(water_fraction)))
     # Set pure water to 1.  We don't have a good set of pure land pixels.
-    water_fraction = water_fraction.add(purewater).clamp(0, 1)
+    water_fraction = water_fraction.add(purewater).subtract(pureLand).clamp(0, 1)
     
     #addToMap(fraction, {'min': 0, 'max': 1},   'fraction', False)
     #addToMap(purewater,      {'min': 0, 'max': 1},   'pure water', False)
     #addToMap(pureLand,       {'min': 0, 'max': 1},   'pure land', False)
+    #addToMap(mixed,          {'min': 0, 'max': 1},   'mixed', False)
     #addToMap(purewatercount, {'min': 0, 'max': 300}, 'pure water count', False)
     #addToMap(purelandcount,  {'min': 0, 'max': 300}, 'pure land count', False)
     #addToMap(water_fraction, {'min': 0, 'max': 5},   'water_fractionDNNS', False)
