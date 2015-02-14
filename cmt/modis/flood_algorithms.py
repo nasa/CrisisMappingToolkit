@@ -105,7 +105,8 @@ def getCloudPercentage(lowResModis, region):
     #print oneMask.getInfo()
     #print region.getInfo()
     areaCount  = oneMask.reduceRegion(  ee.Reducer.sum(), region, MODIS_CLOUD_RESOLUTION)
-    cloudCount = cloudMask.reduceRegion(ee.Reducer.mean(), region, MODIS_CLOUD_RESOLUTION)
+    cloudCount = cloudMask.reduceRegion(ee.Reducer.sum(), region, MODIS_CLOUD_RESOLUTION)
+    print 'cloudCount = ' + str(cloudCount.getInfo()['cloud_state'])
     percentage = cloudCount.getInfo()['cloud_state'] / areaCount.getInfo()['constant']
     print 'Detected cloud percentage: ' + str(percentage)
     return percentage
@@ -137,26 +138,14 @@ def xiao(domain, b):
     '''
     return b['LSWI'].subtract(b['NDVI']).gte(0.05).Or(b['LSWI'].subtract(b['EVI']).gte(0.05)).select(['sur_refl_b02'], ['b1']);
 
-def fai(domain, b):
+
+def floating_algae_index(domain, b):
     ''' Floating Algae Index. Method from paper: Feng, Hu, Chen, Cai, Tian, Gan,
     Assessment of inundation changes of Poyang Lake using MODIS observations
     between 2000 and 2010. Remote Sensing of Environment, 2012.
     '''
     FAI = b['b2'].subtract(b['b1'].add(b['b5'].subtract(b['b1']).multiply((859.0 - 645) / (1240 - 645))))
     return FAI
-
-## A good modis_diff threshold value for each of our domains
-#MODIS_DIFF_THRESHOLDS = {
-#        BORDER         : 1200,
-#        BORDER_JUNE    : 1550,
-#        ARKANSAS_CITY  : 1200,
-#        KASHMORE       : 350,
-#        KASHMORE_NORTH : 350,
-#        NEW_ORLEANS    : 1200,
-#        SLIDELL        : 1200,
-#        BAY_AREA       : 650,
-#        BERKELEY       : 650,
-#        NIGER          : 1200}
 
 def modis_diff(domain, b, threshold=None):
     '''Compute (b2-b1) < threshold, a simple water detection index.
@@ -227,7 +216,7 @@ def dnns(domain, b):
     
     # Parameters
     KERNEL_SIZE = 35 # The original paper used a 100x100 pixel box = 25,000 meters!
-    PURELAND_THRESHOLD = 3500 # TODO: This will have to vary by domain!
+    PURE_LAND_THRESHOLD_RATIO = 8
     
     # Set up two square kernels of the same size
     # - These kernels define the search range for nearby pure water and land pixels
@@ -245,6 +234,8 @@ def dnns(domain, b):
     pureLand  = classes.lte(0.05)
     mixed = purewater.Not().And(pureLand.Not())
     #purewater = modis_diff(domain, b, pureWaterThreshold)
+    # Use a training classifier to determine pure water pixels
+    purewater = cart(domain, b) #TODO: Try out classifier mode and see if we can use probability to find partial water
     
     # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.
     AVERAGE_SCALE_METERS = 250 # This value seems to have no effect on the results
@@ -262,6 +253,7 @@ def dnns(domain, b):
     # Compute a backup, global pure land value to use when pixels have none nearby.
     averagePureLand      = pureLand.mask(pureLand).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
     averagePureLandImage = ee.Image([averagePureLand.getInfo()['sur_refl_b01'], averagePureLand.getInfo()['sur_refl_b02'], averagePureLand.getInfo()['sur_refl_b06']])
+    #print averagePureLand.getInfo()
     
     # Implement equations 10 and 11 from the paper --> It takes many lines of code to compute the local land pixels!
     oneOverSix   = b['b1'].divide(b['b6'])
@@ -294,9 +286,6 @@ def dnns(domain, b):
     meanPureLand = meanNearbyBandOne.addBands(meanNearbyBandTwo).addBands(meanNearbyBandSix)
     meanPureLand = meanPureLand.multiply(numNearbyLandPixels.gte(MIN_PURE_NEARBY)).add( averagePureLandImage.multiply(numNearbyLandPixels.lt(MIN_PURE_NEARBY)) )
 
-    #addToMap(numNearbyLandPixels,  {'min': 0, 'max': 400, }, 'numNearbyLandPixels', False)
-    #addToMap(meanPureLand,       {'min': 0, 'max': 3000, 'bands': ['sum', 'sum_1', 'sum_2']}, 'meanPureLand', False)  
-
     # Compute the water fraction: (land[b6] - b6) / (land[b6] - water[b6])
     # - Ultimately, relying solely on band 6 for the final classification may not be a good idea!
     meanPureLandSix = meanPureLand.select('sum_2')
@@ -313,10 +302,9 @@ def dnns(domain, b):
     #addToMap(pureLand,       {'min': 0, 'max': 1},   'pure land', False)
     #addToMap(mixed,          {'min': 0, 'max': 1},   'mixed', False)
     #addToMap(purewatercount, {'min': 0, 'max': 300}, 'pure water count', False)
-    #addToMap(purelandcount,  {'min': 0, 'max': 300}, 'pure land count', False)
     #addToMap(water_fraction, {'min': 0, 'max': 5},   'water_fractionDNNS', False)
     #addToMap(purewaterref,   {'min': 0, 'max': 3000, 'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06']}, 'purewaterref', False)
-    
+
     return water_fraction.select(['sum_2'], ['b1']) # Rename sum_2 to b1
 
 def dnns_dem(domain, b):
@@ -387,20 +375,6 @@ def dnns_dem(domain, b):
     #return dem.lte(average_high).Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
     dem_water = dem.lte(average_high).mask(water_fraction) # Mask prevents pixels with 0% water from being labeled as water
     return dem_water.Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
-
-#
-## Tuned thresholds for the history_diff tool below
-#HISTORY_THRESHOLDS = {
-#        BORDER         : (3.5,     -3.5),
-#        BORDER_JUNE    : (6.5,     -3.5),
-#        ARKANSAS_CITY  : (6.5,     -3.5),
-#        KASHMORE       : (4.5,     -3.0),
-#        KASHMORE_NORTH : (4.5,     -3.0),
-#        NEW_ORLEANS    : (4.5,     -3.0),
-#        SLIDELL        : (4.5,     -3.0),
-#        BAY_AREA       : (3.5,     -2.0),
-#        BERKELEY       : (3.5,     -2.0)
-#    }
 
 
 def history_diff(domain, b):
@@ -498,21 +472,6 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
 
 
 
-
-
-
-
-#DARTMOUTH_THRESHOLDS = {
-#        BORDER         : 0.75,
-#        BORDER_JUNE    : 0.75,
-#        ARKANSAS_CITY  : 0.75,
-#        KASHMORE       : 0.65,
-#        KASHMORE_NORTH : 0.65,
-#        NEW_ORLEANS    : 0.75,
-#        SLIDELL        : 0.75,
-#        BAY_AREA       : 0.55,
-#        BERKELEY       : 0.55
-#    }
 
 def dartmouth(domain, b):
     '''A flood detection method from the Dartmouth Flood Observatory.
