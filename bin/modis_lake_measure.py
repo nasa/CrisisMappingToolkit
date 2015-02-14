@@ -188,28 +188,28 @@ def compute_simple_binary_threshold(valueImage, classification, bounds):
     # Seperate the values by the binary classification
     valueInFalse = valueImage.mask(classification.Not())
     valueInTrue  = valueImage.mask(classification)
-    meanFalse    = valueInFalse.reduceRegion(ee.Reducer.mean(),   bounds) # Set up EE math
-    meanTrue     = valueInTrue.reduceRegion( ee.Reducer.mean(),   bounds)
-    stdFalse     = valueInFalse.reduceRegion(ee.Reducer.stdDev(), bounds)
-    stdTrue      = valueInTrue.reduceRegion( ee.Reducer.stdDev(), bounds)
-    meanFalse    = meanFalse.getInfo()['sur_refl_b02'] # Extract the calculated value
-    meanTrue     = meanTrue.getInfo()[ 'sur_refl_b02']
-    stdFalse     = stdFalse.getInfo()[ 'sur_refl_b02']
-    stdTrue      = stdTrue.getInfo()[  'sur_refl_b02']
+    histogramFalse = valueInFalse.reduceRegion(ee.Reducer.histogram(128, None, None), bounds).getInfo()['sur_refl_b02']
+    histogramTrue  =  valueInTrue.reduceRegion(ee.Reducer.histogram(128, None, None), bounds).getInfo()['sur_refl_b02']
     
-    # Just pick a point between the means based on the ratio of standard deviations
-    meanDiff  = meanTrue - meanFalse
-    stdRatio  = stdFalse / (stdTrue + stdFalse)
-    threshold = meanFalse + meanDiff*stdRatio
+    true_sum = 0.0
+    false_total = sum(histogramFalse['histogram'])
+    true_total = sum(histogramTrue['histogram'])
+    false_index = 0
+    false_sum = false_total
+    i = 0
+    for i in range(len(histogramTrue['histogram'])):
+        true_sum += histogramTrue['histogram'][i]
+        x = histogramTrue['bucketMin'] + (i + 1) * histogramTrue['bucketWidth']
+        while false_index < len(histogramFalse['histogram']) and histogramFalse['bucketMin'] + false_index * histogramFalse['bucketWidth'] < x:
+            false_sum -= histogramFalse['histogram'][false_index]
+            false_index += 1
+        if false_sum / false_total < true_sum / true_total and true_sum / true_total > 0.5:
+          break
 
-    #print 'meanFalse = ' + str(meanFalse)    
-    #print 'meanTrue  = ' + str(meanTrue)
-    #print 'stdFalse  = ' + str(stdFalse)
-    #print 'stdTrue   = ' + str(stdTrue)
-    #print 'meanDiff  = ' + str(meanDiff)
-    #print 'stdRatio  = ' + str(stdRatio)
-    #print 'threshold = ' + str(threshold)
-    
+    threshold = histogramTrue['bucketMin'] + i * histogramTrue['bucketWidth'] + histogramTrue['bucketWidth'] / 2
+    print 'Threshold %g Found. %g%% of water pixels and %g%% of land pixels separated.' % \
+            (threshold, true_sum / true_total * 100.0, false_sum / false_total * 100.0)
+
     return threshold
 
 def compute_algorithm_parameters(training_domain):
