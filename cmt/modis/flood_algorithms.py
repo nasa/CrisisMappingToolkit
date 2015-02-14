@@ -102,11 +102,8 @@ def getCloudPercentage(lowResModis, region):
     # Divide the number of cloud pixels by the total number of pixels
     oneMask    = ee.Image(1.0) 
     cloudMask  = getModisBadPixelMask(lowResModis)
-    #print oneMask.getInfo()
-    #print region.getInfo()
     areaCount  = oneMask.reduceRegion(  ee.Reducer.sum(), region, MODIS_CLOUD_RESOLUTION)
     cloudCount = cloudMask.reduceRegion(ee.Reducer.sum(), region, MODIS_CLOUD_RESOLUTION)
-    print 'cloudCount = ' + str(cloudCount.getInfo()['cloud_state'])
     percentage = cloudCount.getInfo()['cloud_state'] / areaCount.getInfo()['constant']
     print 'Detected cloud percentage: ' + str(percentage)
     return percentage
@@ -211,12 +208,8 @@ def dnns(domain, b):
     # - Running this with a tiny kernel (effectively treating the entire region
     #    as part of the kernel) might get the best results!
 
-    # TODO: Recall/precision parameters for this function must be recomputed
-    #       once the constants have been tuned!
-    
     # Parameters
-    KERNEL_SIZE = 35 # The original paper used a 100x100 pixel box = 25,000 meters!
-    PURE_LAND_THRESHOLD_RATIO = 8
+    KERNEL_SIZE = 10 # The original paper used a 100x100 pixel box = 25,000 meters!
     
     # Set up two square kernels of the same size
     # - These kernels define the search range for nearby pure water and land pixels
@@ -226,16 +219,16 @@ def dnns(domain, b):
     # Compute b1/b6 and b2/b6
     composite_image = b['b1'].addBands(b['b2']).addBands(b['b6'])
     
-    # Compute (b2 - b1) < threshold, a simple water detection algorithm.  Treat the result as "pure water" pixels.
-    #PURE_WATER_THRESHOLD_RATIO = 1.0
-    #pureWaterThreshold = domain.algorithm_params['modis_diff_threshold'] * PURE_WATER_THRESHOLD_RATIO
-    classes = earth_engine_classifier(domain, b, 'Cart', {'classifier_mode' : 'probability'})
+    # Use CART classifier to divide pixels up into water, land, and mixed.
+    # - Mixed pixels are just low probability water/land pixels.
+    classes   = earth_engine_classifier(domain, b, 'Cart', {'classifier_mode' : 'probability'})
     purewater = classes.gte(0.95)
     pureLand  = classes.lte(0.05)
-    mixed = purewater.Not().And(pureLand.Not())
-    #purewater = modis_diff(domain, b, pureWaterThreshold)
+    mixed     = purewater.Not().And(pureLand.Not())
     # Use a training classifier to determine pure water pixels
     purewater = cart(domain, b) #TODO: Try out classifier mode and see if we can use probability to find partial water
+    
+    print 'done with cart'
     
     # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.
     AVERAGE_SCALE_METERS = 250 # This value seems to have no effect on the results
@@ -291,10 +284,7 @@ def dnns(domain, b):
     meanPureLandSix = meanPureLand.select('sum_2')
     water_fraction = (meanPureLandSix.subtract(b['b6'])).divide(meanPureLandSix.subtract(purewaterref.select('sur_refl_b06'))).clamp(0, 1)
        
-    ## Set pure water to 1, pure land to 0
-    #water_fraction = water_fraction.subtract(meanPureLandSix.multiply(water_fraction))
-    #water_fraction = water_fraction.add(purewater.multiply(ee.Image(1.0).subtract(water_fraction)))
-    # Set pure water to 1.  We don't have a good set of pure land pixels.
+    # Set pure water to 1, pure land to 0
     water_fraction = water_fraction.add(purewater).subtract(pureLand).clamp(0, 1)
     
     #addToMap(fraction, {'min': 0, 'max': 1},   'fraction', False)
@@ -430,7 +420,7 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
     #addToMap(historyStdDev, {'min' : 0, 'max' : 2000}, 'History stdDev', False)
     
     # Compute flood diff on current image and compare to historical mean/STD.
-    floodDiff   = flood_diff_function2(high_res_modis)
+    floodDiff   = flood_diff_function2(high_res_modis)   
     diffOfDiffs = floodDiff.subtract(historyMean)
     ddDivDev    = diffOfDiffs.divide(historyStdDev)
     changeFlood = ddDivDev.lt(change_thresh)  # Mark all pixels which are enough STD's away from the mean.

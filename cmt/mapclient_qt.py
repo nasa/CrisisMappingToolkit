@@ -216,7 +216,7 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
     # - Eventually the download function is supposed to pack everything in to one file!  https://groups.google.com/forum/#!topic/google-earth-engine-developers/PlgCvJz2Zko
     temp_band_files = []
     band_files_string = ''
-    print 'Extracting...'
+    #print 'Extracting...'
     if len(band_names) == 1:
         color_names = ['vis-gray']
     else:
@@ -224,8 +224,8 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
     for b in color_names:
         band_filename  = dummy_name + '.' + b + '.tif'
         extracted_path = os.path.join(TEMP_FILE_DIR, band_filename)
-        print band_filename
-        print extracted_path
+        #print band_filename
+        #print extracted_path
         z.extract(band_filename, TEMP_FILE_DIR)
         temp_band_files.append(extracted_path)
         band_files_string += ' ' + extracted_path

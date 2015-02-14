@@ -75,8 +75,7 @@ class LoggingClass(LakeDataLoggerBase):
         # Currently we are not using the modis image
         # Red channel is detected, blue channel is water mask, green is constant zero.
         mergedImage = classifiedImage.addBands(ee.Image(0)).addBands(waterMask)
-        cloudRgb    = cloudMask.addBands(cloudMask).addBands(cloudMask)
-        mergedImage = mergedImage.Or(cloudRgb)
+        mergedImage = mergedImage.Or(cloudMask) #TODO: Make sure this is working!
         vis_params = {'min': 0, 'max': 1} # Binary image data
         
         imagePath          = os.path.join(self.logFolder, imageName + '.tif')
@@ -101,7 +100,6 @@ class LoggingClass(LakeDataLoggerBase):
     
     def addDataRecord(self, dataRecord):
         '''Adds a new record to the log'''
-
         key = dataRecord['date']
         self.entryList[key] = dataRecord
         
@@ -118,30 +116,33 @@ class LoggingClass(LakeDataLoggerBase):
                 continue
             v = dataRecord[k]
             if v == False: # Log invalid data
-                s += ', '+k+', NA, NA'
-            else: # Log valid data
-                s += ', '+k+', '+str(v[0])+', '+str(v[1])
+                s += ', '+k+', NA, NA, NA'
+            else: # Log valid data: Algorithm, precision, recall, eval_resolution
+                s += ', '+k+', '+str(v[0])+', '+str(v[1])+', '+str(v[2])
         
         return s
     
     @staticmethod
     def lineToDict(line):
         '''Extract the information from a single line in the log file in to a dictionary object'''
-    
+
+        NUM_HEADER_VALS        = 2 # Date, MODIS 
+        ELEMENTS_PER_ALGORITHM = 4 # (alg name, precision, recall, eval_res)  
         thisDict = dict()
         parts    = line.split(',')
-        numAlgs  = (len(parts) - 2) / 3 # Date, MODIS, (alg name, precision, recall)...
+        numAlgs  = (len(parts) - NUM_HEADER_VALS) / ELEMENTS_PER_ALGORITHM # Date, MODIS, (alg name, precision, recall, eval_res)...
         thisDict['date'     ] = parts[0]
         thisDict['satellite'] = parts[1]
         for i in range(numAlgs): # Loop through each algorithm
-            startIndex = i*3 + 2
+            startIndex = i*ELEMENTS_PER_ALGORITHM + NUM_HEADER_VALS
             algName    = parts[startIndex].strip()
             if (parts[startIndex+1].strip() == 'NA'): # Check if this was logged as a failure
                 thisDict[algName] = False
             else: # Get the successful log results
                 precision  = float(parts[startIndex+1])
                 recall     = float(parts[startIndex+2])
-                thisDict[algName] = (precision, recall) # Store the pair of results for the algorithm
+                evalRes    = float(parts[startIndex+3])
+                thisDict[algName] = (precision, recall, evalRes) # Store the pair of results for the algorithm
         return thisDict
     
     @staticmethod
@@ -178,7 +179,7 @@ class LoggingClass(LakeDataLoggerBase):
         # Open the file for writing, clobbering any existing file
         fileHandle = open(self.logPath, 'w')
         # Write the header
-        fileHandle.write('date, satellite, algorithm, precision, recall\n')
+        fileHandle.write('date, satellite, algorithm, precision, recall, evaluation_resolution\n')
         # Write all the data
         for key in self.entryList:
             line = self.dictToLine(self.entryList[key])
@@ -329,13 +330,13 @@ def getAlgorithmList():
                      #(cmt.modis.flood_algorithms.EVI                , 'EVI',            KEEP),
                      #(cmt.modis.flood_algorithms.XIAO               , 'XIAO',           KEEP),
                      #(cmt.modis.flood_algorithms.DIFFERENCE         , 'Difference',     KEEP),
-                     (cmt.modis.flood_algorithms.CART               , 'CART',           KEEP),
+                     #(cmt.modis.flood_algorithms.CART               , 'CART',           KEEP),
                      #(cmt.modis.flood_algorithms.SVM                , 'SVM',            KEEP),
                      #(cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', KEEP ),
-                     (cmt.modis.flood_algorithms.DNNS               , 'DNNS',           KEEP),
+                     #(cmt.modis.flood_algorithms.DNNS               , 'DNNS',           KEEP),
                      ##(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised',  KEEP),
                      #(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM',  KEEP),
-                     #(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP), # TODO: May need auto-thresholds!
+                     (cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP), # TODO: May need auto-thresholds!
                      #(cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth',      KEEP),
                      (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  KEEP) ]
 
@@ -484,17 +485,16 @@ def processing_function(bounds, image, image_date, logger):
                 except Exception,e:
                     print 'Saving results image failed with exception --> ' + str(e)
     
-    
-            print 'Evaluating detection results...'
         
+            print 'Evaluating detection results...'
     
             # Compare the detection result to the water mask
             isFractional = False # Currently not using fractional evaluation, but maybe we should for DNSS-DEM
-            (precision, recall) = cmt.util.evaluation.evaluate_approach(detectedWater, waterMask, rectBounds, isFractional)
+            (precision, recall, evalRes) = cmt.util.evaluation.evaluate_approach(detectedWater, waterMask, rectBounds, isFractional)
             
             # Store the results for this algorithm
-            print 'Evaluation results: ' + str(precision) + ' ' + str(recall)
-            waterResults[algName] = (precision, recall)
+            print 'Evaluation results: ' + str(precision) + ' ' + str(recall) +' at resolution ' + str(evalRes)
+            waterResults[algName] = (precision, recall, evalRes)
                 
         except Exception,e: # Handly any failure thet prevents us from obtaining results
             print 'Processing results failed with exception --> ' + str(e)
@@ -520,7 +520,7 @@ def compileLakeResults(resultsFolder):
     # Write a header line
     headerLine = 'lake_name'
     for a in algorithmList:
-        headerLine += ', '+ a[1] +'_precision, '+ a[1] +'_recall'
+        headerLine += ', '+ a[1] +'_precision, '+ a[1] +'_recall, '+ a[2] +'_eval_res, '
     outputHandle.write(headerLine + '\n')
         
     # Define local helper function
@@ -529,10 +529,12 @@ def compileLakeResults(resultsFolder):
         count = len(prList)
         pSum  = 0.0
         rSum  = 0.0
+        eSum  = 0.0
         for i in prList: # Sum the values
             pSum += i[0]
             rSum += i[1]
-        return (pSum/count, rSum/count) # Return the means
+            eSum += i[2]
+        return (pSum/count, rSum/count, eSum/count) # Return the means
     
     # Loop through the directories
     algMeans = dict()
@@ -565,8 +567,9 @@ def compileLakeResults(resultsFolder):
             for key in dateResultsDict:
                 dateResult = dateResultsDict[key]
                 try:
-                    precision, recall = dateResult[alg] # Get precision and recall
-                    prList.append( (precision, recall) )
+                    # Get all the values for this algorithm
+                    precision, recall, evalRes = dateResult[alg] 
+                    prList.append( (precision, recall, evalRes) )
                 except: # This should handle all cases where we don't have data
                     print 'WARNING: Missing results for algorithm ' + alg + ' for lake ' + d
                     
@@ -587,17 +590,18 @@ def compileLakeResults(resultsFolder):
         for a in algorithmList:
             alg = a[1]
             try:
-                thisLine += ', '+ str(meanDict[alg][0]) +', '+ str(meanDict[alg][1]) # Add precision and recall
+                # Add precision, recall, and evaluation resolution
+                thisLine += ', '+ str(meanDict[alg][0]) +', '+ str(meanDict[alg][1]) +', '+ str(meanDict[alg][2]) 
             except:
-                thisLine += ', NA, NA' # Flag the results as no data!
+                thisLine += ', NA, NA, NA' # Flag the results as no data!
                 print 'WARNING: Missing results for algorithm ' + alg + ' for lake ' + d
         outputHandle.write(thisLine + '\n')
                
     # Add a final summary line containing the means for each algorithm across lakes
     summaryLine = 'Means'
     for a in algorithmList:
-        (precision, recall) = prListMean(algMeans[a[1]])
-        summaryLine += ', '+ str(precision) +', '+ str(recall) # Add precision and recall
+        (precision, recall, evalRes) = prListMean(algMeans[a[1]])
+        summaryLine += ', '+ str(precision) +', '+ str(recall) +', '+ str(evalRes)
     outputHandle.write(summaryLine)
     outputHandle.close() # All finished!
 

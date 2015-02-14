@@ -43,28 +43,29 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
     # - This does not include correct non-detections!
     correct = ground_truth.min(result)
     
-    # Evaluate the results at a large number of random sample points
-    correct_sum = ee.data.getValue({'image': correct.stats(     30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-    result_sum  = ee.data.getValue({'image': result.stats(      30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-    truth_sum   = ee.data.getValue({'image': ground_truth.stats(30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+    ## Evaluate the results at a large number of random sample points
+    #correct_sum = ee.data.getValue({'image': correct.stats(     30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+    #result_sum  = ee.data.getValue({'image': result.stats(      30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+    #truth_sum   = ee.data.getValue({'image': ground_truth.stats(30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
     
-    ## Try to evaluate at a high resolution but fall back to a lower one if it is too much for EE to handle.
-    #HIGH_RES_EVAL = 500  TODO: Lower this and try multiple passes!
-    #LOW_RES_EVAL  = 2000
-    #try: # High res first
-    #    TODO: How exactly does this resample?
-    #    correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, HIGH_RES_EVAL ).getInfo()['b1'] # Correct detections
-    #    result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, HIGH_RES_EVAL ).getInfo()['b1'] # Total detections
-    #    truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, HIGH_RES_EVAL ).getInfo()['b1'] # Total water
-    #except: # If EE times out, try at a lower resolution.
-    #    correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, LOW_RES_EVAL).getInfo()['b1']
-    #    result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, LOW_RES_EVAL).getInfo()['b1']
-    #    truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, LOW_RES_EVAL).getInfo()['b1']
-    
+    # Keep reducing the evaluation resolution until Earth Engine finishes without timing out
+    MAX_EVAL_RES = 2000
+    eval_res     = 250
+    while True:
+        try:
+            correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Correct detections
+            result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Total detections
+            truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Total water
+            break # Quit the loop if the calculations were successful
+        except: # On failure coursen the resolution and try again
+            eval_res *= 2
+            if eval_res > MAX_EVAL_RES:
+                raise Exception('Unable to evaluate results at resolution ' + str(eval_res/2))
+
     # Compute ratios, avoiding divide by zero.
     precision   = 1.0 if (result_sum == 0.0) else (correct_sum / result_sum)
     recall      = 1.0 if (truth_sum  == 0.0) else (correct_sum / truth_sum)
-    return (precision, recall)#, eval_res) # TODO: Return eval resolution???
+    return (precision, recall, eval_res)
 
 
 def evaluate_approach_thread(evaluation_function, result, ground_truth, region, fractional=False):

@@ -146,8 +146,9 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
     name = lake['properties']['LAKE_NAME']
     name = name.replace("'","") # Strip out weird characters
     if name == '': # Can't proceed without the name!
-        print lake['properties']['LAKE_NAME']
-        raise Exception('No name present for lake!')
+        #print '#' + lake['properties']['LAKE_NAME'] +'#'
+        #raise Exception('No name present for lake!')
+        print 'Skipping lake with no name!'
 
     boundsInfo = ee_lake.geometry().bounds().getInfo()
     
@@ -276,15 +277,15 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
     
     
     lake_results    = []
-    SKIP = 50
+    SKIP = 62
     count = 0
     for i in range(len(all_lakes_local)): # For each lake...
         # Get this one lake
         ee_lake = ee.Feature(all_lakes.get(i)) 
 
-        count += 1
-        if count < SKIP:
-            continue
+        #count += 1
+        #if count < SKIP:
+        #    continue
 
         process_lake(all_lakes_local[i], ee_lake, start_date, end_date, args.results_dir, processing_function, logging_class, image_fetching_function)
         
