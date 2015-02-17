@@ -36,6 +36,7 @@ import time
 import os
 import csv
 import ee
+import numpy
 import cmt.util.processManyLakes
 from cmt.util.processManyLakes import LakeDataLoggerBase
 import cmt.modis.flood_algorithms
@@ -82,10 +83,10 @@ class LoggingClass(LakeDataLoggerBase):
         return downloadEeImage(mergedImage, ee_bounds, resolution, imagePath, vis_params)
         #return downloadEeImage(cloudRgb, ee_bounds, resolution, imagePath, vis_params)
 
-    def saveModisImage(self, modisImage, ee_bounds):
+    def saveModisImage(self, modisImage, ee_bounds, imageName):
         '''Record the input MODIS image to the log directory'''
         
-        imagePath  = os.path.join(self.logFolder, 'input_modis.tif')        
+        imagePath  = os.path.join(self.logFolder, imageName)
         vis_params = {'min': 0, 'max': 8000, 'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06']}
         if not os.path.exists(imagePath): # Don't overwrite this image
             return downloadEeImage(modisImage, ee_bounds, 250, imagePath, vis_params)
@@ -119,18 +120,22 @@ class LoggingClass(LakeDataLoggerBase):
                 s += ', '+k+', NA, NA, NA'
             else: # Log valid data: Algorithm, precision, recall, eval_resolution
                 s += ', '+k+', '+str(v[0])+', '+str(v[1])+', '+str(v[2])
-        
-        return s
+        return (s + '\n')
     
     @staticmethod
     def lineToDict(line):
         '''Extract the information from a single line in the log file in to a dictionary object'''
 
+        MAX_ALGS               = 13
         NUM_HEADER_VALS        = 2 # Date, MODIS 
         ELEMENTS_PER_ALGORITHM = 4 # (alg name, precision, recall, eval_res)  
         thisDict = dict()
+        
         parts    = line.split(',')
         numAlgs  = (len(parts) - NUM_HEADER_VALS) / ELEMENTS_PER_ALGORITHM # Date, MODIS, (alg name, precision, recall, eval_res)...
+        if numAlgs > MAX_ALGS: # Error checking
+            print line
+            raise Exception('Error: Too many algorithms found!')
         thisDict['date'     ] = parts[0]
         thisDict['satellite'] = parts[1]
         for i in range(numAlgs): # Loop through each algorithm
@@ -163,6 +168,26 @@ class LoggingClass(LakeDataLoggerBase):
             # If we hit the end of the file return the dictionary
             if not line:
                 return outputDict
+            
+            # Handle a bug in the original line generation
+            # - Remove this once bad data is gone!
+            breakPos = line.find('2502014-04-01')
+            if breakPos > 0:
+                breakPos += len('250')
+                lineA = line[:breakPos]
+                line  = line[breakPos:]
+                print 'Handling bug:'
+                print lineA
+                print '----'
+                print line
+                
+                # Put all the parts of the line into a dictionary
+                thisDict = LoggingClass.lineToDict(lineA)
+                
+                # Put this dict into an output dictionary
+                key = thisDict['date']
+                outputDict[key] = thisDict
+            
             
             # Put all the parts of the line into a dictionary
             thisDict = LoggingClass.lineToDict(line)
@@ -254,32 +279,51 @@ class FakeDomain(Object):
         return dem
 
 
-# TODO: Do something a little smarter here!
-def compute_simple_binary_threshold(valueImage, classification, bounds):
+def compute_binary_threshold(valueImage, classification, bounds):
     '''Computes a threshold for a value given examples in a classified binary image'''
     
-    # Seperate the values by the binary classification
-    valueInFalse = valueImage.mask(classification.Not())
-    valueInTrue  = valueImage.mask(classification)
-    histogramFalse = valueInFalse.reduceRegion(ee.Reducer.histogram(128, None, None), bounds).getInfo()['sur_refl_b02']
-    histogramTrue  =  valueInTrue.reduceRegion(ee.Reducer.histogram(128, None, None), bounds).getInfo()['sur_refl_b02']
+    # Build histograms of the true and false labeled values
+    valueInFalse   = valueImage.mask(classification.Not())
+    valueInTrue    = valueImage.mask(classification)
+    NUM_BINS       = 128
+    histogramFalse = valueInFalse.reduceRegion(ee.Reducer.histogram(NUM_BINS, None, None), bounds).getInfo()['sur_refl_b02']
+    histogramTrue  = valueInTrue.reduceRegion( ee.Reducer.histogram(NUM_BINS, None, None), bounds).getInfo()['sur_refl_b02']
     
-    true_sum = 0.0
+    # Get total number of pixels in each histogram
     false_total = sum(histogramFalse['histogram'])
-    true_total = sum(histogramTrue['histogram'])
+    true_total  = sum(histogramTrue[ 'histogram'])
+
+    # WARNING: This method assumes that the false histogram is composed of greater numbers than the true histogram!!
+    #        : This happens to be the case for the three algorithms we are currently using this for.
+    
     false_index = 0
-    false_sum = false_total
-    i = 0
-    for i in range(len(histogramTrue['histogram'])):
+    false_sum   = false_total
+    true_sum    = 0.0
+    for i in range(NUM_BINS): # Iterate through the bins of the true histogram
+        # Add the number of pixels in the current true bin
         true_sum += histogramTrue['histogram'][i]
-        x = histogramTrue['bucketMin'] + (i + 1) * histogramTrue['bucketWidth']
-        while false_index < len(histogramFalse['histogram']) and histogramFalse['bucketMin'] + false_index * histogramFalse['bucketWidth'] < x:
-            false_sum -= histogramFalse['histogram'][false_index]
-            false_index += 1
-        if false_sum / false_total < true_sum / true_total and true_sum / true_total > 0.5:
+        
+        # Set x equal to the max end of the current bin
+        x = histogramTrue['bucketMin'] + (i+1)*histogramTrue['bucketWidth']
+        
+        # Determine the bin of the false histogram that x falls in
+        # - Also update the number of 
+        while ( (false_index < len(histogramFalse['histogram'])) and
+                (histogramFalse['bucketMin'] + false_index*histogramFalse['bucketWidth'] < x) ):
+            false_sum   -= histogramFalse['histogram'][false_index] # Remove the pixels from the current false bin
+            false_index += 1 # Move to the next bin of the false histogram
+            
+        # Using the current value of x, compute how many pixels are correctly classified by: (val < x)
+        percent_true_under_thresh  = true_sum/true_total
+        percent_false_over_thresh = false_sum/false_total
+            
+        # Keep increasing the true bin and x until about equal numbers of pixels are misclassified
+        if (percent_false_over_thresh < percent_true_under_thresh) and (percent_true_under_thresh > 0.5):
           break
 
-    threshold = histogramTrue['bucketMin'] + i * histogramTrue['bucketWidth'] + histogramTrue['bucketWidth'] / 2
+    # Put threshold in the center of the current true histogram bin/bucket
+    threshold = histogramTrue['bucketMin'] + i*histogramTrue['bucketWidth'] + histogramTrue['bucketWidth']/2
+    
     print 'Threshold %g Found. %g%% of water pixels and %g%% of land pixels separated.' % \
             (threshold, true_sum / true_total * 100.0, false_sum / false_total * 100.0)
 
@@ -300,16 +344,17 @@ def compute_algorithm_parameters(training_domain):
     # These values are computed by comparing the algorithm output in land/water regions
     # - To be passed in to the threshold function a consistent band name is needed
     algorithm_params = dict()
-    algorithm_params['modis_diff_threshold'  ] = compute_simple_binary_threshold(modisDiff,    waterMask, bounds)
-    algorithm_params['dartmouth_threshold'   ] = compute_simple_binary_threshold(dartmouthVal, waterMask, bounds)
-    algorithm_params['dem_threshold'         ] = compute_simple_binary_threshold(demHeight.select(['elevation'], ['sur_refl_b02']), waterMask, bounds)
+    algorithm_params['modis_diff_threshold'  ] = 1#compute_binary_threshold(modisDiff,    waterMask, bounds)
+    algorithm_params['dartmouth_threshold'   ] = 1#compute_binary_threshold(dartmouthVal, waterMask, bounds)
+    algorithm_params['dem_threshold'         ] = 1#compute_binary_threshold(demHeight.select(['elevation'], ['sur_refl_b02']), waterMask, bounds)
     
+    # TODO: It would be much more accurate to compute these!
     # These would be tougher to compute so we just use some general purpose values
     algorithm_params['modis_mask_threshold'  ] =  4.5
     algorithm_params['modis_change_threshold'] = -3.0
 
-    #print 'Computed the following algorithm parameters: '
-    #print algorithm_params
+    print 'Computed the following algorithm parameters: '
+    print algorithm_params
     
     return algorithm_params
 
@@ -326,19 +371,19 @@ def getAlgorithmList():
     '''Return the list of available algorithms'''
 
     # Code, name, recompute_all_results?
-    algorithmList = [(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold',  KEEP),
-                     #(cmt.modis.flood_algorithms.EVI                , 'EVI',            KEEP),
-                     #(cmt.modis.flood_algorithms.XIAO               , 'XIAO',           KEEP),
-                     #(cmt.modis.flood_algorithms.DIFFERENCE         , 'Difference',     KEEP),
-                     #(cmt.modis.flood_algorithms.CART               , 'CART',           KEEP),
-                     #(cmt.modis.flood_algorithms.SVM                , 'SVM',            KEEP),
-                     #(cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', KEEP ),
-                     #(cmt.modis.flood_algorithms.DNNS               , 'DNNS',           KEEP),
-                     ##(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised',  KEEP),
-                     #(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM',  KEEP),
-                     (cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP), # TODO: May need auto-thresholds!
-                     #(cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth',      KEEP),
-                     (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  KEEP) ]
+    algorithmList = [(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold',  RECOMPUTE_IF_FALSE),
+                     (cmt.modis.flood_algorithms.EVI                , 'EVI',            RECOMPUTE_IF_FALSE),
+                     (cmt.modis.flood_algorithms.XIAO               , 'XIAO',           RECOMPUTE_IF_FALSE),
+                     (cmt.modis.flood_algorithms.DIFFERENCE         , 'Difference',     RECOMPUTE_IF_FALSE),
+                     (cmt.modis.flood_algorithms.CART               , 'CART',           RECOMPUTE_IF_FALSE),
+                     (cmt.modis.flood_algorithms.SVM                , 'SVM',            KEEP),
+                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', RECOMPUTE_IF_FALSE ),
+                     (cmt.modis.flood_algorithms.DNNS               , 'DNNS',           RECOMPUTE),
+                     #(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised',  KEEP),
+                     (cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM',  KEEP),
+                     #(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP), # TODO: May need auto-thresholds!
+                     (cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth',      RECOMPUTE_IF_FALSE),
+                     (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  RECOMPUTE_IF_FALSE) ]
 
     return algorithmList
 
@@ -376,7 +421,7 @@ def processing_function(bounds, image, image_date, logger):
     
     # If we made it to here then we need to run at least one algorithm.
     
-    MAX_CLOUD_PERCENTAGE = 0.05
+    MAX_CLOUD_PERCENTAGE = 0.02
 
     # Needed to change EE formats for later function calls
     eeDate     = ee.Date(image_date)
@@ -392,7 +437,9 @@ def processing_function(bounds, image, image_date, logger):
     maskedImage = image.mask(cloudMask.Not()) # TODO: Verify this is having an effect!
 
     # Save the input image
-    logger.saveModisImage(image, rectBounds)
+    imageName = 'input_modis_' + str(image_date)
+    logger.saveModisImage(image, rectBounds, imageName)
+    
 
     # Get the permanent water mask
     # - We change the band name to make this work with the evaluation function call further down
@@ -406,7 +453,7 @@ def processing_function(bounds, image, image_date, logger):
     fakeDomain.modis.sur_refl_b03 = maskedImage.select('sur_refl_b03')
     fakeDomain.modis.sur_refl_b06 = maskedImage.select('sur_refl_b06')
     fakeDomain.modis.image        = maskedImage
-    fakeDomain.modis.get_date     = lambda: eeDate
+    fakeDomain.modis.get_date     = lambda: eeDate # Fake function that just returns this date
     fakeDomain.ground_truth       = waterMask
     fakeDomain.bounds             = bounds
     fakeDomain.add_dem(bounds)
@@ -509,6 +556,9 @@ def processing_function(bounds, image, image_date, logger):
 def compileLakeResults(resultsFolder):
     '''Compiles a single csv file comparing algorithm results across lakes'''
     
+    # Ignore lakes which did not have this many good days for
+    MIN_GOOD_DATES = 1
+    
     # Get a list of the algorithms to read
     algorithmList = getAlgorithmList()
         
@@ -520,24 +570,24 @@ def compileLakeResults(resultsFolder):
     # Write a header line
     headerLine = 'lake_name'
     for a in algorithmList:
-        headerLine += ', '+ a[1] +'_precision, '+ a[1] +'_recall, '+ a[2] +'_eval_res, '
+        headerLine += ', '+ str(a[1]) +'_precision, '+ str(a[1]) +'_recall, '+ str(a[1]) +'_eval_res'
     outputHandle.write(headerLine + '\n')
         
     # Define local helper function
-    def prListMean(prList):
-        '''Compute the mean of a list of precision/recall value pairs'''
-        count = len(prList)
-        pSum  = 0.0
-        rSum  = 0.0
-        eSum  = 0.0
+    def prListStats(prList):
+        '''Compute the mean and std of a list of precision/recall value pairs'''
+        pList = []
+        rList = []
+        eList = []
         for i in prList: # Sum the values
-            pSum += i[0]
-            rSum += i[1]
-            eSum += i[2]
-        return (pSum/count, rSum/count, eSum/count) # Return the means
+            pList.append(i[0]) # Precision
+            rList.append(i[1]) # Recall
+            eList.append(i[2]) # EvalRes
+        return (numpy.mean(pList), numpy.mean(rList), numpy.mean(eList),
+                numpy.std(pList),  numpy.std(rList),  numpy.std(eList))
     
     # Loop through the directories
-    algMeans = dict()
+    algStats = dict()
     for d in os.listdir(resultsFolder):
 
         thisFolder = os.path.join(resultsFolder, d)
@@ -554,11 +604,8 @@ def compileLakeResults(resultsFolder):
         # Read in the contents of the log file
         dateResultsDict = LoggingClass.readAllEntries(logPath)
         
-        #print dateResultsList
-        
-        
         # For each algorithm...
-        meanDict = dict()
+        statsDict = dict()
         for a in algorithmList:
             alg = a[1] # Name of the current algorithm
 
@@ -574,15 +621,15 @@ def compileLakeResults(resultsFolder):
                     print 'WARNING: Missing results for algorithm ' + alg + ' for lake ' + d
                     
             # Only record something if we got at least one result from the algorithm
-            if len(prList) > 0:
+            if len(prList) >= MIN_GOOD_DATES:
                 # Call local helper function to get the mean precision and recall values
-                meanDict[alg] = prListMean(prList)
+                statsDict[alg] = prListStats(prList)
                 
                 # Add the means for this algorithm to a list spanning all lakes
-                if alg in algMeans: # Add to existing list
-                    algMeans[alg].append(meanDict[alg])
+                if alg in algStats: # Add to existing list
+                    algStats[alg].append(statsDict[alg])
                 else: # Start a new list
-                    algMeans[alg] = [meanDict[alg]]
+                    algStats[alg] = [statsDict[alg]]
         
         
         # Build the next line of the output file
@@ -591,18 +638,28 @@ def compileLakeResults(resultsFolder):
             alg = a[1]
             try:
                 # Add precision, recall, and evaluation resolution
-                thisLine += ', '+ str(meanDict[alg][0]) +', '+ str(meanDict[alg][1]) +', '+ str(meanDict[alg][2]) 
+                thisLine += ', '+ str(statsDict[alg][0]) +', '+ str(statsDict[alg][1]) +', '+ str(statsDict[alg][2]) 
             except:
                 thisLine += ', NA, NA, NA' # Flag the results as no data!
                 print 'WARNING: Missing results for algorithm ' + alg + ' for lake ' + d
         outputHandle.write(thisLine + '\n')
                
     # Add a final summary line containing the means for each algorithm across lakes
-    summaryLine = 'Means'
+    meanSummaries = 'Mean'
+    stdSummaries  = 'Standard Deviation'
     for a in algorithmList:
-        (precision, recall, evalRes) = prListMean(algMeans[a[1]])
-        summaryLine += ', '+ str(precision) +', '+ str(recall) +', '+ str(evalRes)
-    outputHandle.write(summaryLine)
+        algName = a[1]
+        if algName in algStats: # Extract results
+            (pMean, rMean, eMean, pStd, rStd, eStd) = prListStats(algStats[a[1]])
+        else: # No results for this data
+            (pMean, rMean, eMean, pStd, rStd, eStd) = ('NA', 'NA', 'NA', 'NA', 'NA', 'NA')
+        meanSummaries += (', '+ str(pMean) +', '+ str(rMean) +', '+ str(eMean))
+        stdSummaries  += (', '+ str(pStd ) +', '+ str(rStd ) +', '+ str(eStd ))
+    
+    outputHandle.write('\n') # Skip a line
+    outputHandle.write(meanSummaries + '\n')
+    outputHandle.write(stdSummaries  + '\n')
+    outputHandle.write(headerLine) # For convenience reprint the header line at the bottom
     outputHandle.close() # All finished!
 
     print 'Finished writing log file'

@@ -211,6 +211,8 @@ def dnns(domain, b):
     # Parameters
     KERNEL_SIZE = 10 # The original paper used a 100x100 pixel box = 25,000 meters!
     
+    AVERAGE_SCALE_METERS = 250 # This scale is used to compute averages over the entire region
+    
     # Set up two square kernels of the same size
     # - These kernels define the search range for nearby pure water and land pixels
     kernel            = ee.Kernel.square(KERNEL_SIZE, 'pixels', False)
@@ -222,37 +224,42 @@ def dnns(domain, b):
     # Use CART classifier to divide pixels up into water, land, and mixed.
     # - Mixed pixels are just low probability water/land pixels.
     classes   = earth_engine_classifier(domain, b, 'Cart', {'classifier_mode' : 'probability'})
-    purewater = classes.gte(0.95)
+    pureWater = classes.gte(0.95)
     pureLand  = classes.lte(0.05)
-    mixed     = purewater.Not().And(pureLand.Not())
+    mixed     = pureWater.Not().And(pureLand.Not())
     # Use a training classifier to determine pure water pixels
-    purewater = cart(domain, b) #TODO: Try out classifier mode and see if we can use probability to find partial water
-    
-    print 'done with cart'
-    
+    pureWater = cart(domain, b)
+        
     # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.
-    AVERAGE_SCALE_METERS = 250 # This value seems to have no effect on the results
-    averagewater      = purewater.mask(purewater).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
-    averagewaterimage = ee.Image([averagewater.getInfo()['sur_refl_b01'], averagewater.getInfo()['sur_refl_b02'], averagewater.getInfo()['sur_refl_b06']])
+    averageWater      = pureWater.mask(pureWater).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
+    averageWaterImage = ee.Image([averageWater.getInfo()['sur_refl_b01'], averageWater.getInfo()['sur_refl_b02'], averageWater.getInfo()['sur_refl_b06']])
     
     # For each pixel, compute the number of nearby pure water pixels
-    purewatercount = purewater.convolve(kernel)
+    pureWaterCount = pureWater.convolve(kernel)
     # Get mean of nearby pure water (b1,b2,b6) values for each pixel with enough pure water nearby
     MIN_PUREWATER_NEARBY = 1
-    purewaterref = purewater.multiply(composite_image).convolve(kernel).multiply(purewatercount.gte(MIN_PUREWATER_NEARBY)).divide(purewatercount)
+    pureWaterRef = pureWater.multiply(composite_image).convolve(kernel).multiply(pureWaterCount.gte(MIN_PUREWATER_NEARBY)).divide(pureWaterCount)
     # For pixels that did not have enough pure water nearby, just use the global average water value
-    purewaterref = purewaterref.add(averagewaterimage.multiply(purewaterref.Not()))
-    
+    pureWaterRef = pureWaterRef.add(averageWaterImage.multiply(pureWaterRef.Not()))
+
+   
     # Compute a backup, global pure land value to use when pixels have none nearby.
     averagePureLand      = pureLand.mask(pureLand).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
+    #averagePureLand      = composite_image.mask(pureLand).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
+    
+    #print averagePureLand.getInfo()
+    return averagePureLand
+    
     averagePureLandImage = ee.Image([averagePureLand.getInfo()['sur_refl_b01'], averagePureLand.getInfo()['sur_refl_b02'], averagePureLand.getInfo()['sur_refl_b06']])
     #print averagePureLand.getInfo()
+    
+    return averagePureLandImage
     
     # Implement equations 10 and 11 from the paper --> It takes many lines of code to compute the local land pixels!
     oneOverSix   = b['b1'].divide(b['b6'])
     twoOverSix   = b['b2'].divide(b['b6'])
-    eqTenLeft    = oneOverSix.subtract( purewaterref.select('sur_refl_b01').divide(b['b6']) )
-    eqElevenLeft = twoOverSix.subtract( purewaterref.select('sur_refl_b02').divide(b['b6']) )
+    eqTenLeft    = oneOverSix.subtract( pureWaterRef.select('sur_refl_b01').divide(b['b6']) )
+    eqElevenLeft = twoOverSix.subtract( pureWaterRef.select('sur_refl_b02').divide(b['b6']) )
     
     # For each pixel, grab all the ratios from nearby pixels
     nearbyPixelsOneOverSix = oneOverSix.neighborhoodToBands(kernel) # Each of these images has one band per nearby pixel
@@ -261,10 +268,14 @@ def dnns(domain, b):
     nearbyPixelsTwo        = b['b2'].neighborhoodToBands(kernel)
     nearbyPixelsSix        = b['b6'].neighborhoodToBands(kernel)
     
+    return nearbyPixelsSix
+    
     # Find which nearby pixels meet the EQ 10 and 11 criteria
     eqTenMatches        = ( nearbyPixelsOneOverSix.gt(eqTenLeft   ) ).And( nearbyPixelsOneOverSix.lt(oneOverSix) )
     eqElevenMatches     = ( nearbyPixelsTwoOverSix.gt(eqElevenLeft) ).And( nearbyPixelsTwoOverSix.lt(twoOverSix) )
     nearbyLandPixels    = eqTenMatches.And(eqElevenMatches)
+    
+    return nearbyLandPixels
     
     # Find the average of the nearby matching pixels
     numNearbyLandPixels = nearbyLandPixels.reduce(ee.Reducer.sum())
@@ -272,6 +283,7 @@ def dnns(domain, b):
     meanNearbyBandTwo   = nearbyPixelsTwo.multiply(nearbyLandPixels).reduce(ee.Reducer.sum()).divide(numNearbyLandPixels)
     meanNearbyBandSix   = nearbyPixelsSix.multiply(nearbyLandPixels).reduce(ee.Reducer.sum()).divide(numNearbyLandPixels)
 
+    return meanNearbyBandSix
 
     # Pack the results into a three channel image for the whole region
     # - Use the global pure land calculation to fill in if there are no nearby equation matching pixels
@@ -279,21 +291,23 @@ def dnns(domain, b):
     meanPureLand = meanNearbyBandOne.addBands(meanNearbyBandTwo).addBands(meanNearbyBandSix)
     meanPureLand = meanPureLand.multiply(numNearbyLandPixels.gte(MIN_PURE_NEARBY)).add( averagePureLandImage.multiply(numNearbyLandPixels.lt(MIN_PURE_NEARBY)) )
 
+    return meanPureLand
+
     # Compute the water fraction: (land[b6] - b6) / (land[b6] - water[b6])
     # - Ultimately, relying solely on band 6 for the final classification may not be a good idea!
     meanPureLandSix = meanPureLand.select('sum_2')
-    water_fraction = (meanPureLandSix.subtract(b['b6'])).divide(meanPureLandSix.subtract(purewaterref.select('sur_refl_b06'))).clamp(0, 1)
+    water_fraction = (meanPureLandSix.subtract(b['b6'])).divide(meanPureLandSix.subtract(pureWaterRef.select('sur_refl_b06'))).clamp(0, 1)
        
     # Set pure water to 1, pure land to 0
-    water_fraction = water_fraction.add(purewater).subtract(pureLand).clamp(0, 1)
+    water_fraction = water_fraction.add(pureWater).subtract(pureLand).clamp(0, 1)
     
     #addToMap(fraction, {'min': 0, 'max': 1},   'fraction', False)
-    #addToMap(purewater,      {'min': 0, 'max': 1},   'pure water', False)
+    #addToMap(pureWater,      {'min': 0, 'max': 1},   'pure water', False)
     #addToMap(pureLand,       {'min': 0, 'max': 1},   'pure land', False)
     #addToMap(mixed,          {'min': 0, 'max': 1},   'mixed', False)
-    #addToMap(purewatercount, {'min': 0, 'max': 300}, 'pure water count', False)
+    #addToMap(pureWaterCount, {'min': 0, 'max': 300}, 'pure water count', False)
     #addToMap(water_fraction, {'min': 0, 'max': 5},   'water_fractionDNNS', False)
-    #addToMap(purewaterref,   {'min': 0, 'max': 3000, 'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06']}, 'purewaterref', False)
+    #addToMap(pureWaterRef,   {'min': 0, 'max': 3000, 'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06']}, 'pureWaterRef', False)
 
     return water_fraction.select(['sum_2'], ['b1']) # Rename sum_2 to b1
 
@@ -401,6 +415,7 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
         yearMax = -(i+1) + YEAR_RANGE_PERCENTAGE
         historyHigh.merge(ee.ImageCollection('MOD09GQ').filterDate(date.advance(yearMin, 'year'), date.advance(yearMax, 'year')).filterBounds(bounds));
         historyLow.merge( ee.ImageCollection('MOD09GA').filterDate(date.advance(yearMin, 'year'), date.advance(yearMax, 'year')).filterBounds(bounds));
+        # TODO: Add a filter here to remove cloud-filled images
     
     # Simple function implements the b2 - b1 difference method
     # - Using two methods like this is a hack to get a call from modis_lake_measure.py to work!

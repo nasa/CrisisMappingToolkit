@@ -188,6 +188,10 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
     url = download_object.getDownloadUrl({'name' : dummy_name, 'scale': scale, 'crs': 'EPSG:4326', 'region': eeGeom})
     #print 'Got download URL: ' + url
     
+    
+   # ee.batch.Export.image - TODO USE THIS!
+    
+    
     # Generate a temporary path for the packed download file
     temp_prefix = 'mapclient_temp_download_' + dummy_name
     zip_name    = temp_prefix + '.zip'
