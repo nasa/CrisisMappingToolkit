@@ -1,28 +1,32 @@
 <?xml version="1.0"?>
 <domain>
-    <name>Tohoku</name>
+    <name>Mississippi_2008_02</name>
     <sensors>
       <sensor>
         <name>TERRASARX</name>
         <bands>
-            <source><eeid>18108519531116889794-00051927905204367907</eeid></source>
+            <source><eeid>18108519531116889794-11876787048973899066</eeid></source>
             <band>
-                <source mosaic="true">
+                <source>
                     <name>b1</name>
                 </source>
                 <name>hh</name>
             </band>
         </bands>
+        <range>
+            <minimum>0</minimum>
+            <maximum>600</maximum>
+        </range>
       </sensor>
     </sensors>
     <bbox>
         <bottomleft>
-            <lon>141.0143</lon>
-            <lat>38.0216</lat>
+            <lon>-91.2140</lon>
+            <lat>29.1270</lat>
         </bottomleft>
         <topright>
-            <lon>141.1805</lon>
-            <lat>38.4719</lat>
+            <lon>-91.0190</lon>
+            <lat>29.5532</lat>
         </topright>
     </bbox>
 </domain>
