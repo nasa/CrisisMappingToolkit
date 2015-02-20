@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<sensor>
+    <name>TERRASAR-X</name>
+    <bands>
+        <band>
+            <name>hh</name>
+            <distribution name="water">
+                <mode><range>
+                    <minimum>0</minimum>
+                    <maximum>90</maximum>
+                </range></mode>
+            </distribution>
+        </band>
+    </bands>
+    <range>
+        <minimum>0</minimum>
+        <maximum>65535</maximum>
+    </range>
+
+</sensor>
+

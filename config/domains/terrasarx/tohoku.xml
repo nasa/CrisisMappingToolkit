@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Rome</name>
+    <sensors>
+      <sensor>
+        <name>TERRASARX</name>
+        <bands>
+            <source><eeid>18108519531116889794-00051927905204367907</eeid></source>
+            <band>
+                <source mosaic="true">
+                    <name>b1</name>
+                </source>
+                <name>hh</name>
+            </band>
+        </bands>
+      </sensor>
+    </sensors>
+    <bbox>
+        <bottomleft>
+            <lon>141.0143</lon>
+            <lat>38.0216</lat>
+        </bottomleft>
+        <topright>
+            <lon>141.1805</lon>
+            <lat>38.4719</lat>
+        </topright>
+    </bbox>
+</domain>
+
