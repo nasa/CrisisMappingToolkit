@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Malawi 2015 Flood</name>
+    <sensors>
+    
+      <sensor>
+        <name>SRTM90</name>
+      </sensor>
+    
+      <sensor>
+        <name>Skybox</name>
+        <bands>
+            <source mosaic="true"><eeid>18108519531116889794-15989983115440808490</eeid></source>
+        </bands>
+      </sensor>
+      
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>35.18</lon>
+            <lat>-17.09</lat>
+        </bottomleft>
+        <topright>
+            <lon>35.32</lon>
+            <lat>-16.87</lat>
+        </topright>
+    </bbox>
+</domain>
+
