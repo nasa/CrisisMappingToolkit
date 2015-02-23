@@ -51,6 +51,10 @@ from cmt.mapclient_qt import MapViewWidget, prettyPrintEE, ABOUT_TEXT
 
 import cmt.modis.flood_algorithms
 
+# Codes for selecting which LANDSAT to use
+LANDSAT_5 = 5
+LANDSAT_7 = 7
+LANDSAT_8 = 8
 
 # Calendar widget to select a date
 class DatePickerWidget(QtGui.QWidget):
@@ -98,6 +102,7 @@ class ProductionGui(QtGui.QMainWindow):
         self.landsatPost    = None # First Landsat image >= the date.
         self.demImage       = None # DEM image
         self.eeFunction     = None # Flood detection results
+        self.landsatType    = None # One of the types at the top of the file
         
         # Now set up all the GUI stuff!
         QtGui.QWidget.__init__(self, parent)
@@ -120,42 +125,42 @@ class ProductionGui(QtGui.QMainWindow):
         self.dateButton = QtGui.QPushButton(dateString, self)
         self.dateButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.dateButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.dateButton.clicked[bool].connect(self.__showCalendar)
+        self.dateButton.clicked[bool].connect(self._showCalendar)
         topHorizontalBox.addWidget(self.dateButton)
         
         # Add a "Set Region" button to the top row of widgets
         self.regionButton = QtGui.QPushButton('Set Processing Region', self)
         self.regionButton.setMinimumSize(TOP_LARGE_BUTTON_WIDTH, TOP_BUTTON_HEIGHT) 
         self.regionButton.setMaximumSize(TOP_LARGE_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.regionButton.clicked[bool].connect(self.__setRegionToView)
+        self.regionButton.clicked[bool].connect(self._setRegionToView)
         topHorizontalBox.addWidget(self.regionButton)
 
         # Add a "Load Images" button to the top row of widgets
         self.loadImagesButton = QtGui.QPushButton('Load Images', self)
         self.loadImagesButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.loadImagesButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.loadImagesButton.clicked[bool].connect(self.__loadImageData)
+        self.loadImagesButton.clicked[bool].connect(self._loadImageData)
         topHorizontalBox.addWidget(self.loadImagesButton)
 
         # Add a "Detect Flood" button to the top row of widgets
         self.loadFloodButton1 = QtGui.QPushButton('Detect Flood', self)
         self.loadFloodButton1.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.loadFloodButton1.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.loadFloodButton1.clicked[bool].connect(self.__loadFloodDetect)
+        self.loadFloodButton1.clicked[bool].connect(self._loadFloodDetect)
         topHorizontalBox.addWidget(self.loadFloodButton1)
 
         # Add a "Clear All" button to the top row of widgets
         self.clearButton = QtGui.QPushButton('Clear Map', self)
         self.clearButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.clearButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.clearButton.clicked[bool].connect(self.__unloadCurrentImages)
+        self.clearButton.clicked[bool].connect(self._unloadCurrentImages)
         topHorizontalBox.addWidget(self.clearButton)
 
         # Add an "About" button containing legal information
         self.aboutButton = QtGui.QPushButton('About', self)
         self.aboutButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.aboutButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.aboutButton.clicked[bool].connect(self.__showAboutText)
+        self.aboutButton.clicked[bool].connect(self._showAboutText)
         topHorizontalBox.addWidget(self.aboutButton)
 
         # Add the row of widgets on the top of the GUI
@@ -179,7 +184,7 @@ class ProductionGui(QtGui.QMainWindow):
         self.sliderList = []
         for name, minVal, maxVal, default in zip(sliderParams, paramMin, paramMax, defaultVal):
             # Stick the horizontal box on the bottom of the main vertical box
-            paramControlBoxV = self.__addParamSlider(name, maxVal, minVal, default, paramControlBoxV)
+            paramControlBoxV = self._addParamSlider(name, maxVal, minVal, default, paramControlBoxV)
         bottomHorizontalBox.addLayout(paramControlBoxV) # Add sliders to bottom horizontal box
 
         # Add a "Detect Flood" button to the right of the parameter controls
@@ -187,7 +192,7 @@ class ProductionGui(QtGui.QMainWindow):
         self.loadFloodButton2 = QtGui.QPushButton('Detect Flood', self)
         self.loadFloodButton2.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.loadFloodButton2.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.loadFloodButton2.clicked[bool].connect(self.__loadFloodDetect)
+        self.loadFloodButton2.clicked[bool].connect(self._loadFloodDetect)
         bottomHorizontalBox.addWidget(self.loadFloodButton2)
 
         # Add all the stuff at the bottom to the main layout
@@ -204,9 +209,9 @@ class ProductionGui(QtGui.QMainWindow):
         self.show()
 
 
-    def __addParamSlider(self, name, maxVal, minVal, defaultVal, container):
+    def _addParamSlider(self, name, maxVal, minVal, defaultVal, container):
         '''Adds a single parameter slider to the passed in container.'''
-        # All parameter sliders are handled by the __handleParamChange function
+        # All parameter sliders are handled by the _handleParamChange function
     
         NAME_WIDTH    = 250
         SLIDER_HEIGHT = 20
@@ -222,7 +227,7 @@ class ProductionGui(QtGui.QMainWindow):
         slider.setMinimumSize(SLIDER_WIDTH, SLIDER_HEIGHT)
         slider.setMaximumSize(SLIDER_WIDTH, SLIDER_HEIGHT)
         # Use 'partial' to send the param name to the callback function
-        callbackFunction = functools.partial(self.__handleParamChange, parameterName=name) 
+        callbackFunction = functools.partial(self._handleParamChange, parameterName=name) 
         slider.valueChanged.connect(callbackFunction) # Whenever the slider is moved, trigger callback function
         self.sliderList.append(slider) # TODO: Do we need this?
     
@@ -241,7 +246,7 @@ class ProductionGui(QtGui.QMainWindow):
         return container
     
 
-    def __unloadCurrentImages(self):
+    def _unloadCurrentImages(self):
         '''Just unload all the current images. Low level function'''
         if self.compositeModis: # Note: Individual MODIS images are not added to the map
             self.mapWidget.removeFromMap(self.compositeModis)
@@ -262,20 +267,23 @@ class ProductionGui(QtGui.QMainWindow):
             self.mapWidget.removeFromMap(self.eeFunction)
             self.eeFunction = None
 
-    def __displayCurrentImages(self):
+    def _displayCurrentImages(self):
         '''Add all the current images to the map. Low level function'''
         # TODO: Come up with a method for setting the intensity bounds!
-        LANDSAT_GAIN = [1.5, 1.6, 1.0]
+        if self.landsatType == LANDSAT_5:
+            landsatVisParams = {'bands': ['B3', 'B2', 'B1'], 'min': 0, 'max': 0.7}
+        elif self.landsatType == LANDSAT_7:
+            landsatVisParams = {'bands': ['B3', 'B2', 'B1'], 'min': 0, 'max': 0.7}
+        else: # LANDSAT_8
+            landsatVisParams = {'bands': ['B4', 'B3', 'B2'], 'min': 0, 'max': 0.8}
         MODIS_RANGE  = [0, 3000]
         DEM_RANGE    = [0, 1000]
         if self.landsatPrior:
-            vis_params = {'bands': ['30', '20', '10'], 'gain': LANDSAT_GAIN}
-            self.mapWidget.addToMap(self.landsatPrior, vis_params, 'LANDSAT Pre-Flood', False)
+            self.mapWidget.addToMap(self.landsatPrior, landsatVisParams, 'LANDSAT Pre-Flood', False)
         else:
             print 'Failed to find prior LANDSAT image!'
         if self.landsatPost:
-            vis_params = {'bands': ['30', '20', '10'], 'gain': LANDSAT_GAIN}
-            self.mapWidget.addToMap(self.landsatPost, vis_params, 'LANDSAT Post-Flood', True)
+            self.mapWidget.addToMap(self.landsatPost, landsatVisParams, 'LANDSAT Post-Flood', True)
         else:
             print 'Failed to find post LANDSAT image!'
         if self.compositeModis:
@@ -296,28 +304,26 @@ class ProductionGui(QtGui.QMainWindow):
         else:
             print 'Failed to find DEM!'
 
-    def __selectLandsatBands(self, eeLandsatFunc):
+    def _selectLandsatBands(self, eeLandsatFunc):
         '''Given a raw landsat image, pick which bands to view'''
         if not eeLandsatFunc:
             return None
         
         # Select the bands to view
-        # - These numbers are for landsat 5
-        bandNamesIn  = ['10', '20', '30', '40', '50', '60', '70']
-        bandNamesOut = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']
-        
-        if eeLandsatFunc.getInfo()['bands']:
-            pass # TODO: Need to search the band info better!
-            #if '80' in eeLandsatFunc.getInfo()['bands']: # Landsat 7 has more bands
-            #    bandNamesIn.append('80')
-            #    bandNamesOut.append('B8')
-            #eeLandsatFunc = self.landsatPrior.select(bandNamesIn, bandNamesOut) # Select and rename the bands
-        else: # The image is invalid!
-            eeLandsatFunc = None
+        if self.landsatType == LANDSAT_5:
+            bandNamesIn  = ['10', '20', '30', '40', '50', '60', '70']
+            bandNamesOut = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']
+        elif self.landsatType == LANDSAT_7:
+            bandNamesIn  = ['10', '20', '30', '40', '50', '60', '70']
+            bandNamesOut = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']
+        else: # LANDSAT_8
+            bandNamesIn  = ['10', '20', '30', '40', '50', '60', '70', '80']
+            bandNamesOut = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8']    
+            
         return eeLandsatFunc
 
 
-    def __pickLandsatImage(self, eeImageCollection, bounds, chooseLast=False):
+    def _pickLandsatImage(self, eeImageCollection, bounds, chooseLast=False):
         '''Picks the best image from an ImageCollection of Landsat images'''
         # We require the LANDSAT image to contain the center of the analysis region,
         #  otherwise we tend to get images with minimal overlap.
@@ -330,7 +336,7 @@ class ProductionGui(QtGui.QMainWindow):
             # Landsat images do not have consistent header information so try multiple names here.
             if 'DATE_ACQUIRED' in f['properties']:
                imageDate = f['properties']['DATE_ACQUIRED']
-            if 'ACQUISITION_DATE' in f['properties']:
+            elif 'ACQUISITION_DATE' in f['properties']:
                imageDate = f['properties']['ACQUISITION_DATE']
                
             if not imageDate: # Failed to extract the date!
@@ -351,7 +357,7 @@ class ProductionGui(QtGui.QMainWindow):
         return (ee.Image(geoLimited.toList(255).get(bestDate[1])), bestDate)
 
 
-    def __isInUnitedStates(self):
+    def _isInUnitedStates(self):
         '''Returns true if the current region is inside the US.'''
         
         # Extract the geographic boundary of the US.
@@ -362,9 +368,19 @@ class ProductionGui(QtGui.QMainWindow):
 
         return (str(result.getInfo()) == 'True')
 
+    def _pickLandsatSat(self, date):
+        '''Pick the best landsat satellite to use for the given date'''
+        # Try to avoid LANDSAT_7 since it produces ugly images
+        
+        month = date.get('month').getInfo()
+        year  = date.get('year').getInfo()
+        if (year > 2013) or ((year == 2013) and (month > 5)):
+            return LANDSAT_8
+        else:
+            return LANDSAT_5
 
 
-    def __loadImageData(self):
+    def _loadImageData(self):
         '''Updates the MODIS and LANDSAT images for the current date'''
         
         # Check that we have all the information we need
@@ -374,11 +390,11 @@ class ProductionGui(QtGui.QMainWindow):
             return
  
         # Unload all the current images, including any flood detection results.
-        self.__unloadCurrentImages()
+        self._unloadCurrentImages()
 
         # Check if we are inside the US.
         # - Some higher res data is only available within the US.
-        boundsInsideTheUS = self.__isInUnitedStates() 
+        boundsInsideTheUS = self._isInUnitedStates() 
 
         # Set up the search range of dates for each image type
         MODIS_SEARCH_RANGE_DAYS   = 1  # MODIS updates frequently so we can have a narrow range
@@ -391,12 +407,21 @@ class ProductionGui(QtGui.QMainWindow):
         landsatPostEndDate    = self.floodDate.advance(   LANDSAT_SEARCH_RANGE_DAYS, 'day')
         
         # Load the two LANDSAT images
-        LANDSAT_TYPE = 'L5_L1T' # TODO: Allow use of landsat 7!
-        priorLandsatCollection = ee.ImageCollection(LANDSAT_TYPE).filterDate(landsatPriorStartDate, landsatPriorEndDate)
-        postLandsatCollection  = ee.ImageCollection(LANDSAT_TYPE).filterDate(landsatPostStartDate,  landsatPostEndDate)
+        self.landsatType = self._pickLandsatSat(self.floodDate)
+        if self.landsatType == LANDSAT_8:
+            print 'Using Landsat 8'
+            landsatCode = 'LANDSAT/LC8_L1T_TOA'
+        elif self.landsatType == LANDSAT_7:
+            print 'Using Landsat 7'
+            landsatCode = 'LANDSAT/LE7_L1T_TOA'
+        else:
+            print 'Using Landsat 5'
+            landsatCode = 'LANDSAT/LT5_L1T_TOA'
+        priorLandsatCollection = ee.ImageCollection(landsatCode).filterDate(landsatPriorStartDate, landsatPriorEndDate)
+        postLandsatCollection  = ee.ImageCollection(landsatCode).filterDate(landsatPostStartDate,  landsatPostEndDate)
 
-        self.landsatPrior, priorLsDate = self.__pickLandsatImage(priorLandsatCollection, bounds, chooseLast=True)
-        self.landsatPost,  postLsDate  = self.__pickLandsatImage(postLandsatCollection,  bounds)
+        self.landsatPrior, priorLsDate = self._pickLandsatImage(priorLandsatCollection, bounds, chooseLast=True)
+        self.landsatPost,  postLsDate  = self._pickLandsatImage(postLandsatCollection,  bounds)
         
         if priorLsDate:
             print 'Selected prior landsat date: ' + str(priorLsDate)
@@ -404,8 +429,8 @@ class ProductionGui(QtGui.QMainWindow):
             print 'Selected post  landsat date: ' + str(postLsDate)
         
         # Select the bands to view
-        self.landsatPrior = self.__selectLandsatBands(self.landsatPrior)
-        self.landsatPost  = self.__selectLandsatBands(self.landsatPost)
+        self.landsatPrior = self._selectLandsatBands(self.landsatPrior)
+        self.landsatPost  = self._selectLandsatBands(self.landsatPost)
         
         # Load the two MODIS images and create a composite
         self.highResModis   = ee.ImageCollection('MOD09GQ').filterBounds(bounds).filterDate(modisStartDate, modisEndDate).limit(1).mean();
@@ -423,10 +448,10 @@ class ProductionGui(QtGui.QMainWindow):
         self.demImage = ee.Image(demName)
         
         # Now add all the images to the map!
-        self.__displayCurrentImages()
+        self._displayCurrentImages()
 
 
-    def __loadFloodDetect(self):
+    def _loadFloodDetect(self):
         '''Creates the Earth Engine flood detection function and adds it to the map'''
         
         # Check prerequisites
@@ -454,7 +479,7 @@ class ProductionGui(QtGui.QMainWindow):
         COLOR   = '00FFFF'
         self.mapWidget.addToMap(self.eeFunction, {'min': 0, 'max': 1, 'opacity': OPACITY, 'palette': COLOR}, 'Flood Detection Results', True)
 
-    def __handleParamChange(self, value, parameterName='DEBUG'):
+    def _handleParamChange(self, value, parameterName='DEBUG'):
         '''Reload an EE algorithm when one of its parameters is set in the GUI'''
         if parameterName == 'Change Detection Threshold':
             self.detectParams.changeDetectThreshold = value
@@ -464,28 +489,28 @@ class ProductionGui(QtGui.QMainWindow):
             return
         print 'WARNING: Parameter ' + parameterName + ' is set to: ' + str(value)
         
-    def __setDate(self, date):
+    def _setDate(self, date):
         '''Sets the current date'''
         self.floodDate = ee.Date.fromYMD(date.year(), date.month(), date.day()) # Load into an EE object
         self.dateButton.setText(date.toString('yyyy/MM/dd')) # Format for humans to read
         
-    def __setRegionToView(self):
+    def _setRegionToView(self):
         '''Sets the processing region to the current viewable area'''
         # Extract the current viewing bounds as [minLon, minLat, maxLon, maxLat]
         lonLatBounds = self.mapWidget.GetMapBoundingBox() # TODO: This function does not work!!!!
         print 'Setting region to: ' + str(lonLatBounds)
         self.detectParams.statisticsRegion = apply(ee.geometry.Geometry.Rectangle, lonLatBounds)
 
-    def __showCalendar(self):
+    def _showCalendar(self):
         '''Pop up a little calendar window so the user can select a date'''
         menu   = QtGui.QMenu(self)
         action = QtGui.QWidgetAction(menu)
-        item   = DatePickerWidget(self.__setDate) # Pass in callback function
+        item   = DatePickerWidget(self._setDate) # Pass in callback function
         action.setDefaultWidget(item)
         menu.addAction(action)
         menu.popup(QtGui.QCursor.pos())
 
-    def __showAboutText(self):
+    def _showAboutText(self):
         '''Pop up a little text box to display legal information'''
         QtGui.QMessageBox.about(self, 'about', ABOUT_TEXT)
 
