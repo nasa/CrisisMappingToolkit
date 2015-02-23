@@ -54,7 +54,7 @@
       <modis_mask_threshold>4.5</modis_mask_threshold>
       <modis_change_threshold>-3.0</modis_change_threshold>
       
-      <dartmouth_threshold>0.65</dartmouth_threshold>
+      <dartmouth_threshold>0.75</dartmouth_threshold>
       
       <dem_threshold>480</dem_threshold>
     </algorithm_params>
