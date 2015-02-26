@@ -32,7 +32,6 @@ import os
 import ee
 import functools
 
-#import modis.domains
 import cmt.domain
 from cmt.modis.flood_algorithms import *
 
@@ -51,8 +50,7 @@ Tool for testing MODIS based flood detection algorithms using a simple GUI.
 #DOMAIN = modis.domains.BORDER
 
 # Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
-ALGORITHMS = [DARTMOUTH, DIFFERENCE, DNNS, DNNS_DEM]
-#ALGORITHMS = [DARTMOUTH, DIFFERENCE, MARTINIS_TREE]
+ALGORITHMS = [DARTMOUTH, DIFFERENCE, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
 
 
 
@@ -61,7 +59,7 @@ ALGORITHMS = [DARTMOUTH, DIFFERENCE, DNNS, DNNS_DEM]
 
 def evaluation_function(pair, alg):
     '''Pretty print an algorithm and its statistics'''
-    precision, recall = pair
+    precision, recall, res = pair
     print '%s: (%4g, %4g)' % (get_algorithm_name(alg), precision, recall)
 
 

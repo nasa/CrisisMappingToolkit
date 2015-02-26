@@ -119,7 +119,8 @@ class RadarHistogram(object):
         
         ind = numpy.arange(start=start, stop=start + width * len(values), step=width)[:-1]
         plt.bar(ind, height=values[:-1], width=width, color='b')
-        plt.ylabel(self.sensor.band_names[channel])
+        plt.ylabel('pdf')
+        plt.xlabel(self.sensor.band_names[channel] + ' Value')
 
         bm = self.backscatter_model[channel]
         

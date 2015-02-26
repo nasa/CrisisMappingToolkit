@@ -209,7 +209,7 @@ def dnns(domain, b):
     #    as part of the kernel) might get the best results!
 
     # Parameters
-    KERNEL_SIZE = 10 # The original paper used a 100x100 pixel box = 25,000 meters!
+    KERNEL_SIZE = 40 # The original paper used a 100x100 pixel box = 25,000 meters!
     
     AVERAGE_SCALE_METERS = 250 # This scale is used to compute averages over the entire region
     
@@ -248,13 +248,10 @@ def dnns(domain, b):
     #averagePureLand      = composite_image.mask(pureLand).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
     
     #print averagePureLand.getInfo()
-    return averagePureLand
     
     averagePureLandImage = ee.Image([averagePureLand.getInfo()['sur_refl_b01'], averagePureLand.getInfo()['sur_refl_b02'], averagePureLand.getInfo()['sur_refl_b06']])
     #print averagePureLand.getInfo()
-    
-    return averagePureLandImage
-    
+
     # Implement equations 10 and 11 from the paper --> It takes many lines of code to compute the local land pixels!
     oneOverSix   = b['b1'].divide(b['b6'])
     twoOverSix   = b['b2'].divide(b['b6'])
@@ -268,14 +265,10 @@ def dnns(domain, b):
     nearbyPixelsTwo        = b['b2'].neighborhoodToBands(kernel)
     nearbyPixelsSix        = b['b6'].neighborhoodToBands(kernel)
     
-    return nearbyPixelsSix
-    
     # Find which nearby pixels meet the EQ 10 and 11 criteria
     eqTenMatches        = ( nearbyPixelsOneOverSix.gt(eqTenLeft   ) ).And( nearbyPixelsOneOverSix.lt(oneOverSix) )
     eqElevenMatches     = ( nearbyPixelsTwoOverSix.gt(eqElevenLeft) ).And( nearbyPixelsTwoOverSix.lt(twoOverSix) )
     nearbyLandPixels    = eqTenMatches.And(eqElevenMatches)
-    
-    return nearbyLandPixels
     
     # Find the average of the nearby matching pixels
     numNearbyLandPixels = nearbyLandPixels.reduce(ee.Reducer.sum())
@@ -283,15 +276,11 @@ def dnns(domain, b):
     meanNearbyBandTwo   = nearbyPixelsTwo.multiply(nearbyLandPixels).reduce(ee.Reducer.sum()).divide(numNearbyLandPixels)
     meanNearbyBandSix   = nearbyPixelsSix.multiply(nearbyLandPixels).reduce(ee.Reducer.sum()).divide(numNearbyLandPixels)
 
-    return meanNearbyBandSix
-
     # Pack the results into a three channel image for the whole region
     # - Use the global pure land calculation to fill in if there are no nearby equation matching pixels
     MIN_PURE_NEARBY = 1
     meanPureLand = meanNearbyBandOne.addBands(meanNearbyBandTwo).addBands(meanNearbyBandSix)
     meanPureLand = meanPureLand.multiply(numNearbyLandPixels.gte(MIN_PURE_NEARBY)).add( averagePureLandImage.multiply(numNearbyLandPixels.lt(MIN_PURE_NEARBY)) )
-
-    return meanPureLand
 
     # Compute the water fraction: (land[b6] - b6) / (land[b6] - water[b6])
     # - Ultimately, relying solely on band 6 for the final classification may not be a good idea!
@@ -361,7 +350,7 @@ def dnns_dem(domain, b):
     
     # Alternate smoothing method using available tool EE
     water_present   = water_fraction.gt(0.0)#.mask(water_high)
-    connected_water = ee.Algorithms.ConnectedComponentLabeler(water_present, water_dem_kernel, 256) # Perform blob labeling
+    #connected_water = ee.Algorithms.ConnectedComponentLabeler(water_present, water_dem_kernel, 256) # Perform blob labeling
     #addToMap(water_present,   {'min': 0, 'max':   1}, 'water present', False);
     #addToMap(connected_water, {'min': 0, 'max': 256}, 'labeled blobs', False);
     

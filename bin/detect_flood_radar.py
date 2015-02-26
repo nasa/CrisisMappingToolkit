@@ -57,7 +57,7 @@ ALGORITHMS = [MATGEN, DECISION_TREE, RANDOM_FORESTS, SVM]
 
 def evaluation_function(pair, alg):
     '''Pretty print an algorithm and its statistics'''
-    precision, recall = pair
+    precision, recall, resolution = pair
     print '%s: (%4g, %4g)' % (get_algorithm_name(alg), precision, recall)
 
 
