@@ -16,7 +16,7 @@
 # -----------------------------------------------------------------------------
 
 import ee
-from domains import *
+#from domains import *
 
 from cmt.mapclient_qt import addToMap
 
@@ -38,6 +38,7 @@ DARTMOUTH          = 10
 DNNS_REVISED       = 11
 DEM_THRESHOLD      = 12
 MARTINIS_TREE      = 13
+SKYBOX_ASSIST      = 14
 
 def compute_modis_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
@@ -158,7 +159,27 @@ def _create_learning_image(domain, b):
     '''Set up features for the classifier to be trained on: [b2, b2/b1, b2/b1, NDVI, NDWI]'''
     diff  = b['b2'].subtract(b['b1'])
     ratio = b['b2'].divide(b['b1'])
-    return b['b1'].addBands(b['b2']).addBands(diff).addBands(ratio).addBands(b['NDVI']).addBands(b['NDWI'])
+    modisBands = b['b1'].addBands(b['b2']).addBands(diff).addBands(ratio).addBands(b['NDVI']).addBands(b['NDWI'])
+    outputBands = modisBands
+    
+    # Try to add Skybox info
+    # - Use all the base bands plus a grayscale texture measure
+    try:
+        rgbBands    = domain.skybox.Red.addBands(domain.skybox.Green).addBands(domain.skybox.Blue)
+        baseBands   = rgbBands.addBands(domain.skybox.NIR)
+        grayBand    = rgbBands.select('Red').add(rgbBands.select('Green')).add(rgbBands.select('Blue')).divide(ee.Image(3.0))
+        #addToMap(grayBand, {'min': 0, 'max': 1200}, 'grayBand')                          
+        edges       = grayBand.convolve(ee.Kernel.laplacian8(normalize=True)).abs()
+        #addToMap(edges, {'min': 0, 'max': 250}, 'edges')
+        texture     = edges.convolve(ee.Kernel.square(2, 'pixels')).select(['Red'], ['Texture'])
+        #addToMap(texture, {'min': 0, 'max': 250}, 'texture')
+        skyboxBands = baseBands.addBands(texture)
+        #outputBands = outputBands.addBands(skyboxBands)
+        outputBands = skyboxBands
+    except AttributeError:
+        pass # Suppress error if there is no Skybox data
+    
+    return outputBands
 
 def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
     '''Apply EE classifier tool using a ground truth image.'''
@@ -166,7 +187,7 @@ def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
     training_image  = _create_learning_image(training_domain, compute_modis_indices(training_domain))
     args = {
             'image'             : training_image,
-            'subsampling'       : 0.5,
+            'subsampling'       : 0.2, # TODO: Reduce this on failure?
             'training_image'    : training_domain.ground_truth,
             'training_band'     : "b1",
             'training_region'   : training_domain.bounds,
@@ -175,7 +196,7 @@ def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
            }
     args.update(extra_args)
     classifier = ee.apply("TrainClassifier", args)  # Call the EE classifier
-    classified = ee.call("ClassifyImage", _create_learning_image(domain, b), classifier).select(['classification'], ['b1']); 
+    classified = _create_learning_image(domain, b).classify(classifier).select(['classification'], ['b1']); 
     return classified;
 
 def cart(domain, b):
@@ -247,11 +268,8 @@ def dnns(domain, b):
     averagePureLand      = pureLand.mask(pureLand).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
     #averagePureLand      = composite_image.mask(pureLand).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
     
-    #print averagePureLand.getInfo()
-    
     averagePureLandImage = ee.Image([averagePureLand.getInfo()['sur_refl_b01'], averagePureLand.getInfo()['sur_refl_b02'], averagePureLand.getInfo()['sur_refl_b06']])
-    #print averagePureLand.getInfo()
-
+    
     # Implement equations 10 and 11 from the paper --> It takes many lines of code to compute the local land pixels!
     oneOverSix   = b['b1'].divide(b['b6'])
     twoOverSix   = b['b2'].divide(b['b6'])
@@ -315,6 +333,7 @@ def dnns_dem(domain, b):
     
     # Call the DNNS function to get the starting point
     water_fraction = dnns(domain, b)
+    print water_fraction
 
    
     ## Treating the DEM values contained in the MODIS pixel as a histogram, find the N'th percentile
@@ -716,6 +735,91 @@ def martinis_tree(domain, b):
     return outputFlood.select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
 
 
+
+
+def skyboxAssist(domain, b):
+    ''' Combine MODIS and RGBN to detect flood pixels.
+    '''
+    
+    raise Exception('Algorithm is not ready yet!')
+    
+    #lowModisThresh = 300
+    #
+    ## Simple function implements the b2 - b1 difference method
+    ## - Using two methods like this is a hack to get a call from modis_lake_measure.py to work!
+    ##flood_diff_function1 = lambda x : x.select(['sur_refl_b02']).subtract(x.select(['sur_refl_b01']))
+    #flood_diff_function2 = lambda x : x.sur_refl_b02.subtract(x.sur_refl_b01)
+    #
+    #
+    ## Compute the difference statistics inside permanent water mask pixels
+    #MODIS_RESOLUTION = 250 # Meters
+    #water_mask       = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'])
+    #floodDiff        = flood_diff_function2(domain.modis)
+    #diffInWaterMask  = floodDiff.multiply(water_mask)
+    #maskedMean       = diffInWaterMask.reduceRegion(ee.Reducer.mean(),   domain.bounds, MODIS_RESOLUTION)
+    #maskedStdDev     = diffInWaterMask.reduceRegion(ee.Reducer.stdDev(), domain.bounds, MODIS_RESOLUTION)
+    #
+    #print 'Water mean = ' + str(maskedMean.getInfo())
+    #print 'Water STD  = ' + str(maskedStdDev.getInfo())
+    #
+    ## TODO: Get this!
+    #water_thresh = -8.0
+    #land_thresh  =  10.0
+    #
+    ## Use the water mask statistics to compute a difference threshold, then find all pixels below the threshold.
+    #pureWaterThreshold  = maskedMean.getInfo()['sur_refl_b02'] + water_thresh*(maskedStdDev.getInfo()['sur_refl_b02']);
+    #print 'Pure water threshold == ' + str(pureWaterThreshold)
+    #pureWaterPixels     = flood_diff_function2(domain.modis).lte(pureWaterThreshold)
+    #
+    #
+    ##pureLandThreshold  = maskedMean.getInfo()['sur_refl_b02'] + land_thresh*(maskedStdDev.getInfo()['sur_refl_b02']);
+    #pureLandThreshold = pureWaterThreshold + 3000
+    #print 'Pure land threshold == ' + str(pureLandThreshold)
+    #pureLandPixels     = flood_diff_function2(domain.modis).gt(pureLandThreshold)
+    #
+    #
+    #addToMap(pureWaterPixels.mask(pureWaterPixels), {'min': 0, 'max': 1}, 'Pure Water',  False)
+    #addToMap(pureLandPixels.mask(pureLandPixels),   {'min': 0, 'max': 1}, 'Pure Land',   False)
+    #
+    #
+    ##TODO: Train on these pixels!
+    #
+    #
+#    
+#    def _create_learning_image(domain, b):
+#    '''Set up features for the classifier to be trained on: [b2, b2/b1, b2/b1, NDVI, NDWI]'''
+#    diff  = b['b2'].subtract(b['b1'])
+#    ratio = b['b2'].divide(b['b1'])
+#    return b['b1'].addBands(b['b2']).addBands(diff).addBands(ratio).addBands(b['NDVI']).addBands(b['NDWI'])
+#
+#def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
+#    '''Apply EE classifier tool using a ground truth image.'''
+#    training_domain = domain.training_domain
+#    training_image  = _create_learning_image(training_domain, compute_modis_indices(training_domain))
+#    args = {
+#            'image'             : training_image,
+#            'subsampling'       : 0.5,
+#            'training_image'    : training_domain.ground_truth,
+#            'training_band'     : "b1",
+#            'training_region'   : training_domain.bounds,
+#            'max_classification': 2,
+#            'classifier_name'   : classifier_name
+#           }
+#    args.update(extra_args)
+#    classifier = ee.apply("TrainClassifier", args)  # Call the EE classifier
+#    classified = ee.call("ClassifyImage", _create_learning_image(domain, b), classifier).select(['classification'], ['b1']); 
+#    return classified;
+#
+#def cart(domain, b):
+#    '''Classify using CART (Classification And Regression Tree)'''
+#    return earth_engine_classifier(domain, b, 'Cart')
+#    
+    
+    
+    #return b['b2'].subtract(b['b1']).lte(500).select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
+
+
+
 # End of algorithm definitions
 #=======================================================================================================
 #=======================================================================================================
@@ -739,7 +843,8 @@ __ALGORITHMS = {
         DIFFERENCE_HISTORY : ('Difference with History', history_diff,   False, '0099FF'),
         DARTMOUTH          : ('Dartmouth',               dartmouth,      False, '33CCFF'),
         DEM_THRESHOLD      : ('DEM Threshold',           dem_threshold,  False, 'FFCC33'),
-        MARTINIS_TREE      : ('Martinis Tree',           martinis_tree,  False, 'CC0066')
+        MARTINIS_TREE      : ('Martinis Tree',           martinis_tree,  False, 'CC0066'),
+        SKYBOX_ASSIST      : ('Skybox Assist',           skyboxAssist,   False, '00CC66')
 }
 
 

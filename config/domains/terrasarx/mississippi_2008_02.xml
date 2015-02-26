@@ -2,6 +2,11 @@
 <domain>
     <name>Mississippi_2008_02</name>
     <sensors>
+    
+      <sensor>
+        <name>NED13</name>
+      </sensor>
+    
       <sensor>
         <name>TERRASARX</name>
         <bands>
@@ -18,6 +23,7 @@
             <maximum>600</maximum>
         </range>
       </sensor>
+      
     </sensors>
     <bbox>
         <bottomleft>
@@ -29,5 +35,7 @@
             <lat>29.5532</lat>
         </topright>
     </bbox>
+    
+    <truth>18108519531116889794-16617043393034901554</truth>
 </domain>
 

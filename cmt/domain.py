@@ -60,7 +60,11 @@ class SensorObservation(object):
         self.__load_image(eeBounds)
 
     def __str__(self):
-        return self.sensor_name
+        s  = 'SensorObservation: ' + self.sensor_name + '\n'
+        s += ' - Bands'
+        for b in self.band_names:
+            s += '  :  ' + b
+        return s
 
     def __repr__(self):
         return self.sensor_name
@@ -418,6 +422,15 @@ class Domain(object):
 
         self.__load_xml(xml_file, is_training) # Call function to initialize from the XML file
 
+    def __str__(self):
+        '''Generate a string overview of the domain'''
+        s  = 'Domain: ' + self.name + '\n'
+        s += str(self.bbox) + '\n'
+        s += ' - Contains sensors'
+        for i in self.sensor_list:
+            s += '  :  ' + i.sensor_name
+        return s
+    
 
     def get_dem(self):
         '''Returns a DEM image object if one is loaded'''
