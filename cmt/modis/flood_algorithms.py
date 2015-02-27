@@ -333,7 +333,6 @@ def dnns_dem(domain, b):
     
     # Call the DNNS function to get the starting point
     water_fraction = dnns(domain, b)
-    print water_fraction
 
    
     ## Treating the DEM values contained in the MODIS pixel as a histogram, find the N'th percentile
