@@ -39,33 +39,68 @@ import numpy
 from PyQt4 import QtGui, QtCore
 app = QtGui.QApplication(sys.argv)
 
-domain = cmt.domain.Domain(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..') + '/config/domains/uavsar/mississippi.xml')
+THIS_FILE_FOLDER = os.path.dirname(os.path.realpath(__file__))
+domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/uavsar/mississippi.xml')
+#domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/modis/malawi_2015.xml')
 #result = active_contour(domain)
 
 def active_contour_step(local_image, snake, step):
+    '''Perform another step of the active contour algorithm'''
     if snake.done:
-        return
+        return True
+    
     t = time.time()
-    if step % 10 == 0:
+    if step % 10 == 0: # Do extra work every tenth iteration
         snake.respace_nodes()
         snake.shift_nodes() # shift before fixing geometry since reversal of orientation possible
         snake.fix_geometry()
     else:
         snake.shift_nodes()
     print time.time() - t
+    
+    return False
 
 class ActiveContourWindow(QtGui.QWidget):
+    '''Dedicated class for drawing the progress of the active contour algorithm'''
     def __init__(self, domain):
         super(ActiveContourWindow, self).__init__()
         self.setGeometry(300, 300, 650, 650)
         self.setWindowTitle('Active Contour')
         self.domain = domain
-        (self.local_image, self.snake) = initialize_active_contour(domain)
-        channels = [self.local_image.get_image('hh'), self.local_image.get_image('hv'), self.local_image.get_image('vv')]
-        channel_images = [PIL.Image.fromarray(numpy.uint8(c >> 8)) for c in channels]
+        #print str(domain)
+        
+        # TODO: Load the DISPLAY image manually???
+        
+        # Initialize the contour with the selected sensor band
+        sensor_name = 'uavsar'
+        band_name   = 'hh'
+        sensor      = getattr(domain, sensor_name)
+        ee_image    = getattr(sensor, band_name)
+        (self.local_image, self.snake) = initialize_active_contour(domain, ee_image, sensor.log_scale)
+        
+        # Retrieve the local image bands and merge them into a fake RGB image
+        #channels = [self.local_image.get_image('hh'), self.local_image.get_image('hv'), self.local_image.get_image('vv')]
+        channels = [self.local_image.get_image('hh'), self.local_image.get_image('hh'), self.local_image.get_image('hh')]
+        channel_images = [PIL.Image.fromarray(numpy.uint8(c >> 8)) for c in channels] # Convert from 16 bit to 8 bit
         self.display_image = PIL.Image.merge('RGB', channel_images)
         self.step = 1
         self.show()
+
+        ## Initialize the contour with the selected sensor band
+        #sensor_name = 'skybox_nir'
+        #band_name   = 'Red'
+        #SKYBOX_SCALE = 1200 / 256
+        #sensor      = getattr(domain, sensor_name)
+        #ee_image    = getattr(sensor, band_name)
+        #(self.local_image, self.snake) = initialize_active_contour(domain, ee_image, sensor.log_scale)
+        #
+        ## Retrieve the local image bands and merge them into a fake RGB image
+        #channels = [self.local_image.get_image('Red'), self.local_image.get_image('Red'), self.local_image.get_image('Red')]
+        #channel_images = [PIL.Image.fromarray(numpy.uint8(c / SKYBOX_SCALE)) for c in channels] # Convert from Skybox range to 8 bit
+        #self.display_image = PIL.Image.merge('RGB', channel_images)
+        #self.step = 1
+        #self.show()
+
 
     def paintEvent(self, event):
         imageqt = ImageQt.ImageQt(self.display_image)
@@ -74,7 +109,7 @@ class ActiveContourWindow(QtGui.QWidget):
         p.setRenderHint(QtGui.QPainter.Antialiasing, True);
         scale = self.height() / float(imageqt.height() + 10)
         p.scale(scale, scale)
-        p.translate((self.width() / 2 / scale - imageqt.width() / 2),
+        p.translate((self.width()  / 2 / scale - imageqt.width()  / 2),
                     (self.height() / 2 / scale - imageqt.height() / 2))
         p.fillRect(0, 0, imageqt.width(), imageqt.height(), QtGui.QColor(0, 0, 0))
         p.drawImage(0, 0, imageqt)
@@ -98,6 +133,7 @@ class ActiveContourWindow(QtGui.QWidget):
         p.end()
 
     def keyPressEvent(self, event):
+        '''Update the algorithm on space, quit on "q"'''
         if event.key() == QtCore.Qt.Key_Space:
             active_contour_step(self.local_image, self.snake, self.step)
             self.repaint()

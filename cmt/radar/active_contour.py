@@ -34,20 +34,28 @@ Active Contour (snake) water detector based on the paper:
 
 
 class Loop(object):
-    MIN_NODE_SEPARATION    =    5
+    MIN_NODE_SEPARATION    =    5 # In pixels
     MAX_NODE_SEPARATION    =   15
     
     SEED_REGION_BORDER     =    2
-    
-    EXPECTED_WATER_MEAN    =  2.7
-    EXPECTED_WATER_STD_DEV = 0.35
-    ALLOWED_DEVIATIONS     =  2.5
 
+    # Parameters for contour curvature
     VARIANCE_C             = -0.1
     CURVATURE_GAMMA        =  1.5
     TENSION_LAMBDA         = 0.05
+    
+    # These three are used in the "goodness" function below
+    # - These values are for a Mississippi UAVSAR image
+    EXPECTED_WATER_MEAN    =  2.7
+    EXPECTED_WATER_STD_DEV = 0.35
+    ALLOWED_DEVIATIONS     =  2.5
+    ## - These values are for a Malawi Skybox image
+    #EXPECTED_WATER_MEAN    = 270
+    #EXPECTED_WATER_STD_DEV = 10
+    #ALLOWED_DEVIATIONS     = 2.5
 
-    def __init__(self, image_data, nodes):
+
+    def __init__(self, image_data, nodes, image_is_log_10=False):
         self.data = image_data
         # third parameter of node is how long it's been still
         if len(nodes[0]) == 2:
@@ -56,6 +64,7 @@ class Loop(object):
         self.clockwise = self.__is_clockwise()
         self.done      = False
         self.almost_done_count = 0
+        self.image_is_log_10 = image_is_log_10
 
     
     def __line_segments_intersect(self, a, b, c, d):
@@ -121,15 +130,18 @@ class Loop(object):
         new += (n3[0] -  n[0]) ** 2 + (n3[1] -  n[1]) ** 2
         return new - old
 
-    # cost function for how much pixels inside curve (n1, n2, n3) within bbox
-    # look like water
-    def __get_goodness(self, bbox, n1, n2, n3):
-        mean = 0
-        mean_2 = 0
-        n = 0
+    # Cost function for how much pixels inside curve (n1, n2, n3) within bbox look like water
+    def __get_goodness(self, bbox, n1, n2, n3): # n1,n2,n3 are three points on the contour
+        mean    = 0
+        mean_2  = 0
+        n       = 0
+        # These are used to compute if points are inside the contour
         acute   = self.__inside_line(n1, n2, n3)
         n21diff = (n2[0] - n1[0], n2[1] - n1[1])
         n32diff = (n3[0] - n2[0], n3[1] - n2[1])
+        
+        # Go over everything in bbox, check if it is inside the contour,
+        #  and find the mean and standard deviation of those locations.
         for x in range(bbox[0], bbox[1]):
             for y in range(bbox[2], bbox[3]):
                 # add .5 so we don't get integer effects where a
@@ -146,23 +158,32 @@ class Loop(object):
                 else:
                     if (not inside1) and (not inside2):
                         continue
-                val = math.log10(self.data[x, y])
+                
+                # Get the value at this point
+                if self.image_is_log_10:
+                    val = math.log10(self.data[x, y])
+                else: # Normal image
+                    val = self.data[x, y]
+                
+                # Accumulate mean and std data
                 mean   += val
                 mean_2 += val ** 2
                 n += 1
-        if n == 0:
+        if n == 0: # No points inside the contour
             return (0, 0)
         mean   /= float(n)
         mean_2 /= float(n)
         var = mean_2 - mean ** 2
         if var <= 0.0:
             var = 0.0 # can happen due to precision errors
-        V = self.EXPECTED_WATER_STD_DEV ** 2
+            
+        # Computations from the paper -> Compare std and mean to constant expected values
+        V   = self.EXPECTED_WATER_STD_DEV ** 2
         g_u = 1.0 - ((mean - self.EXPECTED_WATER_MEAN) ** 2) / (V * (self.ALLOWED_DEVIATIONS ** 2))
         g_u = max(-1.0, min(1.0, g_u))
         #P = 1.01 + 0.258 * n
         # we have more pixels so use different order function
-        P = 1.01 + 0.02 * n
+        P     = 1.01 + 0.02 * n
         sigma = V * (1 - 0.509 * math.exp(-0.0744 * n))
         if var == 0.0:
             g_v = 0.0
@@ -174,7 +195,7 @@ class Loop(object):
             g_v = -g_v + self.VARIANCE_C
             g_v = max(-1.0, min(1.0, g_v))
         g = (g_u + g_v) / 2.0
-        return (n, g)
+        return (n, g) # Return (num_points, goodness)
 
     NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
     # shift a single node to neighboring pixel which reduces cost function the most
@@ -323,7 +344,7 @@ class Loop(object):
                 break
         if len(cur_loop) <= 2:
             return all_loops
-        return [Loop(self.data, cur_loop)] + all_loops
+        return [Loop(self.data, cur_loop, self.image_is_log_10)] + all_loops
 
     def __inside_loop(self, loop):
         start = loop.nodes[0]
@@ -406,16 +427,17 @@ class Loop(object):
         (i, j) = intersection
         loop   = self.nodes[0:i] + other.nodes[j:] + other.nodes[0:j] + self.nodes[i:]
         assert len(loop) == len(self.nodes) + len(other.nodes)
-        return Loop(self.data, loop)
+        return Loop(self.data, loop, self.image_is_log_10)
 
 # an active contour, which is composed of a number of Loops
 class Snake(object):
-    def __init__(self, local_image, initial_nodes):
+    def __init__(self, local_image, initial_nodes, image_is_log_10=False):
         self.local_image = local_image
-        self.data = local_image.get_image('hh')
+        self.data = local_image.get_band_by_index(0) # Retrieve the first band
+        
         # numpy is slower than tuples
         #initial_nodes = map(lambda x: map(lambda y: np.array(y), x), initial_nodes)
-        self.loops = [Loop(self.data, l) for l in initial_nodes]
+        self.loops = [Loop(self.data, l, image_is_log_10) for l in initial_nodes]
         self.done  = False
 
     def shift_nodes(self):
@@ -481,12 +503,28 @@ class Snake(object):
         (exterior, interior) = self.to_ee_feature_collections()
         return ee.Image(0).toByte().select(['constant'], ['b1']).paint(exterior, 1).paint(interior, 0)
 
+def initialize_active_contour(domain, ee_image, image_is_log_10=False):
+    '''Initialize a Snake class on an input image'''
+    # The input image should only have a single channel!
 
-def initialize_active_contour(domain):
-    sensor = domain.sensor_list[0] # Only expecting one sensor
+    scale_meters = 25 # TODO: Make this a parameter?
+    # TODO: Make initial loop sizes a parameter
+    
+    # Get the image we will be working on
+    #sensor = domain.sensor_list[0] # Only expecting one sensor
     #local_image = LocalEEImage(sensor.image, domain.bbox, 6.174, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.id))
-    local_image = LocalEEImage(sensor.image, domain.bbox, 25, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.name))
+    #local_image = LocalEEImage(sensor.image, domain.bbox, 25, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.name))
+    
+    # The input image should only contain a single band
+    num_input_bands = len(ee_image.getInfo()['bands'])
+    if num_input_bands != 1:
+        raise Exception('The active contour class only takes a single input band!')
+    band_name = ee_image.getInfo()['bands'][0]['id']
+    band_list = [band_name]
+    local_image = LocalEEImage(ee_image, domain.bbox, scale_meters, band_list, 'Radar_' + str(domain.name))
     (w, h) = local_image.size()
+    
+    # Initialize the algorithm with a grid of small loops that cover the region of interest
     B              = w / 25
     VERTICAL_CELLS = 20
     CELL_SIZE      = (w - 2 * B) / VERTICAL_CELLS
@@ -496,15 +534,18 @@ def initialize_active_contour(domain):
             nextj = min(j + CELL_SIZE, h - B)
             nexti = min(i + CELL_SIZE, w - B)
             loops.append([(i, j), (i, nextj), (nexti, nextj), (nexti, j)])
-    s = Snake(local_image, loops)
+    # Finished setting up the loops, load them into the Snake class.
+    s = Snake(local_image, loops, image_is_log_10)
     s.respace_nodes()
 
-    return (local_image, s)
+    return (local_image, s) # Ready to go!
 
 MAX_STEPS = 10000
 
-def active_contour(domain):
-    (local_image, snake) = initialize_active_contour(domain)
+def active_contour(domain, ee_image, image_is_log_10):
+    '''Start up an active contour and process it until it finishes'''
+    
+    (local_image, snake) = initialize_active_contour(domain, ee_image, image_is_log_10)
     for i in range(MAX_STEPS):
         if i % 10 == 0:
             snake.respace_nodes()
