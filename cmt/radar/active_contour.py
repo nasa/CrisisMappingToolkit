@@ -21,6 +21,8 @@ import ee
 
 import math
 
+# TODO: Move out of the radar directory?
+
 '''
 Active Contour (snake) water detector based on the paper:
     "Flood boundary delineation from Synthetic Aperture Radar imagery using a
@@ -31,6 +33,30 @@ Active Contour (snake) water detector based on the paper:
      of a flood.  The small contours can merge with each other to more cleanly
      span larger sections of water.
 '''
+
+
+def compute_band_statistics(ee_image, classified_image, region):
+    '''Use training data to compute the band statistics needed by the active contour algorithm'''
+
+    EVAL_RESOLUTION    = 30  # Meters
+    ALLOWED_DEVIATIONS = 2.5 # For now this is a constant
+    
+    masked_image = ee_image.mask(classified_image)
+    means        = masked_image.reduceRegion(ee.Reducer.mean(),   region, EVAL_RESOLUTION).getInfo()
+    stdDevs      = masked_image.reduceRegion(ee.Reducer.stdDev(), region, EVAL_RESOLUTION).getInfo()
+    
+    band_statistics = []
+    band_names      = []
+    for km, ks in zip(means, stdDevs):
+        #band_statistics.append((means[km], stdDevs[ks], ALLOWED_DEVIATIONS))
+        band_statistics.append((2.7, 0.35, ALLOWED_DEVIATIONS))
+        band_names.append(km)
+
+    print 'Computed band statistics: '
+    print band_names
+    print band_statistics
+    
+    return (band_names, band_statistics)
 
 
 class Loop(object):
@@ -44,30 +70,48 @@ class Loop(object):
     CURVATURE_GAMMA        =  1.5
     TENSION_LAMBDA         = 0.05
     
-    # These three are used in the "goodness" function below
-    # - These values are for a Mississippi UAVSAR image
-    EXPECTED_WATER_MEAN    =  2.7
-    EXPECTED_WATER_STD_DEV = 0.35
-    ALLOWED_DEVIATIONS     =  2.5
-    ## - These values are for a Malawi Skybox image
-    #EXPECTED_WATER_MEAN    = 270
-    #EXPECTED_WATER_STD_DEV = 10
-    #ALLOWED_DEVIATIONS     = 2.5
+    ## These three are used in the "goodness" function below
+    ## - These values are for a Mississippi UAVSAR image
+    #EXPECTED_WATER_MEAN    =  2.7
+    #EXPECTED_WATER_STD_DEV = 0.35
+    #ALLOWED_DEVIATIONS     =  2.5
+    ### - These values are for a Malawi Skybox image
+    ##EXPECTED_WATER_MEAN    = 270
+    ##EXPECTED_WATER_STD_DEV = 10
+    ##ALLOWED_DEVIATIONS     = 2.5
 
+    # band_statistics needs to be in the same order as the image bands and
+    #   contains the following for each band: (mean, stdDev, allowed_deviations)
 
-    def __init__(self, image_data, nodes, image_is_log_10=False):
+    def __init__(self, image_data, nodes, band_statistics, image_is_log_10=False):
         self.data = image_data
         # third parameter of node is how long it's been still
         if len(nodes[0]) == 2:
             nodes = map(lambda x: (x[0], x[1], 0), nodes)
         self.nodes     = nodes
-        self.clockwise = self.__is_clockwise()
+        self.clockwise = self._is_clockwise()
         self.done      = False
         self.almost_done_count = 0
+        self.band_statistics = band_statistics
         self.image_is_log_10 = image_is_log_10
 
+    def get_image_width(self):
+        return self.data.size()[0]
     
-    def __line_segments_intersect(self, a, b, c, d):
+    def get_image_height(self):
+        return self.data.size()[1]
+    
+    def get_image_pixel(self, x, y):
+        '''Get the image value across all bands at this point'''
+        if self.image_is_log_10:
+            pixel = self.data.get(x, y)
+            value = [math.log10(v) for v in pixel]
+        else: # Normal image
+            value = self.data.get(x, y)
+        return value
+    
+    
+    def _line_segments_intersect(self, a, b, c, d):
         # is counterclockwise order
         def ccw(a, b, c):
             return (c[1] - a[1]) * (b[0] - a[0]) > (b[1] - a[1]) * (c[0] - a[0])
@@ -75,7 +119,7 @@ class Loop(object):
 
     # count the number of segments (excluding the one starting with the node with ID ignored)
     # which a ray in the direction perp emanating from p crosses
-    def __count_intersections(self, p, perp, ignored=None):
+    def _count_intersections(self, p, perp, ignored=None):
         intersections = 0
         for i in range(len(self.nodes)):
             pred = i - 1
@@ -83,22 +127,22 @@ class Loop(object):
                 pred = len(self.nodes) - 1
             if pred == ignored: # don't count line segment with origin of ray
                 continue
-            if self.__line_segments_intersect(p, (p[0] + perp[0] * 1e7, p[1] + perp[1] * 1e7), self.nodes[pred], self.nodes[i]):
+            if self._line_segments_intersect(p, (p[0] + perp[0] * 1e7, p[1] + perp[1] * 1e7), self.nodes[pred], self.nodes[i]):
                 intersections += 1
         return intersections
 
-    def __is_clockwise(self):
+    def _is_clockwise(self):
         s = 0
         for i in range(len(self.nodes)):
             n = (i + 1) if (i < len(self.nodes) - 1) else 0 # TODO: There should be a function for this line!
             s += (self.nodes[n][0] - self.nodes[i][0]) * (self.nodes[n][1] + self.nodes[i][1])
         return s >= 0
     
-    def __inside_line(self, a, b, x):
+    def _inside_line(self, a, b, x):
         v = (b[0] - a[0]) * (b[1] - x[1]) - (b[1] - a[1]) * (b[0] - x[0])
         return v >= 0
     
-    def __curvature(self, n1, n2, n3, nn1=None, nn2=None, nn3=None):
+    def _curvature(self, n1, n2, n3, nn1=None, nn2=None, nn3=None):
         a1 = math.atan2(n1[1] - n2[1], n1[0] - n2[0])
         a2 = math.atan2(n3[1] - n2[1], n3[0] - n2[0])
         if nn1:
@@ -123,7 +167,7 @@ class Loop(object):
             return float('inf')
         return change * change / a
     
-    def __tension(self, n1, n2, n3, n):
+    def _tension(self, n1, n2, n3, n):
         old =  (n2[0] - n1[0]) ** 2 + (n2[1] - n1[1]) ** 2
         old += (n3[0] - n2[0]) ** 2 + (n3[1] - n2[1]) ** 2
         new =  ( n[0] - n1[0]) ** 2 + ( n[1] - n1[1]) ** 2
@@ -131,14 +175,18 @@ class Loop(object):
         return new - old
 
     # Cost function for how much pixels inside curve (n1, n2, n3) within bbox look like water
-    def __get_goodness(self, bbox, n1, n2, n3): # n1,n2,n3 are three points on the contour
-        mean    = 0
-        mean_2  = 0
-        n       = 0
+    def _get_goodness(self, bbox, n1, n2, n3): # n1,n2,n3 are three points on the contour
+
         # These are used to compute if points are inside the contour
-        acute   = self.__inside_line(n1, n2, n3)
+        acute   = self._inside_line(n1, n2, n3)
         n21diff = (n2[0] - n1[0], n2[1] - n1[1])
         n32diff = (n3[0] - n2[0], n3[1] - n2[1])
+
+        # Initialize computation storage        
+        num_bands     = len(self.get_image_pixel(0, 0))
+        band_means   = [0]*num_bands
+        band_means_2 = [0]*num_bands
+        band_counts  = [0]*num_bands
         
         # Go over everything in bbox, check if it is inside the contour,
         #  and find the mean and standard deviation of those locations.
@@ -148,8 +196,8 @@ class Loop(object):
                 # shift of one pixel removes the entire row
                 p = (x + 0.5, y + 0.5)
                 # doing this still but optimized more
-                # inside1 =  self.__inside_line(n1, n2, p)
-                # inside2 =  self.__inside_line(n2, n3, p)
+                # inside1 =  self._inside_line(n1, n2, p)
+                # inside2 =  self._inside_line(n2, n3, p)
                 inside1 = (n21diff[0] * (n2[1] - p[1]) - n21diff[1] * (n2[0] - p[0])) >= 0
                 inside2 = (n32diff[0] * (n3[1] - p[1]) - n32diff[1] * (n3[0] - p[0])) >= 0
                 if acute:
@@ -160,46 +208,74 @@ class Loop(object):
                         continue
                 
                 # Get the value at this point
-                if self.image_is_log_10:
-                    val = math.log10(self.data[x, y])
-                else: # Normal image
-                    val = self.data[x, y]
+                pixel = self.get_image_pixel(x, y)
                 
-                # Accumulate mean and std data
-                mean   += val
-                mean_2 += val ** 2
-                n += 1
-        if n == 0: # No points inside the contour
-            return (0, 0)
-        mean   /= float(n)
-        mean_2 /= float(n)
-        var = mean_2 - mean ** 2
-        if var <= 0.0:
-            var = 0.0 # can happen due to precision errors
+                # Accumulate mean and std data for each band
+                for i in range(0,num_bands):
+                    val = pixel[i]
+                    band_means[i]   += val
+                    band_means_2[i] += val ** 2
+                    band_counts[i]  += 1
+        
+        # Perform goodness calculations for each band
+        mean_count = 0
+        mean_good  = 0
+        for i in range(0,num_bands):
             
-        # Computations from the paper -> Compare std and mean to constant expected values
-        V   = self.EXPECTED_WATER_STD_DEV ** 2
-        g_u = 1.0 - ((mean - self.EXPECTED_WATER_MEAN) ** 2) / (V * (self.ALLOWED_DEVIATIONS ** 2))
-        g_u = max(-1.0, min(1.0, g_u))
-        #P = 1.01 + 0.258 * n
-        # we have more pixels so use different order function
-        P     = 1.01 + 0.02 * n
-        sigma = V * (1 - 0.509 * math.exp(-0.0744 * n))
-        if var == 0.0:
-            g_v = 0.0
-        else:
-            g_v = 1.0 / (self.ALLOWED_DEVIATIONS ** 2) * (-P * V / sigma +
-                P * math.log(P * var / sigma) - math.log(var))
-            # for some reason I don't think it's negative in the paper,
-            # but it clearly ought to be
-            g_v = -g_v + self.VARIANCE_C
-            g_v = max(-1.0, min(1.0, g_v))
-        g = (g_u + g_v) / 2.0
-        return (n, g) # Return (num_points, goodness)
+            # Extract paremeters for this band
+            mean   = band_means[i]
+            mean_2 = band_means_2[i]
+            n      = band_counts[i]
+
+            (expected_water_mean, expected_water_std_dev, allowed_deviations) = self.band_statistics[i]
+            #if self.image_is_log_10:
+            #    expected_water_mean    = math.log10(expected_water_mean)
+            #    expected_water_std_dev = math.log10(expected_water_std_dev)
+                
+            #print str(expected_water_mean) +', ' +  str(expected_water_std_dev)
+                
+            
+            if n == 0: # No points inside the contour
+                return (0, 0)
+            
+            mean   /= float(n)
+            mean_2 /= float(n)
+            var = mean_2 - mean ** 2
+            if var <= 0.0:
+                var = 0.0 # can happen due to precision errors
+                
+            # Computations from the paper -> Compare std and mean to constant expected values
+            V   = expected_water_std_dev ** 2
+            g_u = 1.0 - ((mean - expected_water_mean) ** 2) / (V * (allowed_deviations ** 2))
+            g_u = max(-1.0, min(1.0, g_u))
+            #P = 1.01 + 0.258 * n
+            # we have more pixels so use different order function
+            P     = 1.01 + 0.02 * n
+            sigma = V * (1 - 0.509 * math.exp(-0.0744 * n))
+            if var == 0.0:
+                g_v = 0.0
+            else:
+                g_v = 1.0 / (allowed_deviations ** 2) * (-P * V / sigma +
+                    P * math.log(P * var / sigma) - math.log(var))
+                # for some reason I don't think it's negative in the paper,
+                # but it clearly ought to be
+                g_v = -g_v + self.VARIANCE_C
+                g_v = max(-1.0, min(1.0, g_v))
+            g = (g_u + g_v) / 2.0
+            
+            mean_count += n
+            mean_good  += g
+            
+        # Take the mean of all the band's responses.
+        mean_count /= num_bands
+        mean_good  /= num_bands
+        #print str(mean_count) + ', ' + str(mean_good)
+        
+        return (mean_count, mean_good) # Return (num_points, goodness)
 
     NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
     # shift a single node to neighboring pixel which reduces cost function the most
-    def __shift_node(self, i):
+    def _shift_node(self, i):
         n2 = self.nodes[i]
         if n2[2] > 5:
             return n2
@@ -210,29 +286,30 @@ class Loop(object):
         n1    = self.nodes[p]
         n3    = self.nodes[n]
         # use immediate vicinity of node
-        x_min = max(0,                  n2[0] - self.SEED_REGION_BORDER)
-        x_max = min(self.data.shape[0], n2[0] + self.SEED_REGION_BORDER)
-        y_min = max(0,                  n2[1] - self.SEED_REGION_BORDER)
-        y_max = min(self.data.shape[1], n2[1] + self.SEED_REGION_BORDER)
+        x_min = max(0,                       n2[0] - self.SEED_REGION_BORDER)
+        x_max = min(self.get_image_width(),  n2[0] + self.SEED_REGION_BORDER)
+        y_min = max(0,                       n2[1] - self.SEED_REGION_BORDER)
+        y_max = min(self.get_image_height(), n2[1] + self.SEED_REGION_BORDER)
         bbox = (x_min, x_max, y_min, y_max)
     
         best = n2 
-        (original_count, ignored) = self.__get_goodness(bbox, n1, n2, n3)
+        (original_count, ignored) = self._get_goodness(bbox, n1, n2, n3)
         best_goodness = 0
     
         for d in self.NEIGHBORS:
             np = (n2[0] + d[0], n2[1] + d[1])
             # don't move outside image
-            if np[0] < 0 or np[0] >= self.data.shape[0] or np[1] < 0 or np[1] >= self.data.shape[1]:
+            if ( (np[0] < 0) or (np[0] >= self.get_image_width() ) or
+                 (np[1] < 0) or (np[1] >= self.get_image_height())   ):
                 continue
             # find how similar pixels inside curve are to expected water distribution
-            (count, g) = self.__get_goodness(bbox, n1, np, n3)
+            (count, g) = self._get_goodness(bbox, n1, np, n3)
             # penalty for curving sharply
-            curveg = self.__curvature(n1,             n2, n3,             nn2=np) + \
-                     self.__curvature(self.nodes[pp], n1, n2,             nn2=np) + \
-                     self.__curvature(n2,             n3, self.nodes[nn], nn1=np)
+            curveg = self._curvature(n1,             n2, n3,             nn2=np) + \
+                     self._curvature(self.nodes[pp], n1, n2,             nn2=np) + \
+                     self._curvature(n2,             n3, self.nodes[nn], nn1=np)
             # encourage nodes to stay the right distance apart
-            tensiong = self.__tension(n1, n2, n3, np)
+            tensiong = self._tension(n1, n2, n3, np)
             fullg = (count - original_count) * g - self.CURVATURE_GAMMA * curveg - \
                     self.TENSION_LAMBDA * tensiong
             if fullg > best_goodness:
@@ -249,7 +326,7 @@ class Loop(object):
             return
         self.moving_count = 0
         for i in range(len(self.nodes)):
-            self.nodes[i] = self.__shift_node(i)
+            self.nodes[i] = self._shift_node(i)
             # this node updated, neighboring nodes should too
             if self.nodes[i][2] == 0:
                 p = (i - 1) if (i > 0)                   else (len(self.nodes) - 1)
@@ -298,7 +375,7 @@ class Loop(object):
     # recursively create new loops based on intersections, in loop between
     # loop_start and loop_end
     # includes loop_start but not loop_end
-    def __create_loops(self, intersections, loop_start, loop_end):
+    def _create_loops(self, intersections, loop_start, loop_end):
         assert not (loop_end < loop_start and loop_end != 0)
         i = loop_start
         cur_loop = []
@@ -333,7 +410,7 @@ class Loop(object):
                     cur_loop[0] = (cur_loop[0][0], cur_loop[0][1], 0)
                 break
             # recursively create new loops within next intersections
-            new_loops = self.__create_loops(intersections, closest_next, closest_other)
+            new_loops = self._create_loops(intersections, closest_next, closest_other)
             # update neighbors that had changed connectivity
             cur_loop[initial_length] = (cur_loop[initial_length][0], cur_loop[initial_length][1], 0)
             cur_loop[-1] = (cur_loop[-1][0], cur_loop[-1][1], 0)
@@ -344,14 +421,14 @@ class Loop(object):
                 break
         if len(cur_loop) <= 2:
             return all_loops
-        return [Loop(self.data, cur_loop, self.image_is_log_10)] + all_loops
+        return [Loop(self.data, cur_loop, self.band_statistics, self.image_is_log_10)] + all_loops
 
-    def __inside_loop(self, loop):
+    def _inside_loop(self, loop):
         start = loop.nodes[0]
-        return self.__count_intersections(start, (1, 0)) % 2 == 1
+        return self._count_intersections(start, (1, 0)) % 2 == 1
 
     # eliminate self loops
-    def __filter_loops(self, loops):
+    def _filter_loops(self, loops):
         if len(loops) == 0:
             return []
         # find biggest loop with our own orientation
@@ -365,7 +442,7 @@ class Loop(object):
         for i in range(len(loops)):
             if i == biggest_loop:
                 continue
-            inside = loops[biggest_loop].__inside_loop(loops[i])
+            inside = loops[biggest_loop]._inside_loop(loops[i])
             same_orientation = (self.clockwise == loops[i].clockwise)
             if inside and same_orientation:
                 continue
@@ -382,7 +459,7 @@ class Loop(object):
         if len(self.nodes) <= 3:
             return []
         # kill self if collapsed and switched orientation
-        if self.__is_clockwise() != self.clockwise:
+        if self._is_clockwise() != self.clockwise:
             return []
         # find self intersections
         self_intersections = []
@@ -396,14 +473,14 @@ class Loop(object):
                     continue
                 cur2  = self.nodes[j]
                 prev2 = self.nodes[prev_j]
-                if not self.__line_segments_intersect(prev1, cur1, prev2, cur2):
+                if not self._line_segments_intersect(prev1, cur1, prev2, cur2):
                     continue
                 self_intersections.append((prev_i, prev_j))
         # recursively divide loops based on self intersections, e.g., merge when
         # surrounding island from two sides and meeting
         if len(self_intersections) != 0:
-            loops = self.__create_loops(self_intersections, 0, 0)
-            return self.__filter_loops(loops)
+            loops = self._create_loops(self_intersections, 0, 0)
+            return self._filter_loops(loops)
         return [self]
 
     # merge two loops if they intersect
@@ -418,7 +495,7 @@ class Loop(object):
                 prev_j = (j - 1) if (j > 0) else (len(other.nodes) - 1)
                 cur2   = other.nodes[j]
                 prev2  = other.nodes[prev_j]
-                if not self.__line_segments_intersect(prev1, cur1, prev2, cur2):
+                if not self._line_segments_intersect(prev1, cur1, prev2, cur2):
                     continue
                 intersection = (i, j)
                 break
@@ -427,17 +504,17 @@ class Loop(object):
         (i, j) = intersection
         loop   = self.nodes[0:i] + other.nodes[j:] + other.nodes[0:j] + self.nodes[i:]
         assert len(loop) == len(self.nodes) + len(other.nodes)
-        return Loop(self.data, loop, self.image_is_log_10)
+        return Loop(self.data, loop, self.band_statistics, self.image_is_log_10)
 
 # an active contour, which is composed of a number of Loops
 class Snake(object):
-    def __init__(self, local_image, initial_nodes, image_is_log_10=False):
+    def __init__(self, local_image, initial_nodes, band_statistics, image_is_log_10=False):
         self.local_image = local_image
-        self.data = local_image.get_band_by_index(0) # Retrieve the first band
+        self.data = local_image # Using all bands
         
         # numpy is slower than tuples
         #initial_nodes = map(lambda x: map(lambda y: np.array(y), x), initial_nodes)
-        self.loops = [Loop(self.data, l, image_is_log_10) for l in initial_nodes]
+        self.loops = [Loop(self.data, l, band_statistics, image_is_log_10) for l in initial_nodes]
         self.done  = False
 
     def shift_nodes(self):
@@ -503,25 +580,18 @@ class Snake(object):
         (exterior, interior) = self.to_ee_feature_collections()
         return ee.Image(0).toByte().select(['constant'], ['b1']).paint(exterior, 1).paint(interior, 0)
 
-def initialize_active_contour(domain, ee_image, image_is_log_10=False):
+def initialize_active_contour(domain, ee_image, band_statistics, image_is_log_10=False):
     '''Initialize a Snake class on an input image'''
-    # The input image should only have a single channel!
 
     scale_meters = 25 # TODO: Make this a parameter?
     # TODO: Make initial loop sizes a parameter
     
     # Get the image we will be working on
-    #sensor = domain.sensor_list[0] # Only expecting one sensor
-    #local_image = LocalEEImage(sensor.image, domain.bbox, 6.174, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.id))
-    #local_image = LocalEEImage(sensor.image, domain.bbox, 25, ['hh', 'hv', 'vv'], 'Radar_' + str(domain.name))
-    
-    # The input image should only contain a single band
-    num_input_bands = len(ee_image.getInfo()['bands'])
-    if num_input_bands != 1:
-        raise Exception('The active contour class only takes a single input band!')
-    band_name = ee_image.getInfo()['bands'][0]['id']
-    band_list = [band_name]
-    local_image = LocalEEImage(ee_image, domain.bbox, scale_meters, band_list, 'Radar_' + str(domain.name))
+    # - All bands will be used so only pass in the bands you want used!
+    band_entries = ee_image.getInfo()['bands']
+    band_names   = [b['id'] for b in band_entries]
+    print 'Running active contour on bands: ' + str(band_names)
+    local_image = LocalEEImage(ee_image, domain.bbox, scale_meters, band_names, 'ActiveContour_' + str(domain.name))
     (w, h) = local_image.size()
     
     # Initialize the algorithm with a grid of small loops that cover the region of interest
@@ -535,17 +605,17 @@ def initialize_active_contour(domain, ee_image, image_is_log_10=False):
             nexti = min(i + CELL_SIZE, w - B)
             loops.append([(i, j), (i, nextj), (nexti, nextj), (nexti, j)])
     # Finished setting up the loops, load them into the Snake class.
-    s = Snake(local_image, loops, image_is_log_10)
+    s = Snake(local_image, loops, band_statistics, image_is_log_10)
     s.respace_nodes()
 
     return (local_image, s) # Ready to go!
 
 MAX_STEPS = 10000
 
-def active_contour(domain, ee_image, image_is_log_10):
+def active_contour(domain, ee_image, band_statistics, image_is_log_10):
     '''Start up an active contour and process it until it finishes'''
     
-    (local_image, snake) = initialize_active_contour(domain, ee_image, image_is_log_10)
+    (local_image, snake) = initialize_active_contour(domain, ee_image, band_statistics, image_is_log_10)
     for i in range(MAX_STEPS):
         if i % 10 == 0:
             snake.respace_nodes()

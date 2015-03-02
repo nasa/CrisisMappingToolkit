@@ -39,6 +39,13 @@ import numpy
 from PyQt4 import QtGui, QtCore
 app = QtGui.QApplication(sys.argv)
 
+
+#from PIL import Image, ImageChops
+#import matplotlib.pyplot as plt
+#plt.imread('/home/smcmich1/fileTest.tif')
+#raise Exception('DEBUG')
+
+
 THIS_FILE_FOLDER = os.path.dirname(os.path.realpath(__file__))
 domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/uavsar/mississippi.xml')
 #domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/modis/malawi_2015.xml')
@@ -67,16 +74,17 @@ class ActiveContourWindow(QtGui.QWidget):
         self.setGeometry(300, 300, 650, 650)
         self.setWindowTitle('Active Contour')
         self.domain = domain
-        #print str(domain)
-        
-        # TODO: Load the DISPLAY image manually???
         
         # Initialize the contour with the selected sensor band
         sensor_name = 'uavsar'
-        band_name   = 'hh'
         sensor      = getattr(domain, sensor_name)
-        ee_image    = getattr(sensor, band_name)
-        (self.local_image, self.snake) = initialize_active_contour(domain, ee_image, sensor.log_scale)
+        ee_image    = sensor.image.select(['hh'])
+        
+        # TODO: Make sure the name and statistics line up inside the class!
+        # Compute statistics for each band -> Log10 needs to be applied here!
+        (band_names, band_statistics) = compute_band_statistics(ee_image.log10(), domain.ground_truth, domain.bounds)
+        
+        (self.local_image, self.snake) = initialize_active_contour(domain, ee_image, band_statistics, sensor.log_scale)
         
         # Retrieve the local image bands and merge them into a fake RGB image
         #channels = [self.local_image.get_image('hh'), self.local_image.get_image('hv'), self.local_image.get_image('vv')]
@@ -88,14 +96,17 @@ class ActiveContourWindow(QtGui.QWidget):
 
         ## Initialize the contour with the selected sensor band
         #sensor_name = 'skybox_nir'
-        #band_name   = 'Red'
         #SKYBOX_SCALE = 1200 / 256
         #sensor      = getattr(domain, sensor_name)
-        #ee_image    = getattr(sensor, band_name)
-        #(self.local_image, self.snake) = initialize_active_contour(domain, ee_image, sensor.log_scale)
+        #ee_image = sensor.image.toUint16()
+        #
+        #(band_names, band_statistics) = compute_band_statistics(ee_image, domain.ground_truth, domain.bounds)
+        #
+        #(self.local_image, self.snake) = initialize_active_contour(domain, ee_image, band_statistics, sensor.log_scale)
         #
         ## Retrieve the local image bands and merge them into a fake RGB image
-        #channels = [self.local_image.get_image('Red'), self.local_image.get_image('Red'), self.local_image.get_image('Red')]
+        ##channels = [self.local_image.get_image('Red'), self.local_image.get_image('Red'), self.local_image.get_image('Red')]
+        #channels = [self.local_image.get_image('Red'), self.local_image.get_image('Green'), self.local_image.get_image('Blue')]
         #channel_images = [PIL.Image.fromarray(numpy.uint8(c / SKYBOX_SCALE)) for c in channels] # Convert from Skybox range to 8 bit
         #self.display_image = PIL.Image.merge('RGB', channel_images)
         #self.step = 1

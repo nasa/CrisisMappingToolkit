@@ -81,14 +81,13 @@ class LocalEEImage(object):
         transform_file = z.open(image_name + '.' + bands[0] + '.tfw', 'r')
         self.transform = [float(line) for line in transform_file]
 
-        #raise Exception('DEBUG')
-
         # Load each of the bands in to memory
         self.images = dict()
         for b in bands:
-            bandfilename = image_name + '.' + b + '.tif'
+            bandfilename   = image_name + '.' + b + '.tif'
+            band_file_path = os.path.join(TEMP_FILE_DIR, bandfilename)
             z.extract(bandfilename, TEMP_FILE_DIR)
-            self.images[b] = plt.imread(os.path.join(TEMP_FILE_DIR, bandfilename))
+            self.images[b] = plt.imread(band_file_path)
         
         self.image_name = image_name
         self.bands      = bands
@@ -108,8 +107,15 @@ class LocalEEImage(object):
         return (r, c)
 
     def get(self, band, r, c):
-        '''Fetch the selected pixel.'''
+        '''Fetch the selected pixel from the selected band.'''
         return self.images[band][r, c]
+    
+    def get(self, r, c):
+        '''Fetch the selected pixels across all bands'''
+        pixel = []
+        for b in self.bands:
+            pixel.append(self.images[b][r, c])
+        return pixel
 
     def get_image(self, band_name):
         '''Fetch the selected band as a PIL image.'''
