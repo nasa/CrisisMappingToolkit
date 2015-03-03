@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Gloucester 2014</name>
+    <sensors>
+    
+      <sensor>
+        <name>SRTM90</name>
+      </sensor>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2014-10-05</start_date>
+            <end_date>2014-10-06</end_date>
+          </source>
+        </bands>
+      </sensor>
+    
+      <sensor>
+        <name>Skybox</name>
+        <bands>
+            <source><eeid>00979750194450688595-04594044960761723980</eeid></source>
+        </bands>
+      </sensor>
+      
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>35.18</lon>
+            <lat>-17.09</lat>
+        </bottomleft>
+        <topright>
+            <lon>35.32</lon>
+            <lat>-16.87</lat>
+        </topright>
+    </bbox>
+
+    <truth>18108519531116889794-12711473776610999401</truth>
+    
+    <algorithm_params>
+      <modis_diff_threshold>500</modis_diff_threshold>
+      
+      <modis_mask_threshold>3.5</modis_mask_threshold>
+      <modis_change_threshold>-3.5</modis_change_threshold>
+      
+      <dartmouth_threshold>0.50</dartmouth_threshold>
+    </algorithm_params>    
+    
+    
+    
+</domain>
+
