@@ -47,8 +47,8 @@ Tool for testing radar based flood detection algorithms using a simple GUI.
 # --------------------------------------------------------------
 # Configuration
 
-#ALGORITHMS = [MATGEN]
-ALGORITHMS = [MATGEN, DECISION_TREE, RANDOM_FORESTS, SVM]
+ALGORITHMS = [MATGEN]
+#ALGORITHMS = [DECISION_TREE, RANDOM_FORESTS, SVM]
 #ALGORITHMS = [ACTIVE_CONTOUR]
 #ALGORITHMS = [RANDOM_FORESTS]
 
@@ -57,8 +57,8 @@ ALGORITHMS = [MATGEN, DECISION_TREE, RANDOM_FORESTS, SVM]
 
 def evaluation_function(pair, alg):
     '''Pretty print an algorithm and its statistics'''
-    precision, recall, resolution = pair
-    print '%s: (%4g, %4g)' % (get_algorithm_name(alg), precision, recall)
+    (precision, recall, evalRes, noTruth) = pair
+    print '%s: (%4g, %4g, %4g)' % (get_algorithm_name(alg), precision, recall, noTruth)
 
 
 # TODO: This could live elsewhere
@@ -68,7 +68,7 @@ def visualizeDomain(domain, show=True):
     for s in domain.sensor_list:
         apply(addToMap, s.visualize(show=show))
     if domain.ground_truth != None:
-        addToMap(domain.ground_truth, {}, 'Ground Truth', False)
+        addToMap(domain.ground_truth.mask(domain.ground_truth), {}, 'Ground Truth', False)
 
 # --------------------------------------------------------------
 # main()
@@ -86,6 +86,9 @@ domain = cmt.domain.Domain(sys.argv[1])
 # Display radar and ground truth 
 visualizeDomain(domain)
 
+waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
+addToMap(waterMask.mask(waterMask), {'min': 0, 'max': 1}, 'Permanent Water Mask', False)
+
 #print im.image.getDownloadUrl({'name' : 'sar', 'region':ee.Geometry.Rectangle(-91.23, 32.88, -91.02, 33.166).toGeoJSONString(), 'scale': 6.174})
 
 # For each of the algorithms
@@ -100,8 +103,6 @@ for a in range(len(ALGORITHMS)):
     
     # Compare the algorithm output to the ground truth and print the results
     if domain.ground_truth != None:
-        cmt.util.evaluation.evaluate_approach_thread(functools.partial(evaluation_function, alg=alg), result, domain.ground_truth, domain.bounds)
-
-#addToMap(domain.groundTruth.mask(domain.groundTruth), {'min': 0, 'max' : 1, 'opacity' : 0.2}, 'Ground Truth', false);
-#addToMap(domain.dem, {min:25, max:50}, 'DEM', false);
+        cmt.util.evaluation.evaluate_approach_thread(functools.partial(
+            evaluation_function, alg=alg), result, domain.ground_truth, domain.bounds)
 

@@ -31,6 +31,87 @@ class WaitForResult(threading.Thread):
     def run(self):
         self.finished_function(self.function())
 
+
+def countNumBlobs(classifiedImage, region, maxBlobSize, evalResolution=500): # In pixels?
+    '''Count the number of unconnected blobs in an image'''
+    
+    # Count up the number of islands smaller than a certain size
+    antiResult = classifiedImage.Not()
+    onBlobs   = classifiedImage.connectedComponents(ee.Kernel.square(3), maxBlobSize).select('b1')
+    offBlobs  = antiResult.connectedComponents(     ee.Kernel.square(3), maxBlobSize).select('b1')
+    vectorsOn  = onBlobs.reduceToVectors(scale=evalResolution, geometry=region,
+                                         geometryType='centroid', bestEffort=True)
+    vectorsOff = offBlobs.reduceToVectors(scale=evalResolution, geometry=region,
+                                         geometryType='centroid', bestEffort=True)
+    numOnBlobs  = len(vectorsOn.getInfo()['features'])
+    numOffBlobs = len(vectorsOff.getInfo()['features'])
+    return (numOnBlobs, numOffBlobs)
+    
+
+def evaluate_result_quality(resultIn, region):
+    '''Try to appraise the quality of a result without access to ground truth data!'''
+    
+    
+    EVAL_RESOLUTION = 500
+    
+    waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
+    
+    # Check percentage of region classified as true
+    result = resultIn.round().uint8() # Eliminate fractional inputs
+    fillCount         = result.reduceRegion(ee.Reducer.mean(), region, EVAL_RESOLUTION)
+    percentClassified = fillCount.getInfo()['b1']
+
+    print 'percentClassified = ' + str(percentClassified)
+
+    # Too much or too little fill generally indicates a bad match
+    MAX_FILL_PERCENT = 0.95
+    MIN_FILL_PERCENT = 0.05    
+    if (percentClassified < MIN_FILL_PERCENT) or (percentClassified > MAX_FILL_PERCENT):
+        return 0.0
+
+    # Make sure enough of the water mask has been filled in
+    MIN_PERCENT_MASK_FILL = 0.60
+    filledWaterMask      = waterMask.And(result)
+    filledWaterCount     = filledWaterMask.reduceRegion(ee.Reducer.sum(), region, EVAL_RESOLUTION).getInfo()['b1']
+    waterMaskCount       = waterMask.reduceRegion(ee.Reducer.sum(), region, EVAL_RESOLUTION).getInfo()['b1']
+    if waterMaskCount == 0: # Can't do much without the water mask!
+        return 1.0 # Give it the benefit of the doubt.
+    waterMaskPercentFill = filledWaterCount / waterMaskCount
+    print 'Water mask percent fill = ' + str(waterMaskPercentFill)
+    if waterMaskPercentFill < MIN_PERCENT_MASK_FILL:
+        return 0.0
+   
+    # Count up the number of islands smaller than a certain size
+    MAX_SPECK_SIZE = 150 # In pixels?   
+    (waterSpecks, landSpecks) = countNumBlobs(result, region, MAX_SPECK_SIZE, EVAL_RESOLUTION)
+    #print 'Found ' + str(waterSpecks) + ' water specks'
+   
+    # Count up the number of islands in the water mask -> Only need to do this once!
+    (waterMaskSpecks, landMaskSpecks) = countNumBlobs(waterMask, region, MAX_SPECK_SIZE, EVAL_RESOLUTION)
+    #print 'Found ' + str(waterMaskSpecks) + ' water mask specks'
+
+    # Floods tend to reduce the number of isolated water bodies, not increase them.
+    MAX_RATIO = 10
+    waterSpeckRatio = waterSpecks / waterMaskSpecks
+    landSpeckRatio  = landSpecks  / landMaskSpecks
+    print 'waterSpeckRatio = ' + str(waterSpeckRatio)
+    print 'landSpeckRatio  = ' + str(landSpeckRatio)
+    if (waterSpeckRatio > MAX_RATIO) or (landSpeckRatio > MAX_RATIO):
+        return 0
+    
+    # At this point all of the pass/fail checks have passed.
+    # Compute a final percentage by assesing some penalties
+    score = 1.0
+    penalty = min(max(1.0 - waterMaskPercentFill, 0), 0.4)
+    score  -= penalty
+    penalty = min(max(waterSpeckRatio - 1.0, 0)/10.0, 0.3)
+    score  -= penalty
+    penalty = min(max(landSpeckRatio - 1.0, 0)/10.0, 0.3)
+    score  -= penalty
+    
+    return score
+
+
 def evaluate_approach(result, ground_truth, region, fractional=False):
     '''Compare result to ground truth in region and compute precision and recall'''
     ground_truth = ground_truth.mask(ground_truth.mask().And(result.mask()))
@@ -49,7 +130,7 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
     #truth_sum   = ee.data.getValue({'image': ground_truth.stats(30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
     
     # Keep reducing the evaluation resolution until Earth Engine finishes without timing out
-    MAX_EVAL_RES = 2000
+    MAX_EVAL_RES = 12000
     eval_res     = 250
     while True:
         try:
@@ -57,7 +138,8 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
             result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Total detections
             truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Total water
             break # Quit the loop if the calculations were successful
-        except: # On failure coursen the resolution and try again
+        except Exception,e: # On failure coursen the resolution and try again
+            print str(e)
             eval_res *= 2
             if eval_res > MAX_EVAL_RES:
                 raise Exception('Unable to evaluate results at resolution ' + str(eval_res/2))
@@ -65,7 +147,11 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
     # Compute ratios, avoiding divide by zero.
     precision   = 1.0 if (result_sum == 0.0) else (correct_sum / result_sum)
     recall      = 1.0 if (truth_sum  == 0.0) else (correct_sum / truth_sum)
-    return (precision, recall, eval_res)
+    
+    # Test our result evaluation that does not depend on the ground truth!
+    no_truth_result = evaluate_result_quality(result, region)
+    
+    return (precision, recall, eval_res, no_truth_result)
 
 
 def evaluate_approach_thread(evaluation_function, result, ground_truth, region, fractional=False):

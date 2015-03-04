@@ -37,6 +37,7 @@ import os
 import csv
 import ee
 import numpy
+import traceback
 import cmt.util.processManyLakes
 from cmt.util.processManyLakes import LakeDataLoggerBase
 import cmt.modis.flood_algorithms
@@ -58,8 +59,6 @@ class LoggingClass(LakeDataLoggerBase):
         # Get the file path
         filePrefix      = LakeDataLoggerBase.computeLakePrefix(self)
         self.logFolder  = filePrefix + os.path.sep
-        if not os.path.exists(self.logFolder): # Create folder if it does not exist
-            os.mkdir(self.logFolder)
         self.logPath    = os.path.join(self.logFolder, 'MODIS_log.csv')
         
         # Read in any existing data from the file
@@ -73,6 +72,9 @@ class LoggingClass(LakeDataLoggerBase):
     def saveResultsImage(self, classifiedImage, ee_bounds, imageName, cloudMask, waterMask, resolution=30):
         '''Records a diagnostic image to the log directory'''
         
+        if not os.path.exists(self.logFolder): # Create folder if it does not exist
+            os.mkdir(self.logFolder)
+        
         # Currently we are not using the modis image
         # Red channel is detected, blue channel is water mask, green is constant zero.
         mergedImage = classifiedImage.addBands(ee.Image(0)).addBands(waterMask)
@@ -85,6 +87,9 @@ class LoggingClass(LakeDataLoggerBase):
 
     def saveModisImage(self, modisImage, ee_bounds, imageName):
         '''Record the input MODIS image to the log directory'''
+        
+        if not os.path.exists(self.logFolder): # Create folder if it does not exist
+            os.mkdir(self.logFolder)
         
         imagePath  = os.path.join(self.logFolder, imageName)
         vis_params = {'min': 0, 'max': 8000, 'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06']}
@@ -128,7 +133,7 @@ class LoggingClass(LakeDataLoggerBase):
 
         MAX_ALGS               = 13
         NUM_HEADER_VALS        = 2 # Date, MODIS 
-        ELEMENTS_PER_ALGORITHM = 4 # (alg name, precision, recall, eval_res)  
+        ELEMENTS_PER_ALGORITHM = 4 # (alg name, precision, recall, eval_res)
         thisDict = dict()
         
         parts    = line.split(',')
@@ -169,26 +174,6 @@ class LoggingClass(LakeDataLoggerBase):
             if not line:
                 return outputDict
             
-            # Handle a bug in the original line generation
-            # - Remove this once bad data is gone!
-            breakPos = line.find('2502014-04-01')
-            if breakPos > 0:
-                breakPos += len('250')
-                lineA = line[:breakPos]
-                line  = line[breakPos:]
-                print 'Handling bug:'
-                print lineA
-                print '----'
-                print line
-                
-                # Put all the parts of the line into a dictionary
-                thisDict = LoggingClass.lineToDict(lineA)
-                
-                # Put this dict into an output dictionary
-                key = thisDict['date']
-                outputDict[key] = thisDict
-            
-            
             # Put all the parts of the line into a dictionary
             thisDict = LoggingClass.lineToDict(line)
             
@@ -201,6 +186,9 @@ class LoggingClass(LakeDataLoggerBase):
     def writeAllEntries(self):
         '''Dump all the added records to a file on disk'''
                 
+        if not os.path.exists(self.logFolder): # Create folder if it does not exist
+            os.mkdir(self.logFolder)
+            
         # Open the file for writing, clobbering any existing file
         fileHandle = open(self.logPath, 'w')
         # Write the header
@@ -332,21 +320,21 @@ def compute_binary_threshold(valueImage, classification, bounds):
 def compute_algorithm_parameters(training_domain):
     '''Compute algorithm parameters from a classified training image'''
     
-    # Unfortunately we need to recreate a bunch of algorithm code here
+    # Unfortunately we need to recreate some of algorithm code here
     b         = cmt.modis.flood_algorithms.compute_modis_indices(training_domain)
     bounds    = training_domain.bounds
-    waterMask = training_domain.ground_truth
+    truthMask = training_domain.ground_truth
     
     modisDiff    = b['b2'].subtract(b['b1'])
     dartmouthVal = b['b2'].add(500).divide(b['b1'].add(2500))
-    demHeight    = training_domain.get_dem().image
+    demHeight    = domain.get_dem().image
     
     # These values are computed by comparing the algorithm output in land/water regions
     # - To be passed in to the threshold function a consistent band name is needed
     algorithm_params = dict()
-    algorithm_params['modis_diff_threshold'  ] = 1#compute_binary_threshold(modisDiff,    waterMask, bounds)
-    algorithm_params['dartmouth_threshold'   ] = 1#compute_binary_threshold(dartmouthVal, waterMask, bounds)
-    algorithm_params['dem_threshold'         ] = 1#compute_binary_threshold(demHeight.select(['elevation'], ['sur_refl_b02']), waterMask, bounds)
+    algorithm_params['modis_diff_threshold'  ] = compute_binary_threshold(modisDiff,    truthMask, bounds)
+    algorithm_params['dartmouth_threshold'   ] = compute_binary_threshold(dartmouthVal, truthMask, bounds)
+    algorithm_params['dem_threshold'         ] = compute_binary_threshold(demHeight.select(['elevation'], ['sur_refl_b02']), truthMask, bounds)
     
     # TODO: It would be much more accurate to compute these!
     # These would be tougher to compute so we just use some general purpose values
@@ -371,19 +359,19 @@ def getAlgorithmList():
     '''Return the list of available algorithms'''
 
     # Code, name, recompute_all_results?
-    algorithmList = [(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold',  RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.EVI                , 'EVI',            RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.XIAO               , 'XIAO',           RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.DIFFERENCE         , 'Difference',     RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.CART               , 'CART',           RECOMPUTE_IF_FALSE),
+    algorithmList = [(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold',  KEEP),
+                     (cmt.modis.flood_algorithms.EVI                , 'EVI',            KEEP),
+                     (cmt.modis.flood_algorithms.XIAO               , 'XIAO',           KEEP),
+                     (cmt.modis.flood_algorithms.DIFFERENCE         , 'Difference',     KEEP),
+                     (cmt.modis.flood_algorithms.CART               , 'CART',           KEEP),
                      (cmt.modis.flood_algorithms.SVM                , 'SVM',            KEEP),
-                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', RECOMPUTE_IF_FALSE ),
-                     (cmt.modis.flood_algorithms.DNNS               , 'DNNS',           RECOMPUTE),
+                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', KEEP ),
+                     (cmt.modis.flood_algorithms.DNNS               , 'DNNS',           KEEP),
                      #(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised',  KEEP),
                      (cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM',  KEEP),
                      #(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP), # TODO: May need auto-thresholds!
-                     (cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth',      RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  RECOMPUTE_IF_FALSE) ]
+                     (cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth',      KEEP),
+                     (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  KEEP) ]
 
     return algorithmList
 
@@ -517,6 +505,12 @@ def processing_function(bounds, image, image_date, logger):
             detectedWater = cmt.modis.flood_algorithms.detect_flood(fakeDomain, a[0])[1]
             #addToMap(detectedWater, {'min': 0, 'max': 1}, a[1], False)
     
+            # TODO: Log this in the future!
+            # Try to estimate how accurate the flood detection is without having access to the
+            #   ground truth data.
+            noTruthEval = cmt.util.evaluation.evaluate_result_quality(detectedWater, rectBounds)
+            print 'Eval without truth = ' + str(noTruthEval)
+
     
             # Save image of results so we can look at them later
             # - Try at a high resolution and if that fails try a lower resolution
@@ -541,9 +535,10 @@ def processing_function(bounds, image, image_date, logger):
             
             # Store the results for this algorithm
             print 'Evaluation results: ' + str(precision) + ' ' + str(recall) +' at resolution ' + str(evalRes)
-            waterResults[algName] = (precision, recall, evalRes)
+            waterResults[algName] = (precision, recall, evalRes, noTruthEval)
                 
         except Exception,e: # Handly any failure thet prevents us from obtaining results
+            traceback.print_exc(file=sys.stdout)
             print 'Processing results failed with exception --> ' + str(e)
             waterResults[algName] = False # Mark this as a failure
 
