@@ -61,7 +61,7 @@ def evaluate_result_quality(resultIn, region):
     fillCount         = result.reduceRegion(ee.Reducer.mean(), region, EVAL_RESOLUTION)
     percentClassified = fillCount.getInfo()['b1']
 
-    print 'percentClassified = ' + str(percentClassified)
+    #print 'percentClassified = ' + str(percentClassified)
 
     # Too much or too little fill generally indicates a bad match
     MAX_FILL_PERCENT = 0.95
@@ -77,7 +77,7 @@ def evaluate_result_quality(resultIn, region):
     if waterMaskCount == 0: # Can't do much without the water mask!
         return 1.0 # Give it the benefit of the doubt.
     waterMaskPercentFill = filledWaterCount / waterMaskCount
-    print 'Water mask percent fill = ' + str(waterMaskPercentFill)
+    #print 'Water mask percent fill = ' + str(waterMaskPercentFill)
     if waterMaskPercentFill < MIN_PERCENT_MASK_FILL:
         return 0.0
    
@@ -94,8 +94,8 @@ def evaluate_result_quality(resultIn, region):
     MAX_RATIO = 10
     waterSpeckRatio = waterSpecks / waterMaskSpecks
     landSpeckRatio  = landSpecks  / landMaskSpecks
-    print 'waterSpeckRatio = ' + str(waterSpeckRatio)
-    print 'landSpeckRatio  = ' + str(landSpeckRatio)
+    #print 'waterSpeckRatio = ' + str(waterSpeckRatio)
+    #print 'landSpeckRatio  = ' + str(landSpeckRatio)
     if (waterSpeckRatio > MAX_RATIO) or (landSpeckRatio > MAX_RATIO):
         return 0
     

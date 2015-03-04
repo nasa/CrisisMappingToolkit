@@ -267,86 +267,6 @@ class FakeDomain(Object):
         return dem
 
 
-def compute_binary_threshold(valueImage, classification, bounds):
-    '''Computes a threshold for a value given examples in a classified binary image'''
-    
-    # Build histograms of the true and false labeled values
-    valueInFalse   = valueImage.mask(classification.Not())
-    valueInTrue    = valueImage.mask(classification)
-    NUM_BINS       = 128
-    histogramFalse = valueInFalse.reduceRegion(ee.Reducer.histogram(NUM_BINS, None, None), bounds).getInfo()['sur_refl_b02']
-    histogramTrue  = valueInTrue.reduceRegion( ee.Reducer.histogram(NUM_BINS, None, None), bounds).getInfo()['sur_refl_b02']
-    
-    # Get total number of pixels in each histogram
-    false_total = sum(histogramFalse['histogram'])
-    true_total  = sum(histogramTrue[ 'histogram'])
-
-    # WARNING: This method assumes that the false histogram is composed of greater numbers than the true histogram!!
-    #        : This happens to be the case for the three algorithms we are currently using this for.
-    
-    false_index = 0
-    false_sum   = false_total
-    true_sum    = 0.0
-    for i in range(NUM_BINS): # Iterate through the bins of the true histogram
-        # Add the number of pixels in the current true bin
-        true_sum += histogramTrue['histogram'][i]
-        
-        # Set x equal to the max end of the current bin
-        x = histogramTrue['bucketMin'] + (i+1)*histogramTrue['bucketWidth']
-        
-        # Determine the bin of the false histogram that x falls in
-        # - Also update the number of 
-        while ( (false_index < len(histogramFalse['histogram'])) and
-                (histogramFalse['bucketMin'] + false_index*histogramFalse['bucketWidth'] < x) ):
-            false_sum   -= histogramFalse['histogram'][false_index] # Remove the pixels from the current false bin
-            false_index += 1 # Move to the next bin of the false histogram
-            
-        # Using the current value of x, compute how many pixels are correctly classified by: (val < x)
-        percent_true_under_thresh  = true_sum/true_total
-        percent_false_over_thresh = false_sum/false_total
-            
-        # Keep increasing the true bin and x until about equal numbers of pixels are misclassified
-        if (percent_false_over_thresh < percent_true_under_thresh) and (percent_true_under_thresh > 0.5):
-          break
-
-    # Put threshold in the center of the current true histogram bin/bucket
-    threshold = histogramTrue['bucketMin'] + i*histogramTrue['bucketWidth'] + histogramTrue['bucketWidth']/2
-    
-    print 'Threshold %g Found. %g%% of water pixels and %g%% of land pixels separated.' % \
-            (threshold, true_sum / true_total * 100.0, false_sum / false_total * 100.0)
-
-    return threshold
-
-def compute_algorithm_parameters(training_domain):
-    '''Compute algorithm parameters from a classified training image'''
-    
-    # Unfortunately we need to recreate some of algorithm code here
-    b         = cmt.modis.flood_algorithms.compute_modis_indices(training_domain)
-    bounds    = training_domain.bounds
-    truthMask = training_domain.ground_truth
-    
-    modisDiff    = b['b2'].subtract(b['b1'])
-    dartmouthVal = b['b2'].add(500).divide(b['b1'].add(2500))
-    demHeight    = domain.get_dem().image
-    
-    # These values are computed by comparing the algorithm output in land/water regions
-    # - To be passed in to the threshold function a consistent band name is needed
-    algorithm_params = dict()
-    algorithm_params['modis_diff_threshold'  ] = compute_binary_threshold(modisDiff,    truthMask, bounds)
-    algorithm_params['dartmouth_threshold'   ] = compute_binary_threshold(dartmouthVal, truthMask, bounds)
-    algorithm_params['dem_threshold'         ] = compute_binary_threshold(demHeight.select(['elevation'], ['sur_refl_b02']), truthMask, bounds)
-    
-    # TODO: It would be much more accurate to compute these!
-    # These would be tougher to compute so we just use some general purpose values
-    algorithm_params['modis_mask_threshold'  ] =  4.5
-    algorithm_params['modis_change_threshold'] = -3.0
-
-    print 'Computed the following algorithm parameters: '
-    print algorithm_params
-    
-    return algorithm_params
-
-
 #from cmt.mapclient_qt import centerMap, addToMap
 #centerMap(-119, 38, 11)
 
@@ -487,10 +407,9 @@ def processing_function(bounds, image, image_date, logger):
     
     # Finally, compute a set of algorithm parameters for this image
     # - We use the training image and the water mask to estimate good values where possible.
-    fakeDomain.algorithm_params = compute_algorithm_parameters(trainingDomain)
+    fakeDomain.algorithm_params = cmt.modis.flood_algorithms.compute_algorithm_parameters(trainingDomain)
 
-    #raise Exception('debug')
-        
+
     # Loop through each algorithm
     for a in algorithmList:
         algName = a[1]
