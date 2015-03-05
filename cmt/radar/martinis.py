@@ -69,25 +69,38 @@ def getBoundingBox(bounds):
             maxLat = c[1]
     return (minLon, minLat, maxLon, maxLat)
 
-# TODO: Need to accept a size in meters!
-def divideUpBounds(bounds, boxCount):
-    '''Divides up a single boundary into an NxN grid where N is equal to the boxSize'''
-    
+def divideUpBounds(bounds, boxSizeMeters):
+    '''Divides up a single boundary into a grid based on a grid size in meters'''
+
+    # Get the four corners of the box and side widths in meters
     (minLon, minLat, maxLon, maxLat) = getBoundingBox(bounds)
+    bottomLeft  = ee.Geometry.Point(minLon, minLat)
+    topLeft     = ee.Geometry.Point(minLon, maxLat)
+    bottomRight = ee.Geometry.Point(maxLon, minLat)
+    topRight    = ee.Geometry.Point(maxLon, maxLat)
     
-    boxSizeX = (maxLon - minLon) / boxCount
-    boxSizeY = (maxLat - minLat) / boxCount
+    height = float(bottomLeft.distance(topLeft).getInfo())
+    width  = float(bottomLeft.distance(bottomRight).getInfo())
+    
+    # Determine the number of boxes
+    numBoxesX = int(math.ceil(width  / boxSizeMeters))
+    numBoxesY = int(math.ceil(height / boxSizeMeters))
+    print 'Using ' + str(numBoxesX*numBoxesY) + ' boxes'
+    
+    # Now compute the box boundaries in degrees
+    boxWidthLon  = (maxLon - minLon) / numBoxesX
+    boxHeightLat = (maxLat - minLat) / numBoxesY 
     y = minLat
     boxList = []
-    for r in range(0,boxCount):
-        y = y + boxSizeY
+    for r in range(0,numBoxesY):
+        y = y + boxHeightLat
         x = minLon
-        for c in range(0,boxCount):
-            x = x + boxSizeX
-            boxBounds = ee.Geometry.Rectangle(x, y, x+boxSizeX, y+boxSizeY)
+        for c in range(0,numBoxesX):
+            x = x + boxWidthLon
+            boxBounds = ee.Geometry.Rectangle(x, y, x+boxWidthLon, y+boxHeightLat)
             #print boxBounds
             boxList.append(boxBounds)
-            
+
     return boxList
     
   
@@ -145,9 +158,12 @@ def applyCutlerLinearLogScale(grayImage, roi):
     PERCENTILE_SCALE = 50 # Resolution in meters to compute the percentile at
     percentiles = grayImage.reduceRegion(ee.Reducer.percentile([0, TOP_SECTION_PERCENTILE, 100], ['min', 'split', 'max']),
                                          roi, PERCENTILE_SCALE).getInfo()
-    minVal      = percentiles['vh_min'] # TODO: Avoid this naming issue!
-    splitVal    = percentiles['vh_split']
-    maxVal      = percentiles['vh_max']
+    
+    # Extracting the results is annoying because EE prepends the channel name
+    minVal   = next(val for key, val in percentiles.items() if 'min'   in key)
+    splitVal = next(val for key, val in percentiles.items() if 'split' in key)
+    maxVal   = next(val for key, val in percentiles.items() if 'max'   in key)
+    
     lowRange    = splitVal - minVal
     
     logMin   = math.log10(splitVal)
@@ -169,10 +185,10 @@ def applyCutlerLinearLogScale(grayImage, roi):
     
     return scaledImage
 
-def sar_martinis(domain):
+def sar_martinis(domain, cr_method=False):
     '''Compute a global threshold via histogram splitting on selected subregions'''
     
-    sensor     = domain.sensor_list[0] # Only expecting one sensor
+    sensor     = domain.get_radar()
     radarImage = sensor.image
 
     # Many papers reccomend a median type filter to remove speckle noise.
@@ -180,34 +196,35 @@ def sar_martinis(domain):
     # 1: Divide up the image into a grid of tiles, X
     
     # Divide up the region into a grid of subregions
-    BOX_COUNT = 8 # This many boxes per side
-    boxList  = divideUpBounds(domain.bounds, BOX_COUNT)
+    BOX_SIZE_METERS = 3000
+    boxList  = divideUpBounds(domain.bounds, BOX_SIZE_METERS)
     
     # Extract the center point from each box
     centersList = map(getBoundsCenter, boxList)
-    #print centersList
     
     # SENTINEL = 12m/pixel
-    metersPerPixel = 12.0
+    METERS_PER_PIXEL = 200
     
-    KERNEL_SIZE = 40 # <-- TODO!!! The kernel needs to be the size of a box
+    KERNEL_SIZE = 13 # <-- TODO!!! The kernel needs to be the size of a box
     avgKernel   = ee.Kernel.square(KERNEL_SIZE, 'pixels', True); # <-- EE fails if this is in meters!
-    
+
     # Select the radar layer we want to work in
-    channelName = 'vh' # Rome
-    #channelName = 'hv' # Mississippi
-    
+    if 'water_detect_radar_channel' in domain.algorithm_params:
+        channelName = domain.algorithm_params['water_detect_radar_channel']
+    else: # Just use the first radar channel
+        channelName = sensor.band_names[0]   
     
     # Rescale the input data so the statistics are not dominated by very bright pixels
+    GRAY_MAX  = 255
     grayLayer = applyCutlerLinearLogScale(radarImage.select([channelName]), domain.bounds)
-    addToMap(grayLayer, {'min': 0, 'max': 255,  'opacity': 1.0, 'palette': GRAY_PALETTE}, 'grayLayer',   False)
+    addToMap(grayLayer, {'min': 0, 'max': GRAY_MAX,  'opacity': 1.0, 'palette': GRAY_PALETTE}, 'grayLayer',   False)
     
     
     # Compute the global mean, then make a constant image out of it.
-    globalMean      = grayLayer.reduceRegion(ee.Reducer.mean(), domain.bounds, 24)
+    globalMean      = grayLayer.reduceRegion(ee.Reducer.mean(), domain.bounds, METERS_PER_PIXEL)
     globalMeanImage = ee.Image.constant(globalMean.getInfo()[channelName])
     
-    print 'global mean = ' + str(globalMean.getInfo())
+    print 'global mean = ' + str(globalMean.getInfo()[channelName])
     
     
     # Compute mean and standard deviation across the entire image
@@ -221,43 +238,49 @@ def sar_martinis(domain):
     # Debug plots
     #addToMap(meanImage, {'min': 3000, 'max': 70000,  'opacity': 1.0, 'palette': GRAY_PALETTE}, 'Mean',   False)
     #addToMap(stdImage,  {'min': 3000, 'max': 200000, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'StdDev', False)
-    addToMap(meanImage, {'min': 0, 'max': 1,  'opacity': 1.0, 'palette': GRAY_PALETTE}, 'Mean',   False)
-    addToMap(stdImage,  {'min': 0, 'max': 0.5, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'StdDev', False)
-    
-    reprojectDist = 50#metersPerPixel
-    
+    addToMap(meanImage, {'min': 0, 'max': GRAY_MAX, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'Mean',   False)
+    addToMap(stdImage,  {'min': 0, 'max': 40,       'opacity': 1.0, 'palette': GRAY_PALETTE}, 'StdDev', False)
+        
     # Compute these two statistics across the entire image
-    CV = meanImage.divide(stdImage).reproject(       "EPSG:4326", None, reprojectDist)
-    R  = meanImage.divide(globalMeanImage).reproject("EPSG:4326", None, reprojectDist)
+    CV = meanImage.divide(stdImage).reproject(       "EPSG:4326", None, METERS_PER_PIXEL)
+    R  = meanImage.divide(globalMeanImage).reproject("EPSG:4326", None, METERS_PER_PIXEL)
     
-    # TODO: Another paper reccomends replacing CV with CR = (std / gray value range), min value 0.05
     
     # 2: Prune to a reduced set of tiles X'
     
     # Parameters which control which sub-regions will have their histograms analyzed
     # - These are strongly influenced by the smoothing kernel size!!!
-    MIN_CV = 0.7 # Rome
-    MAX_CV = 3.0
-    MAX_R  = 0.9
-    MIN_R  = 0.3
-    #MIN_CV = 0.7 # Mississippi
-    #MAX_CV = 2.0
-    #MAX_R  = 1.1
-    #MIN_R  = 0.7
-
-
+    MIN_CV = 0.7
+    MAX_CV = 1.0
+    MAX_R  = 1.1
+    MIN_R  = 0.5
+    
     # Debug plots
-    addToMap(CV, {'min': MIN_CV, 'max': MAX_CV, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'CV', False)
-    addToMap(R,  {'min': MIN_R,  'max': MAX_R,  'opacity': 1.0, 'palette': GRAY_PALETTE}, 'R',  False)
+    addToMap(CV, {'min': 0, 'max': 4.0, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'CV', False)
+    addToMap(R,  {'min': 0, 'max': 4.0, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'R',  False)
+    
+    if cr_method:
+        MIN_CR = 0.10
+    
+        # sar_griefeneder reccomends replacing CV with CR = (std / gray value range), min value 0.05
+        imageMin  = grayLayer.reduceRegion(ee.Reducer.min(), domain.bounds, METERS_PER_PIXEL).getInfo()[channelName]
+        imageMax  = grayLayer.reduceRegion(ee.Reducer.max(), domain.bounds, METERS_PER_PIXEL).getInfo()[channelName]
+        grayRange = imageMax - imageMin
+        CR = stdImage.divide(grayRange)
+    
+        addToMap(CR, {'min': 0, 'max': 0.3, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'CR', False)
     
     
     # Filter out pixels based on computed statistics
-    t1   = CV.gte(MIN_CV)
-    t2   = CV.lte(MAX_CV)
-    t3   = R.gte(MIN_R)
-    t4   = R.lte(MAX_R)
-    temp = t1.And(t2).And(t3).And(t4)
-    X_prime = temp.reproject("EPSG:4326", None, reprojectDist)
+    t1 = CV.gte(MIN_CV)
+    t2 = CV.lte(MAX_CV)
+    t3 = R.gte(MIN_R)
+    t4 = R.lte(MAX_R)
+    if cr_method:
+        temp = CR.gte(MIN_CR).And(t3).And(t4)
+    else:
+        temp = t1.And(t2).And(t3).And(t4)
+    X_prime = temp.reproject("EPSG:4326", None, METERS_PER_PIXEL)
     addToMap(X_prime.mask(X_prime),  {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': TEAL_PALETTE}, 'X_prime',  False)
        
     # 3: Prune again to a final set of tiles X''
@@ -277,45 +300,49 @@ def sar_martinis(domain):
     
     # Extract the point data at from each sub-region!
     
-    SAMPLING_SCALE = 30 # meters?
     localThresholdList = []
     usedPointList      = []
     rejectedPointList  = []
     for loc in centersList:
-        thisLoc = ee.Geometry.Point(loc[1], loc[0])
+        
+        try:
+            thisLoc = ee.Geometry.Point(loc[1], loc[0])
+        
+            # If the mask for this location is invalid, skip this location
+            maskValue = maskWrapper.getRegion(thisLoc, METERS_PER_PIXEL);
+            maskValue = maskValue.getInfo()[1][4] # TODO: Not the best way to grab the value!
+            if not maskValue:
+                rejectedPointList.append(thisLoc)
+                continue
+        
+            # Otherwise pull down all the pixel values surrounding this center point
+            
+            pointData = collection.getRegion(thisLoc, METERS_PER_PIXEL)
+            pixelVals = pointData.getInfo()[1][4:] # TODO: Not the best way to grab the value!
     
-        # If the mask for this location is invalid, skip this location
-        maskValue = maskWrapper.getRegion(thisLoc, SAMPLING_SCALE);
-        maskValue = maskValue.getInfo()[1][4] # TODO: Not the best way to grab the value!
-        if not maskValue:
-            rejectedPointList.append(thisLoc)
-            continue
-    
-        # Otherwise pull down all the pixel values surrounding this center point
-        
-        pointData = collection.getRegion(thisLoc, SAMPLING_SCALE)
-        pixelVals = pointData.getInfo()[1][4:] # TODO: Not the best way to grab the value!
-
-        # TODO: Can EE handle making a histogram around this region or do we need to do this ourselves?
-        #pointData = localPixelLists.reduceRegion(thisRegion, ee.Reducer.histogram(), SAMPLING_SCALE);
-        #print pointData.getInfo()
-        #print pixelVals
-        #__show_histogram(pixelVals)
-        #plt.bar(range(len(pixelVals)), pixelVals)
-        
-        # Compute a histogram from the pixels (TODO: Do this with EE!)
-        NUM_BINS = 256
-        hist, binEdges = numpy.histogram(pixelVals, NUM_BINS)
-        binCenters = numpy.divide(numpy.add(binEdges[:NUM_BINS], binEdges[1:]), 2.0)
-        
-        # Compute a split on the histogram
-        splitVal = histogram.splitHistogramKittlerIllingworth(hist, binCenters)
-        print "Computed local threshold = " + str(splitVal)
-        localThresholdList.append(splitVal)
-        usedPointList.append(thisLoc)
-        
-        #plt.bar(binCenters, histogram)
-        #plt.show()
+            # TODO: Can EE handle making a histogram around this region or do we need to do this ourselves?
+            #pointData = localPixelLists.reduceRegion(thisRegion, ee.Reducer.histogram(), SAMPLING_SCALE);
+            #print pointData.getInfo()
+            #print pixelVals
+            #__show_histogram(pixelVals)
+            #plt.bar(range(len(pixelVals)), pixelVals)
+            
+            # Compute a histogram from the pixels (TODO: Do this with EE!)
+            NUM_BINS = 256
+            hist, binEdges = numpy.histogram(pixelVals, NUM_BINS)
+            binCenters = numpy.divide(numpy.add(binEdges[:NUM_BINS], binEdges[1:]), 2.0)
+            
+            # Compute a split on the histogram
+            splitVal = histogram.splitHistogramKittlerIllingworth(hist, binCenters)
+            print "Computed local threshold = " + str(splitVal)
+            localThresholdList.append(splitVal)
+            usedPointList.append(thisLoc)
+            
+            #plt.bar(binCenters, hist)
+            #plt.show()
+        except Exception,e:
+            print 'Failed to compute a location:'
+            print str(e)
        
     numUsedPoints   = len(usedPointList)
     numUnusedPoints = len(rejectedPointList)
@@ -350,7 +377,7 @@ def sar_martinis(domain):
     #addToMap(finalWaterClass.mask(finalWaterClass),  {'min': 0, 'max': 1, 'opacity': 0.6, 'palette': RED_PALETTE}, 'mirtinis class',  False)
     
     # Rename the channel to what the evaluation function requires
-    finalWaterClass = finalWaterClass.select(['vh'], ['b1'])
+    finalWaterClass = finalWaterClass.select([channelName], ['b1'])
     
     return finalWaterClass
     

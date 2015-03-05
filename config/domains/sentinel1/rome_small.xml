@@ -24,12 +24,12 @@
     </sensors>
     <bbox>
         <bottomleft>
-            <lon>12.2</lon>
+            <lon>12.14</lon>
             <lat>41.72</lat>
         </bottomleft>
         <topright>
-            <lon>12.72</lon>
-            <lat>41.83</lat>
+            <lon>12.35</lon>
+            <lat>41.80</lat>
         </topright>
     </bbox>
     <truth>18108519531116889794-01677512005004143246</truth>

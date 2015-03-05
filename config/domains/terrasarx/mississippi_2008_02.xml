@@ -37,5 +37,10 @@
     </bbox>
     
     <truth>18108519531116889794-16617043393034901554</truth>
+    
+    <algorithm_params>
+      <water_detect_radar_channel>hh</water_detect_radar_channel>
+    </algorithm_params> 
+    
 </domain>
 

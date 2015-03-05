@@ -446,6 +446,17 @@ class Domain(object):
         else:
             return self.srtm90
 
+    def get_radar(self):
+        '''Returns a RADAR image if one is loaded'''
+        radar_list = ['terrasar-x', 'uavsar', 'sentinel-1']
+        for s in self.sensor_list:
+            if s.sensor_name.lower() in radar_list:
+                return s
+        print 'Available sensors:'
+        print self.sensor_list
+        raise LookupError('Unable to find a radar image in domain!')
+
+
     
 
     def __load_bbox(self, root):
@@ -498,7 +509,7 @@ class Domain(object):
             algorithm_params = root.find('algorithm_params')
             if algorithm_params != None:
                 for child in algorithm_params:
-                    self.algorithm_params[child.tag] = float(child.text)
+                    self.algorithm_params[child.tag] = child.text
                 
         
         # Make sure the <sensors> tag is present

@@ -197,7 +197,7 @@ def compute_algorithm_parameters(training_domain):
 def dem_threshold(domain, b):
     '''Just use a height threshold on the DEM!'''
 
-    heightLevel = domain.algorithm_params['dem_threshold']
+    heightLevel = float(domain.algorithm_params['dem_threshold'])
     dem         = domain.get_dem().image
     return dem.lt(heightLevel).select(['elevation'], ['b1'])
 
@@ -235,7 +235,7 @@ def modis_diff(domain, b, threshold=None):
        This method may be all that is needed in cases where the threshold can be hand tuned.
     '''
     if threshold == None: # If no threshold value passed in, load it based on the data set.
-        threshold = domain.algorithm_params['modis_diff_threshold']
+        threshold = float(domain.algorithm_params['modis_diff_threshold'])
     return b['b2'].subtract(b['b1']).lte(threshold).select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
 
 
@@ -491,8 +491,8 @@ def history_diff(domain, b):
     '''Wrapper function for passing domain data into history_diff_core'''
     
     # Load pre-selected constants for this domain   
-    dev_thresh    = domain.algorithm_params['modis_mask_threshold']
-    change_thresh = domain.algorithm_params['modis_change_threshold']
+    dev_thresh    = float(domain.algorithm_params['modis_mask_threshold' ])
+    change_thresh = float(domain.algorithm_params['modis_change_threshold'])
     
     # Call the core algorithm with all the parameters it needs from the domain
     return history_diff_core(domain.modis, domain.modis.get_date(), dev_thresh, change_thresh, domain.bounds)
@@ -591,7 +591,7 @@ def dartmouth(domain, b):
     '''
     A = 500
     B = 2500
-    dartmouth_threshold = domain.algorithm_params['dartmouth_threshold']
+    dartmouth_threshold = float(domain.algorithm_params['dartmouth_threshold'])
     return b['b2'].add(A).divide(b['b1'].add(B)).lte(dartmouth_threshold).select(['sur_refl_b02'], ['b1'])
 
 
@@ -616,7 +616,7 @@ def dnns_revised(domain, b):
     composite_image = b['b1'].addBands(b['b2']).addBands(b['b6'])
     
     # Compute (b2 - b1) < threshold, a simple water detection algorithm.  Treat the result as "pure water" pixels.
-    pureWaterThreshold = domain.algorithm_params['modis_diff_threshold'] * PURE_WATER_THRESHOLD_RATIO
+    pureWaterThreshold = float(domain.algorithm_params['modis_diff_threshold']) * PURE_WATER_THRESHOLD_RATIO
     pureWater = modis_diff(domain, b, pureWaterThreshold)
     
     # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.
