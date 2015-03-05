@@ -6,7 +6,7 @@
             <source><name>b1</name></source>
             <name>hh</name>
             <distribution name="water">
-                <model>peak</model>
+                <model>dip</model>
                 <mode><range>
                     <minimum>3.0</minimum>
                     <maximum>3.6</maximum>
@@ -17,7 +17,7 @@
             <source><name>b2</name></source>
             <name>hv</name>
             <distribution name="water">
-                <model>peak</model>
+                <model>dip</model>
                 <mode><range>
                     <minimum>3.0</minimum>
                     <maximum>3.6</maximum>
@@ -28,7 +28,7 @@
             <source><name>b3</name></source>
             <name>vv</name>
             <distribution name="water">
-                <model>peak</model>
+                <model>dip</model>
                 <mode><range>
                     <minimum>3.0</minimum>
                     <maximum>4.1</maximum>
