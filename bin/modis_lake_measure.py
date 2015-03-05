@@ -424,12 +424,6 @@ def processing_function(bounds, image, image_date, logger):
             detectedWater = cmt.modis.flood_algorithms.detect_flood(fakeDomain, a[0])[1]
             #addToMap(detectedWater, {'min': 0, 'max': 1}, a[1], False)
     
-            # TODO: Log this in the future!
-            # Try to estimate how accurate the flood detection is without having access to the
-            #   ground truth data.
-            noTruthEval = cmt.util.evaluation.evaluate_result_quality(detectedWater, rectBounds)
-            print 'Eval without truth = ' + str(noTruthEval)
-
     
             # Save image of results so we can look at them later
             # - Try at a high resolution and if that fails try a lower resolution
@@ -450,7 +444,7 @@ def processing_function(bounds, image, image_date, logger):
     
             # Compare the detection result to the water mask
             isFractional = False # Currently not using fractional evaluation, but maybe we should for DNSS-DEM
-            (precision, recall, evalRes) = cmt.util.evaluation.evaluate_approach(detectedWater, waterMask, rectBounds, isFractional)
+            (precision, recall, evalRes, noTruthEval) = cmt.util.evaluation.evaluate_approach(detectedWater, waterMask, rectBounds, isFractional)
             
             # Store the results for this algorithm
             print 'Evaluation results: ' + str(precision) + ' ' + str(recall) +' at resolution ' + str(evalRes)
