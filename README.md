@@ -75,3 +75,15 @@ wait to download every time. We recommend using LocalEEImage sparingly, only for
 operations which cannot be performed through EE, as downloading the entire image
 is expensive in both time and bandwidth.
 
+## Data Access
+
+To use the data sources in the config directory, you must join the
+[Crisis Mapping Toolkit Users Google Group](https://groups.google.com/forum/#!forum/crisis-mapping-toolkit-users).
+Joining this group will give you the necessary permissions to view our data.
+
+If you use the Sentinel-1 data, you agree to the [Sentinel-1 Data Use Terms and Conditions](https://scihub.esa.int/userguide/).
+
+To access Skybox data, you must join the [Skybox for Good Google Group](https://groups.google.com/forum/#!forum/skyboxforgood).
+
+Unfortunately, all TerraSAR-X data and the Skybox Malawi image cannot be shared.
+
