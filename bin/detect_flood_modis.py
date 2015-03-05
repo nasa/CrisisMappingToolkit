@@ -50,7 +50,8 @@ Tool for testing MODIS based flood detection algorithms using a simple GUI.
 #DOMAIN = modis.domains.BORDER
 
 # Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
-ALGORITHMS = [DARTMOUTH, DIFFERENCE, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
+ALGORITHMS = [DARTMOUTH, DIFFERENCE, DEM_THRESHOLD]#, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
+#ALGORITHMS = [DIFFERENCE]#, CART, SVM, RANDOM_FORESTS]#SKYBOX_ASSIST]
 
 
 
@@ -59,9 +60,8 @@ ALGORITHMS = [DARTMOUTH, DIFFERENCE, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS,
 
 def evaluation_function(pair, alg):
     '''Pretty print an algorithm and its statistics'''
-    precision, recall, res = pair
-    print '%s: (%4g, %4g)' % (get_algorithm_name(alg), precision, recall)
-
+    (precision, recall, evalRes, noTruth) = pair
+    print '%s: (%4g, %4g, %4g)' % (get_algorithm_name(alg), precision, recall, noTruth)
 
 # TODO: This could live elsewhere
 def visualizeDomain(domain, show=True):
@@ -70,7 +70,7 @@ def visualizeDomain(domain, show=True):
     for s in domain.sensor_list:
         apply(addToMap, s.visualize(show=show))
     if domain.ground_truth != None:
-        addToMap(domain.ground_truth, {}, 'Ground Truth', False)
+        addToMap(domain.ground_truth.mask(domain.ground_truth), {}, 'Ground Truth', False)
 
 # --------------------------------------------------------------
 # main()
@@ -82,11 +82,25 @@ if len(sys.argv) < 2:
 
 cmt.ee_authenticate.initialize()
 
+
 # Fetch data set information
 domain = cmt.domain.Domain(sys.argv[1])
 
+#try: # Automatically compute parameters for these algorithms
+computed_params = compute_algorithm_parameters(domain.training_domain)
+domain.algorithm_params['modis_diff_threshold'] = computed_params['modis_diff_threshold'  ]
+domain.algorithm_params['dartmouth_threshold' ] = computed_params['dartmouth_threshold'   ]
+domain.algorithm_params['dem_threshold'       ] = computed_params['dem_threshold'         ]
+print 'Using computed parameters for several algorithms'
+#except:
+#    print 'Failed to automatically compute algorithm parameters'
+#    pass
+
 # Display the Landsat and MODIS data for the data set
 visualizeDomain(domain)
+
+waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
+addToMap(waterMask.mask(waterMask), {'min': 0, 'max': 1}, 'Permanent Water Mask', False)
 
 # For each of the algorithms
 for a in range(len(ALGORITHMS)):
@@ -99,13 +113,8 @@ for a in range(len(ALGORITHMS)):
 
     # Compare the algorithm output to the ground truth and print the results
     if domain.ground_truth:
-        cmt.util.evaluation.evaluate_approach_thread(functools.partial(evaluation_function, alg=ALGORITHMS[a]), result, domain.ground_truth, domain.bounds, is_algorithm_fractional(ALGORITHMS[a]))
-
-
-
-
-
-
+        cmt.util.evaluation.evaluate_approach_thread(functools.partial(
+            evaluation_function, alg=ALGORITHMS[a]), result, domain.ground_truth, domain.bounds, is_algorithm_fractional(ALGORITHMS[a]))
 
 
 

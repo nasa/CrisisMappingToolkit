@@ -44,7 +44,7 @@ TEMP_FILE_DIR = tempfile.gettempdir()
 class LocalEEImage(object):
     """Downloads an entire image from Earth Engine and maintains it locally."""
 
-    # download an image locally. Caches images with the same bbox, scale and image_name
+    # Download an image locally. Caches images with the same bbox, scale and image_name
     def __init__(self, eeobject, bbox, scale, bands, image_name=None):
         """Constructs a LocalEEImage.
 
@@ -59,13 +59,13 @@ class LocalEEImage(object):
         """
 
         image_name = image_name.replace(' ', '') # can't have space in filename
-        if image_name == None:
+        if image_name == None: # Use a default name if needed
             image_name = uuid.uuid4()
         url = eeobject.getDownloadUrl({'name' : image_name, 'scale': scale, 'crs': 'EPSG:4326',
                                        'region': apply(ee.Geometry.Rectangle, bbox).toGeoJSONString()})
         tempFile = '%s_%g,%g_%g,%g_%g.zip' % (image_name, bbox[0], bbox[1], bbox[2], bbox[3], scale)
         filename = os.path.join(TEMP_FILE_DIR, tempFile) 
-        if image_name != None and not os.path.isfile(filename):
+        if (image_name != None) and (not os.path.isfile(filename)):
             print 'Downloading image...'
             data = urllib2.urlopen(url)
             with open(filename, 'wb') as fp:
@@ -81,11 +81,13 @@ class LocalEEImage(object):
         transform_file = z.open(image_name + '.' + bands[0] + '.tfw', 'r')
         self.transform = [float(line) for line in transform_file]
 
+        # Load each of the bands in to memory
         self.images = dict()
         for b in bands:
-            bandfilename = image_name + '.' + b + '.tif'
-            z.extract(bandfilename, '/tmp')
-            self.images[b] = plt.imread('/tmp/' + bandfilename) # TODO: Fix in windows!!!!!!
+            bandfilename   = image_name + '.' + b + '.tif'
+            band_file_path = os.path.join(TEMP_FILE_DIR, bandfilename)
+            z.extract(bandfilename, TEMP_FILE_DIR)
+            self.images[b] = plt.imread(band_file_path)
         
         self.image_name = image_name
         self.bands      = bands
@@ -105,12 +107,23 @@ class LocalEEImage(object):
         return (r, c)
 
     def get(self, band, r, c):
-        '''Fetch the selected pixel.'''
+        '''Fetch the selected pixel from the selected band.'''
         return self.images[band][r, c]
+    
+    def get(self, r, c):
+        '''Fetch the selected pixels across all bands'''
+        pixel = []
+        for b in self.bands:
+            pixel.append(self.images[b][r, c])
+        return pixel
 
-    def get_image(self, band):
+    def get_image(self, band_name):
         '''Fetch the selected band as a PIL image.'''
-        return self.images[band]
+        return self.images[band_name]
+    
+    def get_band_by_index(self, band_index):
+        '''Fetch the selected band as a PIL image.'''
+        return self.images[self.bands[band_index]]
 
     def size(self):
         '''Get the width and height of the image.'''

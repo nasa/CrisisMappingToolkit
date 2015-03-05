@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <sensor>
-    <name>Skybox</name>
+    <name>Skybox_NIR</name>
     <bands>
 
         <band>
@@ -16,6 +16,10 @@
             <name>Red</name>
         </band>
         
+        <band>
+            <source><name>b4</name></source>
+            <name>NIR</name>
+        </band>
         <display_bands>Red, Green, Blue</display_bands>
     </bands>
     <range>

@@ -40,7 +40,7 @@
     </bbox>
     
     <truth>18108519531116889794-09052745394509652502</truth>
-    <training_domain>mississip_2011_5</training_domain>
+    <training_domain>mississippi_2011_5</training_domain>
     
     <algorithm_params>
       <modis_diff_threshold>1200</modis_diff_threshold>

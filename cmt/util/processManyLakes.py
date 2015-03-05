@@ -133,6 +133,32 @@ def sample_processing_function(bounds, image, image_date, logger):
     return {'water_count' : 1, 'cloud_count': 2}
 
 
+def isLakeInBadList(name, output_directory):
+    '''Check the blacklist to see if we should skip a lake'''
+
+    # Search the entire file for the name
+    list_path   = os.path.join(output_directory, 'badLakeList.txt')
+    try:
+        file_handle = open(list_path, 'r')
+        found = False
+        for line in file_handle:
+            if name == line.strip():
+                found = True
+                break
+        file_handle.close()
+        return found
+    except: # Fail silently
+        return False
+
+def addLakeToBadList(name, output_directory):
+    '''Create a blacklist of lakes we will skip'''
+    # Just add the name to a plain text file
+    list_path   = os.path.join(output_directory, 'badLakeList.txt')
+    file_handle = open(list_path, 'a')
+    file_handle.write(name + '\n')
+    file_handle.close()
+    return True
+
 def process_lake(lake, ee_lake, start_date, end_date, output_directory,
                  processing_function, logging_class, image_fetching_function):
     '''Computes lake statistics over a date range and writes them to a log file.
@@ -151,6 +177,11 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
         print 'Skipping lake with no name!'
         return False
 
+    # Check if the lake is in the bad lake list
+    if isLakeInBadList(name, output_directory):
+        print 'Skipping known bad lake ' + name
+        return False
+
     boundsInfo = ee_lake.geometry().bounds().getInfo()
     
     maxAbsLat = 0
@@ -160,12 +191,14 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
             maxAbsLat = lat
     if maxAbsLat > MAX_LATITUDE:
         print name + ' is too high latitude, skipping it.'
+        addLakeToBadList(name, output_directory)
         return False
     
     # Compute the size of the area and quit if it is too big to handle
     size = ee_lake.geometry().area(10).getInfo() / 1000000 # Convert answer to square kilometers
     if size > MAX_LAKE_SIZE:
         print name + ' is too large, skipping it.'
+        addLakeToBadList(name, output_directory)
         return False
     
 
@@ -284,10 +317,10 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
         # Get this one lake
         ee_lake = ee.Feature(all_lakes.get(i)) 
 
-        if args.lake == None:
-            count += 1
-            if count < SKIP:
-                continue
+        #if args.lake == None:
+        #    count += 1
+        #    if count < SKIP:
+        #        continue
 
         process_lake(all_lakes_local[i], ee_lake, start_date, end_date, args.results_dir, processing_function, logging_class, image_fetching_function)
         
