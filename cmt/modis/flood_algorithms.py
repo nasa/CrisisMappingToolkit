@@ -39,6 +39,8 @@ DNNS_REVISED       = 11
 DEM_THRESHOLD      = 12
 MARTINIS_TREE      = 13
 SKYBOX_ASSIST      = 14
+DNNS_DIFF          = 15
+DNNS_DIFF_DEM      = 16
 
 def compute_modis_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
@@ -111,8 +113,8 @@ def getCloudPercentage(lowResModis, region):
 
 
 
-    
-def compute_binary_threshold(valueImage, classification, bounds):
+# if mixed_thresholds is true, we find the thresholds that contain 0.05 land and 0.95 water
+def compute_binary_threshold(valueImage, classification, bounds, mixed_thresholds=False):
     '''Computes a threshold for a value given examples in a classified binary image'''
     
     # Build histograms of the true and false labeled values
@@ -133,7 +135,10 @@ def compute_binary_threshold(valueImage, classification, bounds):
     false_index = 0
     false_sum   = false_total
     true_sum    = 0.0
-    for i in range(NUM_BINS): # Iterate through the bins of the true histogram
+    threshold_index = None
+    lower_mixed_index = None
+    upper_mixed_index = None
+    for i in range(len(histogramTrue['histogram'])): # Iterate through the bins of the true histogram
         # Add the number of pixels in the current true bin
         true_sum += histogramTrue['histogram'][i]
         
@@ -151,17 +156,34 @@ def compute_binary_threshold(valueImage, classification, bounds):
         percent_true_under_thresh  = true_sum/true_total
         percent_false_over_thresh = false_sum/false_total
             
-        # Keep increasing the true bin and x until about equal numbers of pixels are misclassified
-        if (percent_false_over_thresh < percent_true_under_thresh) and (percent_true_under_thresh > 0.5):
-          break
+        if mixed_thresholds:
+            print 'Lower', (false_total - false_sum) / float(true_sum)
+            print 'Upper', (true_total - true_sum) / float(false_sum)
+            if (false_total - false_sum) / float(true_sum) <= 0.05:
+                lower_mixed_index = i
+            if upper_mixed_index == None and (true_total - true_sum) / float(false_sum) <= 0.05:
+                upper_mixed_index = i
+        else:
+            # Keep increasing the true bin and x until about equal numbers of pixels are misclassified
+            if threshold_index == None and (percent_false_over_thresh < percent_true_under_thresh) and (percent_true_under_thresh > 0.5):
+                break
 
-    # Put threshold in the center of the current true histogram bin/bucket
-    threshold = histogramTrue['bucketMin'] + i*histogramTrue['bucketWidth'] + histogramTrue['bucketWidth']/2
     
-    print 'Threshold %g Found. %g%% of water pixels and %g%% of land pixels separated.' % \
+    if mixed_thresholds:
+        lower = histogramTrue['bucketMin'] + lower_mixed_index * histogramTrue['bucketWidth'] + histogramTrue['bucketWidth']/2
+        upper = histogramTrue['bucketMin'] + upper_mixed_index * histogramTrue['bucketWidth'] + histogramTrue['bucketWidth']/2
+        if lower > upper:
+            temp = lower
+            lower = upper
+            upper = temp
+        print 'Thresholds (%g, %g) found.' % (lower, upper)
+        return (lower, upper)
+    else:
+        # Put threshold in the center of the current true histogram bin/bucket
+        threshold = histogramTrue['bucketMin'] + i*histogramTrue['bucketWidth'] + histogramTrue['bucketWidth']/2
+        print 'Threshold %g Found. %g%% of water pixels and %g%% of land pixels separated.' % \
             (threshold, true_sum / true_total * 100.0, false_sum / false_total * 100.0)
-
-    return threshold
+        return threshold
 
 def compute_algorithm_parameters(training_domain):
     '''Compute algorithm parameters from a classified training image'''
@@ -178,9 +200,10 @@ def compute_algorithm_parameters(training_domain):
     # These values are computed by comparing the algorithm output in land/water regions
     # - To be passed in to the threshold function a consistent band name is needed
     algorithm_params = dict()
-    algorithm_params['modis_diff_threshold'  ] = compute_binary_threshold(modisDiff,    truthMask, bounds)
-    algorithm_params['dartmouth_threshold'   ] = compute_binary_threshold(dartmouthVal, truthMask, bounds)
-    algorithm_params['dem_threshold'         ] = compute_binary_threshold(demHeight.select(['elevation'], ['sur_refl_b02']), truthMask, bounds)
+    algorithm_params['modis_diff_threshold'   ] = compute_binary_threshold(modisDiff,    truthMask, bounds)
+    algorithm_params['dartmouth_threshold'    ] = compute_binary_threshold(dartmouthVal, truthMask, bounds)
+    algorithm_params['dem_threshold'          ] = compute_binary_threshold(demHeight.select(['elevation'], ['sur_refl_b02']), truthMask, bounds)
+    algorithm_params['modis_diff_mixed_window'] = compute_binary_threshold(modisDiff,    truthMask, bounds, True)
     
     # TODO: It would be much more accurate to compute these!
     # These would be tougher to compute so we just use some general purpose values
@@ -310,7 +333,10 @@ def random_forests(domain, b):
     '''Classify using RifleSerialClassifier (Random Forests)'''
     return earth_engine_classifier(domain, b, 'RifleSerialClassifier')
 
-def dnns(domain, b):
+def dnns_diff(domain, b):
+    return dnns(domain, b, True)
+
+def dnns(domain, b, use_modis_diff=False):
     '''Dynamic Nearest Neighbor Search adapted from the paper:
         "Li, Sun, Yu, et. al. "A new short-wave infrared (SWIR) method for
         quantitative water fraction derivation and evaluation with EOS/MODIS
@@ -343,14 +369,16 @@ def dnns(domain, b):
     
     # Use CART classifier to divide pixels up into water, land, and mixed.
     # - Mixed pixels are just low probability water/land pixels.
-    classes   = earth_engine_classifier(domain, b, 'Cart', {'classifier_mode' : 'probability'})
-    pureWater = classes.gte(0.95)
-    pureLand  = classes.lte(0.05)
-    mixed     = pureWater.Not().And(pureLand.Not())
-    # Use a training classifier to determine pure water pixels
-    pureWater = cart(domain, b)
-        
-    # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.
+    if use_modis_diff:
+        thresholds = domain.algorithm_params['modis_diff_mixed_window']
+        pureWater = modis_diff(domain, b, thresholds[0])
+        pureLand = modis_diff(domain, b, thresholds[1]).Not()
+        mixed = pureWater.Or(pureLand).Not()
+    else:
+        classes   = earth_engine_classifier(domain, b, 'Pegasos', {'classifier_mode' : 'probability'})
+        pureWater = classes.gte(0.95)
+        pureLand  = classes.lte(0.05)
+        mixed     = pureWater.Not().And(pureLand.Not())
     averageWater      = pureWater.mask(pureWater).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
     averageWaterImage = ee.Image([averageWater.getInfo()['sur_refl_b01'], averageWater.getInfo()['sur_refl_b02'], averageWater.getInfo()['sur_refl_b06']])
     
@@ -417,7 +445,10 @@ def dnns(domain, b):
 
     return water_fraction.select(['sum_2'], ['b1']) # Rename sum_2 to b1
 
-def dnns_dem(domain, b):
+def dnns_diff_dem(domain, b):
+    return dnns_dem(domain, b, True)
+
+def dnns_dem(domain, b, use_modis_diff=False):
     '''Enhance the DNNS result with high resolution DEM information, adapted from the paper:
         "Li, Sun, Goldberg, and Stefanidis. "Derivation of 30-m-resolution
         water maps from TERRA/MODIS and SRTM." Remote Sensing of Environment, 2013."
@@ -936,8 +967,10 @@ __ALGORITHMS = {
         SVM                : ('SVM',                     svm,            False, 'FFAA33'),
         RANDOM_FORESTS     : ('Random Forests',          random_forests, False, 'CC33FF'),
         DNNS               : ('DNNS',                    dnns,           True,  '0000FF'),
+        DNNS_DIFF          : ('DNNS Diff.',              dnns_diff,      True,  '0000FF'),
         DNNS_REVISED       : ('DNNS Revised',            dnns_revised,   False, '00FF00'),
         DNNS_DEM           : ('DNNS with DEM',           dnns_dem,       False, '9900FF'),
+        DNNS_DIFF_DEM      : ('DNNS Diff with DEM',      dnns_diff_dem,  False, '9900FF'),
         DIFFERENCE_HISTORY : ('Difference with History', history_diff,   False, '0099FF'),
         DARTMOUTH          : ('Dartmouth',               dartmouth,      False, '33CCFF'),
         DEM_THRESHOLD      : ('DEM Threshold',           dem_threshold,  False, 'FFCC33'),

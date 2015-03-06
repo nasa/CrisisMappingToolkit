@@ -240,7 +240,7 @@ class Object(object):
 # TODO: Construct an actual domain object!
 class FakeDomain(Object):
     '''Class to assist in faking a Domain class instance.'''
-    
+
     def add_dem(self, bounds):
         '''Loads the correct DEM'''
         # Get a DEM
@@ -286,10 +286,12 @@ def getAlgorithmList():
                      (cmt.modis.flood_algorithms.CART               , 'CART',           KEEP),
                      (cmt.modis.flood_algorithms.SVM                , 'SVM',            KEEP),
                      (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', KEEP ),
-                     (cmt.modis.flood_algorithms.DNNS               , 'DNNS',           KEEP),
-                     #(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised',  KEEP),
-                     (cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM',  KEEP),
-                     #(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP), # TODO: May need auto-thresholds!
+                     #(cmt.modis.flood_algorithms.DNNS               , 'DNNS',           KEEP),
+                     #(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised',   KEEP),
+                     #(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM',  KEEP),
+                     (cmt.modis.flood_algorithms.DNNS_DIFF          , 'DNNS Diff',      KEEP),
+                     (cmt.modis.flood_algorithms.DNNS_DIFF_DEM      , 'DNNS Diff DEM',  KEEP),
+                     (cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP), # TODO: May need auto-thresholds!
                      (cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth',      KEEP),
                      (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  KEEP) ]
 
@@ -438,18 +440,16 @@ def processing_function(bounds, image, image_date, logger):
                     logger.saveResultsImage(detectedWater, rectBounds, imageName, cloudMask, waterMask, REDUCED_DEBUG_IMAGE_RESOLUTION)
                 except Exception,e:
                     print 'Saving results image failed with exception --> ' + str(e)
-    
-        
+
             print 'Evaluating detection results...'
-    
+
             # Compare the detection result to the water mask
             isFractional = False # Currently not using fractional evaluation, but maybe we should for DNSS-DEM
             (precision, recall, evalRes, noTruthEval) = cmt.util.evaluation.evaluate_approach(detectedWater, waterMask, rectBounds, isFractional)
-            
+
             # Store the results for this algorithm
             print 'Evaluation results: ' + str(precision) + ' ' + str(recall) +' at resolution ' + str(evalRes)
             waterResults[algName] = (precision, recall, evalRes, noTruthEval)
-                
         except Exception,e: # Handly any failure thet prevents us from obtaining results
             traceback.print_exc(file=sys.stdout)
             print 'Processing results failed with exception --> ' + str(e)

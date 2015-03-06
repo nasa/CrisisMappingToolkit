@@ -50,10 +50,7 @@ Tool for testing MODIS based flood detection algorithms using a simple GUI.
 #DOMAIN = modis.domains.BORDER
 
 # Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
-ALGORITHMS = [DARTMOUTH, DIFFERENCE, DEM_THRESHOLD]#, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
-#ALGORITHMS = [DIFFERENCE]#, CART, SVM, RANDOM_FORESTS]#SKYBOX_ASSIST]
-
-
+ALGORITHMS = [DARTMOUTH, DIFFERENCE, DEM_THRESHOLD, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
 
 # --------------------------------------------------------------
 # Functions
