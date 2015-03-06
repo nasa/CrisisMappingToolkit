@@ -460,7 +460,7 @@ def dnns_dem(domain, b, use_modis_diff=False):
     MODIS_PIXEL_SIZE_METERS = 250
     
     # Call the DNNS function to get the starting point
-    water_fraction = dnns(domain, b)
+    water_fraction = dnns(domain, b, use_modis_diff)
 
    
     ## Treating the DEM values contained in the MODIS pixel as a histogram, find the N'th percentile
