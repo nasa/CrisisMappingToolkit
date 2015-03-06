@@ -277,24 +277,33 @@ def _create_learning_image(domain, b):
     # Try to add Skybox RGB info (NIR is handled seperately because not all Skybox images have it)
     # - Use all the base bands plus a grayscale texture measure
     try:
-        rgbBands    = domain.skybox.Red.addBands(domain.skybox.Green).addBands(domain.skybox.Blue)
-        grayBand    = rgbBands.select('Red').add(rgbBands.select('Green')).add(rgbBands.select('Blue')).divide(ee.Image(3.0))
+        try: # The Skybox data can be in one of two names
+            skyboxSensor = domain.skybox
+        except:
+            skyboxSensor = domain.skybox_nir
+            
+        rgbBands    = skyboxSensor.Red.addBands(skyboxSensor.Green).addBands(skyboxSensor.Blue)
+        grayBand    = rgbBands.select('Red').add(rgbBands.select('Green')).add(rgbBands.select('Blue')).divide(ee.Image(3.0)).uint16()
         edges       = grayBand.convolve(ee.Kernel.laplacian8(normalize=True)).abs()
-        texture     = edges.convolve(ee.Kernel.square(2, 'pixels')).select(['Red'], ['Texture'])
-        skyboxBands = rgbBands.addBands(texture)
+        texture     = edges.convolve(ee.Kernel.square(3, 'pixels')).select(['Red'], ['Texture'])
+        texture2Raw = grayBand.glcmTexture()
+        bandList    = texture2Raw.getInfo()['bands']
+        bandName    = [x['id'] for x in bandList if 'idm' in x['id']]
+        texture2    = texture2Raw.select(bandName).convolve(ee.Kernel.square(5, 'pixels'))
+        skyboxBands = rgbBands.addBands(texture).addBands(texture2)
         outputBands = outputBands.addBands(skyboxBands)
-        #outputBands = skyboxBands
         
         #addToMap(grayBand, {'min': 0, 'max': 1200}, 'grayBand')       
         #addToMap(edges, {'min': 0, 'max': 250}, 'edges')
         #addToMap(texture, {'min': 0, 'max': 250}, 'texture')
+        #addToMap(texture2, {'min': 0, 'max': 1}, 'texture2')
         
     except AttributeError:
         pass # Suppress error if there is no Skybox data
     
     # Try to add Skybox Near IR band
     try:
-        outputBands = outputBands.addBands(domain.skybox.NIR)       
+        outputBands = outputBands.addBands(domain.skybox_nir.NIR)       
         #addToMap(domain.skybox.NIR, {'min': 0, 'max': 1200}, 'Near IR')       
     except AttributeError:
         pass # Suppress error if there is no Skybox NIR data
