@@ -28,18 +28,20 @@
     
     <bbox>
         <bottomleft>
-            <lon>90</lon>
-            <lat>-80</lat>
+            <lon>-70.6805</lon>
+            <lat>42.57</lat>
         </bottomleft>
         <topright>
-            <lon>230</lon>
-            <lat>-10</lat>
+            <lon>-70.6208</lon>
+            <lat>42.663</lat>
         </topright>
     </bbox>
     
     <truth>18108519531116889794-06423057872183631348</truth>
     
     <algorithm_params>
+      <dem_threshold>0</dem_threshold>
+    
       <modis_diff_threshold>500</modis_diff_threshold>
       
       <modis_mask_threshold>3.5</modis_mask_threshold>
