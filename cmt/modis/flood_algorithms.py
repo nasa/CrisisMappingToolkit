@@ -157,8 +157,6 @@ def compute_binary_threshold(valueImage, classification, bounds, mixed_threshold
         percent_false_over_thresh = false_sum/false_total
             
         if mixed_thresholds:
-            print 'Lower', (false_total - false_sum) / float(true_sum)
-            print 'Upper', (true_total - true_sum) / float(false_sum)
             if (false_total - false_sum) / float(true_sum) <= 0.05:
                 lower_mixed_index = i
             if upper_mixed_index == None and (true_total - true_sum) / float(false_sum) <= 0.05:
