@@ -18,7 +18,7 @@
       </sensor>
     
       <sensor>
-        <name>Skybox</name>
+        <name>Skybox_NIR</name>
         <bands>
             <source mosaic="true"><eeid>18108519531116889794-15989983115440808490</eeid></source>
         </bands>
