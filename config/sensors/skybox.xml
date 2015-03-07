@@ -20,7 +20,7 @@
     </bands>
     <range>
         <minimum>0</minimum>
-        <maximum>1200</maximum>
+        <maximum>255</maximum>
     </range>
 </sensor>
 

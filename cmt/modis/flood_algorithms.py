@@ -312,7 +312,11 @@ def _create_learning_image(domain, b):
 
 def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
     '''Apply EE classifier tool using a ground truth image.'''
-    training_domain = domain.training_domain
+    
+    if not domain.training_domain:
+        raise Exception('Cannot run classifier algorithm without a training domain!')
+    
+    training_domain = domain.training_domain    
     training_image  = _create_learning_image(training_domain, compute_modis_indices(training_domain))
     args = {
             'image'             : training_image,
