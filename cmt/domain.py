@@ -28,6 +28,8 @@ DOMAIN_SOURCE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
 SENSOR_SOURCE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
         ".." + os.path.sep + "config" + os.path.sep + "sensors")
 
+
+
 class SensorObservation(object):
     '''A class for accessing a sensor's observation at one time.'''
 
@@ -48,16 +50,16 @@ class SensorObservation(object):
         #   gives access to the band named 'hv'
 
         # Private class members
-        self.__display_bands = None
-        self.__display_gains = None
-        self.__mask_info     = None
-        self.__band_sources  = dict() # Where to get each band from
+        self._display_bands = None
+        self._display_gains = None
+        self._mask_info     = None
+        self._band_sources  = dict() # Where to get each band from
 
         # Parse the xml file to fill in the class variables
-        self.__load_xml(xml_root, isDomainFile)
+        self._load_xml(xml_root, isDomainFile)
         
         # Set up the EE image object using the band information
-        self.__load_image(eeBounds)
+        self._load_image(eeBounds)
 
     def __str__(self):
         s  = 'SensorObservation: ' + self.sensor_name + '\n'
@@ -71,18 +73,18 @@ class SensorObservation(object):
 
     def get_date(self):
         '''Returns the start date for the image if one was provided, None otherwise.'''
-        if ('start_date' in self.__band_sources[0]):
-            return self.__band_sources[0]['start_date']
+        if ('start_date' in self._band_sources[0]):
+            return self._band_sources[0]['start_date']
         else:
             return None
 
-    def __loadPieceOfSourceInfo(self, source_band, info_name, dictionary):
+    def _loadPieceOfSourceInfo(self, source_band, info_name, dictionary):
         '''Helper function - Look for and load source info about a band'''
         result = source_band.find(info_name)
         if result != None:
             dictionary[info_name] = result.text
 
-    def __load_source(self, source_element):
+    def _load_source(self, source_element):
         '''load a data source for a band or mask, represented by the <source> tag.'''
         # A source is stored like this: {'mosaic', 'source', 'eeid'}
         d = dict()
@@ -107,14 +109,14 @@ class SensorObservation(object):
             d['source'] = name.text
 
         # Load more information about the band source
-        self.__loadPieceOfSourceInfo(source_band, 'eeid',       d) # The id of the image to load, if a single image.
-        self.__loadPieceOfSourceInfo(source_band, 'collection', d) # The ImageCollection name of the data, if any.
-        self.__loadPieceOfSourceInfo(source_band, 'start_date', d)    # Start and end dates used to filter an ImageCollection.
-        self.__loadPieceOfSourceInfo(source_band, 'end_date',   d)
+        self._loadPieceOfSourceInfo(source_band, 'eeid',       d) # The id of the image to load, if a single image.
+        self._loadPieceOfSourceInfo(source_band, 'collection', d) # The ImageCollection name of the data, if any.
+        self._loadPieceOfSourceInfo(source_band, 'start_date', d)    # Start and end dates used to filter an ImageCollection.
+        self._loadPieceOfSourceInfo(source_band, 'end_date',   d)
 
         return d
 
-    def __load_distribution(self, root):
+    def _load_distribution(self, root):
         '''load a probability distribution into a python dictionary, which may, for
             example, represent the expected distribution of water pixels'''
         d     = dict()
@@ -125,10 +127,10 @@ class SensorObservation(object):
         if mode != None:
             d['mode'] = dict()
             if mode.find('range') != None:
-                (d['mode']['min'], d['mode']['max']) = self.__load_range(mode.find('range'))
+                (d['mode']['min'], d['mode']['max']) = self._load_range(mode.find('range'))
         r = root.find('range')
         if r != None:
-            d['range'] = self.__load_range(r)
+            d['range'] = self._load_range(r)
         b = root.find('buckets')
         if b != None:
             try:
@@ -141,14 +143,14 @@ class SensorObservation(object):
             
         return d
 
-    def __load_bands(self, root_element):
-        '''Read the band specification and load it into __band_sources and __mask_source.
+    def _load_bands(self, root_element):
+        '''Read the band specification and load it into _band_sources and _mask_source.
             Does not load the bands'''
         # Look for default water distribution info at the top level
         default_water = dict()
         for d in root_element.findall('distribution'):
             if d.get('name').lower() == 'water':
-                default_water = self.__load_distribution(d)
+                default_water = self._load_distribution(d)
 
         # Read bands, represented by <band> tag
         bands = root_element.find('bands')
@@ -161,7 +163,7 @@ class SensorObservation(object):
             display_band_list = display_bands.text.replace(' ','').split(',') # The band names are comma seperated
             if len(display_band_list) > 3:
                 raise Exception('Cannot have more than three display bands!')
-            self.__display_bands = display_band_list
+            self._display_bands = display_band_list
 
         # Looks for display band gains at the top level
         display_gains = bands.find('display_gains')
@@ -169,17 +171,17 @@ class SensorObservation(object):
             display_gain_list = display_gains.text.split(',') # The band names are comma seperated
             if len(display_gain_list) > 3:
                 raise Exception('Cannot have more than three display band gains!')
-            self.__display_gains = display_gain_list
+            self._display_gains = display_gain_list
 
 
         # shared information (e.g., all bands have same eeid) is loaded directly in <bands>
         #print 'Reading default source...'
-        default_source = self.__load_source(bands) # Located in <bands><source>
+        default_source = self._load_source(bands) # Located in <bands><source>
         # If any bands are already loaded (meaning we are in the domain file), apply this source info to them.
         for b in self.band_names:  
-            self.__band_sources[b].update(default_source)
-        if self.__mask_info != None:
-            self.__mask_info.update(default_source)
+            self._band_sources[b].update(default_source)
+        if self._mask_info != None:
+            self._mask_info.update(default_source)
         resolution = bands.find('resolution')
         if resolution != None: # <bands><resolution>
             default_resolution = float(resolution.text)
@@ -196,13 +198,13 @@ class SensorObservation(object):
             #print 'Getting info for band: ' + name
             if name not in self.band_names: # Only append each band name once
                 self.band_names.append(name)
-            if name not in self.__band_sources: # Only append each band source once
-                self.__band_sources[name] = dict()
-            self.__band_sources[name].update(default_source) # Start with the default source information
-            self.__band_sources[name].update(self.__load_source(b)) # Band source information is stored like: {'mosaic', 'source', 'eeid'}
+            if name not in self._band_sources: # Only append each band source once
+                self._band_sources[name] = dict()
+            self._band_sources[name].update(default_source) # Start with the default source information
+            self._band_sources[name].update(self._load_source(b)) # Band source information is stored like: {'mosaic', 'source', 'eeid'}
 
             #print 'Source for this band = '
-            #print str(self.__band_sources[name])
+            #print str(self._band_sources[name])
 
             # Look for water distribution information in this band
             if name not in self.water_distributions:
@@ -210,7 +212,7 @@ class SensorObservation(object):
             self.water_distributions[name].update(default_water)
             for d in b.findall('distribution'):
                 if d.get('name').lower() == 'water':
-                    self.water_distributions[name].update(self.__load_distribution(d))
+                    self.water_distributions[name].update(self._load_distribution(d))
                     
             # Load resolution for this band
             resolution = b.find('resolution')
@@ -224,29 +226,29 @@ class SensorObservation(object):
         # read mask, in <mask> tag
         mask = bands.find('mask')
         if mask != None:
-            if self.__mask_info == None:
-                self.__mask_info = dict()
+            if self._mask_info == None:
+                self._mask_info = dict()
             if mask.get('self') == 'true': # Self mask means that zero-valued pixels in the source will be masked out.
-                self.__mask_info['self'] = True
+                self._mask_info['self'] = True
             else: # Otherwise there must be an external source
-                self.__mask_info['self'] = False
+                self._mask_info['self'] = False
                 source = mask.find('source')
                 if source == None: # Read in source information about the mask
                     raise Exception('Mask specified with no source!')
                 else:
-                    self.__mask_info.update(self.__load_source(mask))
+                    self._mask_info.update(self._load_source(mask))
 
 
 
 
-    def __load_image(self, eeBounds):
-        '''given band specifications in __band_sources and __mask_source, load them into self.image'''
+    def _load_image(self, eeBounds):
+        '''given band specifications in _band_sources and _mask_source, load them into self.image'''
         # This is setting up an EE object, not actually downloading any data from the web.
         
         # Load the bands, combine into image
         for i in range(len(self.band_names)):
             thisBandName = self.band_names[i]
-            source       = self.__band_sources[thisBandName]
+            source       = self._band_sources[thisBandName]
             #print '======================================='
             #print 'Loading band: ' + thisBandName
             #print source
@@ -276,11 +278,11 @@ class SensorObservation(object):
         #print self.image.getInfo()
         #    
         # Apply mask once all the bands are loaded
-        if self.__mask_info != None:
-            if 'self' in self.__mask_info and self.__mask_info['self']:
+        if self._mask_info != None:
+            if 'self' in self._mask_info and self._mask_info['self']:
                 self.image = self.image.mask(self.image) # Apply self-mask
-            elif 'eeid' in self.__mask_info: # Apply a mask from an external source
-                self.image = self.image.mask(ee.Image(self.__mask_info['eeid']).select([self.__mask_info['source']], ['b1']))
+            elif 'eeid' in self._mask_info: # Apply a mask from an external source
+                self.image = self.image.mask(ee.Image(self._mask_info['eeid']).select([self._mask_info['source']], ['b1']))
             else:
                 raise Exception('Not enough mask information specified!')
 
@@ -294,7 +296,7 @@ class SensorObservation(object):
         #print self.image.getInfo()
         #print '\n\n\n'
 
-    def __load_range(self, tag):
+    def _load_range(self, tag):
         '''read a <range> tag'''
         a = None
         b = None
@@ -312,7 +314,7 @@ class SensorObservation(object):
                 raise Exception('Failed to load range tag.')
         return (a, b)
 
-    def __load_xml(self, xml_root, isDomainFile=False):
+    def _load_xml(self, xml_root, isDomainFile=False):
         '''Parse an xml document representing a domain or a sensor'''
 
         if (xml_root.tag != "sensor"):
@@ -333,11 +335,11 @@ class SensorObservation(object):
             #print 'Reading file: ' + sensor_xml_path
             tree       = ET.parse(sensor_xml_path)
             other_root = tree.getroot() # This will be a sensor node
-            self.__load_xml(other_root, False)
+            self._load_xml(other_root, False)
             #print 'Finished loading sensor file -----------------------'
 
         # Search for the min and max values of the sensor
-        (a, b) = self.__load_range(xml_root.find('range'))
+        (a, b) = self._load_range(xml_root.find('range'))
         if a != None:
             self.minimum_value = a
         if b != None:
@@ -349,7 +351,7 @@ class SensorObservation(object):
             self.log_scale = (scale.get('type') == 'log10')
         
         # Read data about all the bands
-        self.__load_bands(xml_root)
+        self._load_bands(xml_root)
 
     
     def visualize(self, params = {}, name = None, show=True):
@@ -361,15 +363,15 @@ class SensorObservation(object):
         image      = self.image
         band_names = self.band_names
 
-        if self.__display_bands != None: # The user has specified display bands
-            if len(self.__display_bands) != 3:
+        if self._display_bands != None: # The user has specified display bands
+            if len(self._display_bands) != 3:
                 raise Exception('')
             
-            b0         = self.image.select(self.__display_bands[0])
-            b1         = self.image.select(self.__display_bands[1])
-            b2         = self.image.select(self.__display_bands[2])
+            b0         = self.image.select(self._display_bands[0])
+            b1         = self.image.select(self._display_bands[1])
+            b2         = self.image.select(self._display_bands[2])
             image      = b0.addBands(b1).addBands(b2)
-            band_names = self.__display_bands
+            band_names = self._display_bands
             
         else: # Automatically decide the display bands
             
@@ -388,8 +390,8 @@ class SensorObservation(object):
         
         #print '-------------------------------------------------'
             
-        if (not 'gain' in params) and (self.__display_gains != None): # If gains were not specified, use ours!
-            new_params['gain'] = self.__display_gains
+        if (not 'gain' in params) and (self._display_gains != None): # If gains were not specified, use ours!
+            new_params['gain'] = self._display_gains
        
         return (image, new_params, name, show)
 
@@ -420,7 +422,7 @@ class Domain(object):
         # You can also access each sensor as a member variable, e.g. self.uavsar
         #   gives access to the sensor named 'uavsar'
 
-        self.__load_xml(xml_file, is_training) # Call function to initialize from the XML file
+        self._load_xml(xml_file, is_training) # Call function to initialize from the XML file
 
     def __str__(self):
         '''Generate a string overview of the domain'''
@@ -459,7 +461,7 @@ class Domain(object):
 
     
 
-    def __load_bbox(self, root):
+    def _load_bbox(self, root):
         '''read a bbox, <bbox>'''
         b = None
         if root != None:
@@ -474,7 +476,7 @@ class Domain(object):
             raise Exception("Illegal bounding box values!")
         return b
 
-    def __load_xml(self, xml_file, is_training=False):
+    def _load_xml(self, xml_file, is_training=False):
         '''load an xml file representing a domain or a sensor'''
         #print 'Reading file: ' + xml_file
         tree = ET.parse(xml_file)
@@ -490,7 +492,7 @@ class Domain(object):
             raise Exception('Domain has no name.')
 
         # Load the bounding box that contains the domain
-        self.bbox   = self.__load_bbox(root.find('bbox'))
+        self.bbox   = self._load_bbox(root.find('bbox'))
         self.bounds = apply(ee.geometry.Geometry.Rectangle, self.bbox)
         self.center = ((self.bbox[0] + self.bbox[2]) / 2, (self.bbox[1] + self.bbox[3]) / 2)
         
