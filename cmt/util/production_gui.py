@@ -32,10 +32,11 @@ Goals for production GUI (Only for Google):
 - Display flood statistics (flooded area, etc)
 '''
 
-
 import functools
 import sys
+import os
 import ee
+import cmt.domain
 
 try:
     import PyQt4                         # pylint: disable=g-import-not-at-top
@@ -55,6 +56,9 @@ import cmt.modis.flood_algorithms
 LANDSAT_5 = 5
 LANDSAT_7 = 7
 LANDSAT_8 = 8
+
+# Location of the sensor config files
+SENSOR_FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../config/sensors')
 
 # Calendar widget to select a date
 class DatePickerWidget(QtGui.QWidget):
@@ -101,7 +105,8 @@ class ProductionGui(QtGui.QMainWindow):
         self.landsatPrior   = None # First Landsat image < date.
         self.landsatPost    = None # First Landsat image >= the date.
         self.demImage       = None # DEM image
-        self.eeFunction     = None # Flood detection results
+        self.guestImage     = None # A manually loaded image
+        self.eeFunction     = None # Flood detection results TODO: Rename variable!
         self.landsatType    = None # One of the types at the top of the file
         
         # Now set up all the GUI stuff!
@@ -148,6 +153,13 @@ class ProductionGui(QtGui.QMainWindow):
         self.loadFloodButton1.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.loadFloodButton1.clicked[bool].connect(self._loadFloodDetect)
         topHorizontalBox.addWidget(self.loadFloodButton1)
+
+        # Add a "Load ME Image" button to the top row of widgets
+        self.loadMeImage = QtGui.QPushButton('Load ME Image', self)
+        self.loadMeImage.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadMeImage.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadMeImage.clicked[bool].connect(self._loadMapsEngineImage)
+        topHorizontalBox.addWidget(self.loadMeImage)
 
         # Add a "Clear All" button to the top row of widgets
         self.clearButton = QtGui.QPushButton('Clear Map', self)
@@ -263,9 +275,94 @@ class ProductionGui(QtGui.QMainWindow):
         if self.demImage:
             self.mapWidget.removeFromMap(self.demImage)
             self.demImage = None
+        if self.guestImage:
+            self.mapWidget.removeFromMap(self.guestImage)
+            self.guestImage = None
         if self.eeFunction:
             self.mapWidget.removeFromMap(self.eeFunction)
             self.eeFunction = None
+
+
+    def getSensorNames(self):
+            '''Returns the list of known sensor types'''
+            # Get a list of xml files from the sensor files directory
+            return [f[:-4] for f in os.listdir(SENSOR_FILE_DIR) if f.endswith('.xml')]
+
+    class GuestImageDialog(QtGui.QDialog):
+        '''Popup window for the user to fill in information about an image loaded in Maps Engine'''
+        def __init__(self, parent = None):
+            super(ProductionGui.GuestImageDialog, self).__init__(parent)
+            
+            # Get the list of available sensors
+            self.radioNames = parent.getSensorNames()
+            if not self.radioNames:
+                raise Exception('Could not load any sensors!')
+            # Set up sensor selection buttons
+            self.radioButtons = []
+            for name in self.radioNames:
+                self.radioButtons.append(QtGui.QRadioButton(name))
+            self.radioButtons[0].setChecked(True)
+            
+            # Set up the other controls
+            self.lineIn       = QtGui.QLineEdit("Enter Earth Engine ID")
+            self.okButton     = QtGui.QPushButton('Ok',     self)
+            self.cancelButton = QtGui.QPushButton('Cancel', self)            
+            self.okButton.clicked.connect(self.accept)
+            self.cancelButton.clicked.connect(self.reject)
+            
+            # Lay everything out
+            vbox = QtGui.QVBoxLayout(self)
+            vbox.addWidget(self.lineIn)
+            for button in self.radioButtons:
+               vbox.addWidget(button)
+            vbox.addWidget(self.okButton)
+            vbox.addWidget(self.cancelButton)
+            vbox.addStretch(1)
+            #groupBox.setLayout(vbox)
+        
+        def getValues(self):
+            '''Return the selected values'''
+            for button in self.radioButtons: # Should always be exactly one button checked!
+                if button.isChecked():
+                    return (str(button.text()), str(self.lineIn.text()))
+            raise Exception('GUI buttons are broken!')
+        
+# GME/images/18108519531116889794-15007110928626476628
+    def _loadMapsEngineImage(self):
+        '''Loads in an image stored in Google Maps Engine'''
+    
+        # Pop up a dialog and get the input values back
+        dialog = self.GuestImageDialog(self)
+        result = dialog.exec_()
+        sensorName, eeID = dialog.getValues()
+        
+        if not result: # Do nothing if the cancel button was pressed
+            return
+        
+        # Extract the asset ID from the Earth Engine ID
+        # - The Earth Engine ID looks like this: GME/images/18108519531116889794-15007110928626476628
+        pt = eeID.rfind('/')
+        if not pt:
+            print 'Invalid Earth Engine ID entered!'
+        assetID = eeID[pt+1:]
+        
+        # Clear any existing guest image from the map
+        if self.guestImage:
+            self.mapWidget.removeFromMap(self.guestImage)
+            self.guestImage = None
+
+        # Retrieve the sensor information for this image from the XML file
+        sensorXmlPath = os.path.join(SENSOR_FILE_DIR, sensorName + ".xml")
+        print 'Reading file: ' + sensorXmlPath
+        sensorInfo = cmt.domain.SensorObservation(xml_source=sensorXmlPath, manual_ee_ID=assetID)
+        
+        # Add the new guest image to the map
+        self.guestImage, vis_params, im_name, show = sensorInfo.visualize()
+        self.mapWidget.addToMap(self.guestImage, vis_params, sensorName, True)
+        
+        
+
+
 
     def _displayCurrentImages(self):
         '''Add all the current images to the map. Low level function'''
@@ -303,6 +400,10 @@ class ProductionGui(QtGui.QMainWindow):
             self.mapWidget.addToMap(self.demImage, vis_params, 'Digital Elevation Map', False)
         else:
             print 'Failed to find DEM!'
+            
+        if self.guestImage:
+            raise Exception('TODO!')
+            
 
     def _selectLandsatBands(self, eeLandsatFunc):
         '''Given a raw landsat image, pick which bands to view'''

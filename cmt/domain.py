@@ -17,7 +17,6 @@
 
 import os
 import xml.etree.ElementTree as ET
-
 import ee
 
 # Default search path for domain xml files: [root]/config/domains/[sensor_name]/
@@ -33,9 +32,15 @@ SENSOR_SOURCE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
 class SensorObservation(object):
     '''A class for accessing a sensor's observation at one time.'''
 
-    def __init__(self, xml_root, eeBounds, isDomainFile=False):
+    def __init__(self, xml_source=None, ee_bounds=None, is_domain_file=False, manual_ee_ID=None):
         '''Initialize the object from XML data and the desired bounding box'''
-        
+               
+        # xml_source can be a path to an xml file or a parsed xml object
+        if os.path.isfile(xml_source):
+            xml_root = ET.parse(xml_source).getroot()
+        else:
+            xml_root = xml_source
+               
         # Public class members
         self.sensor_name   = 'Unnamed' # Name of the sensor!
         self.image         = None      # EE image object containing the selected sensor bands
@@ -55,11 +60,12 @@ class SensorObservation(object):
         self._mask_info     = None
         self._band_sources  = dict() # Where to get each band from
 
+
         # Parse the xml file to fill in the class variables
-        self._load_xml(xml_root, isDomainFile)
+        self._load_xml(xml_root, is_domain_file, manual_ee_ID)
         
         # Set up the EE image object using the band information
-        self._load_image(eeBounds)
+        self._load_image(ee_bounds)
 
     def __str__(self):
         s  = 'SensorObservation: ' + self.sensor_name + '\n'
@@ -70,6 +76,10 @@ class SensorObservation(object):
 
     def __repr__(self):
         return self.sensor_name
+
+    def _init_from_dict(manual_init_dict):
+        '''Initialize from a passed in dictionary instead of an XML file'''
+        pass
 
     def get_date(self):
         '''Returns the start date for the image if one was provided, None otherwise.'''
@@ -143,7 +153,7 @@ class SensorObservation(object):
             
         return d
 
-    def _load_bands(self, root_element):
+    def _load_bands(self, root_element, manual_ee_ID=None):
         '''Read the band specification and load it into _band_sources and _mask_source.
             Does not load the bands'''
         # Look for default water distribution info at the top level
@@ -174,9 +184,10 @@ class SensorObservation(object):
             self._display_gains = display_gain_list
 
 
-        # shared information (e.g., all bands have same eeid) is loaded directly in <bands>
-        #print 'Reading default source...'
+        # Shared information (e.g., all bands have same eeid) is loaded directly in <bands>
         default_source = self._load_source(bands) # Located in <bands><source>
+        if manual_ee_ID: # Set manual EEID if it was passed in
+            default_source['eeid'] = manual_ee_ID
         # If any bands are already loaded (meaning we are in the domain file), apply this source info to them.
         for b in self.band_names:  
             self._band_sources[b].update(default_source)
@@ -239,7 +250,15 @@ class SensorObservation(object):
                     self._mask_info.update(self._load_source(mask))
 
 
-
+    def _getSourceBandName(self, source, image):
+        '''Automatically determines the source band from an image even if one was not specified'''
+        if 'source' in source: # Source band name was specified
+            return source['source']
+        if len(image.getInfo()['bands']) == 1: # Only one input band, just use it.
+            name = image.getInfo()['bands'][0]['id']
+            return name
+        raise Exception('Missing band name for source!')
+            
 
     def _load_image(self, eeBounds):
         '''given band specifications in _band_sources and _mask_source, load them into self.image'''
@@ -264,8 +283,8 @@ class SensorObservation(object):
                 raise Exception('Incomplete source information for band: ' + thisBandName)
                 
             #print im.getInfo()
-                
-            band = im.select([source['source']], [thisBandName])
+            sourceBandName = self._getSourceBandName(source, im)
+            band = im.select([sourceBandName], [thisBandName])
             #print band.getInfo()
             if self.image == None:
                 self.image = band
@@ -279,7 +298,7 @@ class SensorObservation(object):
         #    
         # Apply mask once all the bands are loaded
         if self._mask_info != None:
-            if 'self' in self._mask_info and self._mask_info['self']:
+            if ('self' in self._mask_info) and self._mask_info['self']:
                 self.image = self.image.mask(self.image) # Apply self-mask
             elif 'eeid' in self._mask_info: # Apply a mask from an external source
                 self.image = self.image.mask(ee.Image(self._mask_info['eeid']).select([self._mask_info['source']], ['b1']))
@@ -314,7 +333,19 @@ class SensorObservation(object):
                 raise Exception('Failed to load range tag.')
         return (a, b)
 
-    def _load_xml(self, xml_root, isDomainFile=False):
+    def _load_sensor_xml_file(self, sensor_name, manual_ee_ID=None):
+        '''Find and load the dedicated sensor XML file'''
+
+        # Make sure the file exists
+        sensor_xml_path = os.path.join(SENSOR_SOURCE_DIR, sensor_name + ".xml")
+        if not os.path.exists(sensor_xml_path):
+            raise Exception('Could not find sensor file: ' + sensor_xml_path)
+        # Load the XML and recursively call this function to parse it
+        #print 'Reading file: ' + sensor_xml_path
+        self._load_xml(sensor_xml_path, False, manual_ee_ID)
+        #print 'Finished loading sensor file -----------------------'
+
+    def _load_xml(self, xml_root, isDomainFile=False, manual_ee_ID=None):
         '''Parse an xml document representing a domain or a sensor'''
 
         if (xml_root.tag != "sensor"):
@@ -326,17 +357,8 @@ class SensorObservation(object):
             raise Exception('Sensor name not found!')
         self.sensor_name = name.text.lower()
 
-        if isDomainFile: # Look for the matching sensor xml file and load it first
-            # Make sure the file exists
-            sensor_xml_path = os.path.join(SENSOR_SOURCE_DIR, self.sensor_name + ".xml")
-            if not os.path.exists(sensor_xml_path):
-                raise Exception('Could not find sensor file: ' + sensor_xml_path)
-            # Load the XML and recursively call this function to parse it
-            #print 'Reading file: ' + sensor_xml_path
-            tree       = ET.parse(sensor_xml_path)
-            other_root = tree.getroot() # This will be a sensor node
-            self._load_xml(other_root, False)
-            #print 'Finished loading sensor file -----------------------'
+        if isDomainFile: # Load the matching sensor XML file first
+            self._load_sensor_xml(self.sensor_name, manual_ee_ID)
 
         # Search for the min and max values of the sensor
         (a, b) = self._load_range(xml_root.find('range'))
@@ -351,7 +373,7 @@ class SensorObservation(object):
             self.log_scale = (scale.get('type') == 'log10')
         
         # Read data about all the bands
-        self._load_bands(xml_root)
+        self._load_bands(xml_root, manual_ee_ID)
 
     
     def visualize(self, params = {}, name = None, show=True):
@@ -377,7 +399,7 @@ class SensorObservation(object):
             
             if len(band_names) == 2:  # If two bands, add a constant zero band to fake a "B" channel
                 image      = self.image.addBands(0)
-                band_names = ['constant'] + band_names
+                band_names = band_names + ['constant']
             if (len(band_names) > 3): # If more than three bands, just use the first three.
                 image      = self.image.select(band_names[0]).addBands(self.image.select(band_names[1])).addBands(self.image.select(band_names[2]))
                 band_names = self.band_names[0:2]
@@ -521,8 +543,10 @@ class Domain(object):
         
         # Load each <sensor> tag seperately
         for sensor_node in sensors.findall('sensor'):
-            newSensor = SensorObservation(sensor_node, self.bounds, True) # Send the sensor node of the domain file for parsing
-            self.sensor_list.append(newSensor)                             # Store the new sensor object
+            # Send the sensor node of the domain file for parsing
+            newSensor = SensorObservation(xml_root=sensor_node, ee_bounds=self.bounds,
+                                          is_domain_file=True) 
+            self.sensor_list.append(newSensor)   # Store the new sensor object
             
             # Set sensor as member variable, e.g., self.__dict__['uavsar'] is equivalent to self.uavsar
             self.__dict__[newSensor.sensor_name] = newSensor
