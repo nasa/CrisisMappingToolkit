@@ -159,14 +159,14 @@ def addLakeToBadList(name, output_directory):
     file_handle.close()
     return True
 
+# The maximum lake size Earth Engine can handle in square kilometers
+MAX_LAKE_SIZE = 5000
+MAX_LATITUDE = 55 # SRTM90 is not available beyond 60 latitude
+
 def process_lake(lake, ee_lake, start_date, end_date, output_directory,
                  processing_function, logging_class, image_fetching_function):
     '''Computes lake statistics over a date range and writes them to a log file.
         processing_function is called with two arguments: a bounding box and an ee_image.'''
-    
-    # The maximum lake size Earth Engine can handle in square kilometers
-    MAX_LAKE_SIZE = 5000
-    MAX_LATITUDE  = 55 # SRTM90 is not available beyond 60 latitude
     
     # Extract the lake name
     name = lake['properties']['LAKE_NAME']
@@ -184,22 +184,22 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
 
     boundsInfo = ee_lake.geometry().bounds().getInfo()
     
-    maxAbsLat = 0
-    for coord in boundsInfo['coordinates'][0]:
-        lat = abs(coord[1])
-        if lat > maxAbsLat:
-            maxAbsLat = lat
-    if maxAbsLat > MAX_LATITUDE:
-        print name + ' is too high latitude, skipping it.'
-        addLakeToBadList(name, output_directory)
-        return False
+    #maxAbsLat = 0
+    #for coord in boundsInfo['coordinates'][0]:
+    #    lat = abs(coord[1])
+    #    if lat > maxAbsLat:
+    #        maxAbsLat = lat
+    #if maxAbsLat > MAX_LATITUDE:
+    #    print name + ' is too high latitude, skipping it.'
+    #    addLakeToBadList(name, output_directory)
+    #    return False
     
-    # Compute the size of the area and quit if it is too big to handle
-    size = ee_lake.geometry().area(10).getInfo() / 1000000 # Convert answer to square kilometers
-    if size > MAX_LAKE_SIZE:
-        print name + ' is too large, skipping it.'
-        addLakeToBadList(name, output_directory)
-        return False
+    ## Compute the size of the area and quit if it is too big to handle
+    #size = ee_lake.geometry().area(10).getInfo() / 1000000 # Convert answer to square kilometers
+    #if size > MAX_LAKE_SIZE:
+    #    print name + ' is too large, skipping it.'
+    #    addLakeToBadList(name, output_directory)
+    #    return False
     
 
     # Take the lake boundary and expand it out in all directions by 1000 meters
@@ -284,11 +284,11 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
         all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").filterMetadata(u'LAKE_NAME', u'equals', args.lake).toList(1000000)
         if not all_lakes:
             raise Exception('Failed to find user specified lake name!')
-    else:
-        all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").toList(args.max_lakes)
-             #.filterMetadata(u'AREA_SKM', u'less_than', 300.0).toList(100000)#.filterMetadata(
-             #u'LAT_DEG', u'less_than',   42.02).filterMetadata( u'LAT_DEG', u'greater_than', 32.55).filterMetadata(
-             #u'LONG_DEG', u'less_than', -114.04).filterMetadata(u'LONG_DEG', u'greater_than', -125.29).toList(args.max_lakes)
+    else: 
+        all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").filterMetadata(
+                        u'AREA_SKM', u'less_than', MAX_LAKE_SIZE).filterMetadata(
+                        u'LAT_DEG',  u'less_than',     MAX_LATITUDE).filterMetadata(
+                        u'LAT_DEG',  u'greater_than', -MAX_LATITUDE).toList(args.max_lakes)
         #pprint(ee.Feature(all_lakes.get(0)).getInfo())
     
     # Fetch ee information for all of the lakes we loaded from the database
@@ -305,9 +305,9 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
     num_threads = args.num_threads
     if num_lakes < num_threads:
         num_threads = num_lakes
-    #print 'Spawning ' + str(num_threads) + ' worker thread(s)'
-    #pool    = multiprocessing.Pool(processes=num_threads)
-    #manager = multiprocessing.Manager()
+    print 'Spawning ' + str(num_threads) + ' worker thread(s)'
+    pool    = multiprocessing.Pool(processes=num_threads)
+    manager = multiprocessing.Manager()
     
     
     lake_results    = []
@@ -322,21 +322,21 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
         #    if count < SKIP:
         #        continue
 
-        process_lake(all_lakes_local[i], ee_lake, start_date, end_date, args.results_dir, processing_function, logging_class, image_fetching_function)
+        #process_lake(all_lakes_local[i], ee_lake, start_date, end_date, args.results_dir, processing_function, logging_class, image_fetching_function)
         
-        ## Spawn a processing thread for this lake
-        #lake_results.append(pool.apply_async(process_lake, args=(all_lakes_local[i], ee_lake,
-        #                                                         start_date, end_date,
-        #                                                         args.results_dir,
-        #                                                         processing_function, logging_class, image_fetching_function)))
+        # Spawn a processing thread for this lake
+        lake_results.append(pool.apply_async(process_lake, args=(all_lakes_local[i], ee_lake,
+                                                                 start_date, end_date,
+                                                                 args.results_dir,
+                                                                 processing_function, logging_class, image_fetching_function)))
         
-    ## Wait until all threads have finished
-    #print 'Waiting for all threads to complete...'
-    #for r in lake_results:
-    #    r.get()
-    #
-    ## Stop the queue and all the threads
-    #print 'Cleaning up...'
-    #pool.close()
-    #pool.join()
+    # Wait until all threads have finished
+    print 'Waiting for all threads to complete...'
+    for r in lake_results:
+        r.get()
+    
+    # Stop the queue and all the threads
+    print 'Cleaning up...'
+    pool.close()
+    pool.join()
 
