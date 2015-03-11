@@ -286,6 +286,8 @@ class MapViewOverlay(object):
         self.vis_params  = vis_params  # EE-style visualization parameters string.
         self.opacity     = 1.0         # Current opacity level for display - starts at 1.0
 
+    def __str__(self):
+        s = 'MapViewOverlay object: ' + self.name
 
 # The map will display a stack of these when you right click on it.
 class MapViewOverlayInfoWidget(QtGui.QWidget):
@@ -398,6 +400,9 @@ class MapViewWidget(QtGui.QWidget):
         This class handles user input, coordinate conversion, and image painting.
         It requests tiles from the TileManager class when it needs them."""
 
+    # Signals are defined here which other widgets can listen in on
+    mapClickedSignal = QtCore.pyqtSignal(int, int) # x and y click coordinates.
+    
     def __init__(self, inputTileManager=None):
         super(MapViewWidget, self).__init__()
         
@@ -424,6 +429,7 @@ class MapViewWidget(QtGui.QWidget):
 
         # The array of overlays are displayed as last on top.
         self.overlays = [MapViewOverlay(inputTileManager, None, 'Google Maps')]
+        #print 'Added base overlay!'
     
     def paintEvent(self, event):
         '''Rasterize each of the tiles on to the output image display'''
@@ -442,6 +448,7 @@ class MapViewWidget(QtGui.QWidget):
     def addOverlay(self, inputTileManager, eeobject, name, show, vis_params):   # pylint: disable=g-bad-name
         """Add an overlay to the map."""
         self.overlays.append(MapViewOverlay(inputTileManager, eeobject, name, show, vis_params))
+        #print 'Added overlay: ' + name
         self.LoadTiles()
 
     def GetViewport(self):
@@ -459,10 +466,14 @@ class MapViewWidget(QtGui.QWidget):
 
     def LoadTiles(self):
         """Refresh the entire map."""
+        #print 'Refreshing the map...'
+        
         # Start with the overlay on top.
         for i, overlay in reversed(list(enumerate(self.overlays))):
             if not overlay.show:
                 continue
+            
+            #print 'Refreshing layer = ' + str(i)
             tile_list = overlay.tileManager.CalcTiles(self.level, self.GetViewport())
             for key in tile_list:
                 overlay.tileManager.getTile(key, functools.partial(
@@ -476,19 +487,31 @@ class MapViewWidget(QtGui.QWidget):
     def CompositeTiles(self, key):
         """Composite together all the tiles in this cell into a single image."""
         composite = None
+        
+        numLayers   = len(self.tiles[key])
+        numOverlays = len(self.overlays)
+        #if numLayers > numOverlays:
+        #    print 'numLayers   = ' + str(numLayers)
+        #    print 'numOverlays = ' + str(numOverlays)
+        
         for layer in sorted(self.tiles[key]):
             image = self.tiles[key][layer]
             if not composite:
                 composite = image.copy()
             else:
                 #composite = Image.blend(composite, image, self.overlays[layer].opacity)#composite.paste(image, (0, 0), image)
-                #try:
-                composite.paste(image, (0, 0), ImageChops.multiply(image.split()[3], ImageChops.constant(image, int(self.overlays[layer].opacity * 255))))
-                #except:
-                #    print 'CompositeTiles Exception caught!'
-                #    print image.split()
-                #    print layer
-                #    print self.overlays
+                #if layer >= len(self.overlays):
+                #    print 'Error coming!'
+                #    print key
+                try:
+                    composite.paste(image, (0, 0), ImageChops.multiply(image.split()[3], ImageChops.constant(image, int(self.overlays[layer].opacity * 255))))
+                except: # TODO: Why do we get errors here after deleting overlays?
+                    pass
+                    #print 'CompositeTiles Exception caught!'
+                    #print image.split()
+                    #print layer
+                    #print self.overlays
+                    #print '========================'
         return composite
 
     def AddTile(self, image, key, overlay, layer):
@@ -505,13 +528,14 @@ class MapViewWidget(QtGui.QWidget):
             layer: The layer number this overlay corresponds to.    Only used
                     for caching purposes.
         """
+
         # This function is called from multiple threads, and
         # could use some synchronization, but it seems to work.
         if self.level == key[0] and overlay.show:   # Don't add late tiles from another level.
             self.tiles[key] = self.tiles.get(key, {})
             self.tiles[key][layer] = image
 
-            newtile = self.CompositeTiles(key)
+            newtile = self.CompositeTiles(key) # Combine all images into a single tile image
             newtile = ImageQt.ImageQt(newtile)
             with self.qttiles_lock:
                 self.qttiles[key] = newtile
@@ -640,7 +664,10 @@ class MapViewWidget(QtGui.QWidget):
     
     def mousePressEvent(self, event):
         """Records the anchor location and sets drag handler."""
-        if event.button() == QtCore.Qt.LeftButton:
+        
+        self.mapClickedSignal.emit(event.x(), event.y()) # Send out clicked signal
+        
+        if event.button() == QtCore.Qt.LeftButton: # Now handle locally
             self.anchor_x = event.x()
             self.anchor_y = event.y()
             event.accept()
@@ -790,10 +817,14 @@ class MapViewWidget(QtGui.QWidget):
 
     def removeFromMap(self, eeobject):
         '''Removes an overlay from the map by matching its EE object'''
+        self.Flush()
         for i in range(len(self.overlays)):
             if self.overlays[i].eeobject == eeobject:
+                #print 'Removing overlay: ' + self.overlays[i].name
                 del self.overlays[i]
-                return
+                break
+        self.LoadTiles()
+        return
 
 
 class TileManager(object):

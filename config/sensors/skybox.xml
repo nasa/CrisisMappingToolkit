@@ -4,7 +4,7 @@
     <bands>
 
         <band>
-            <source><name>b1</name></source>
+            <source><name>b3</name></source>
             <name>Blue</name>
         </band>
         <band>
@@ -12,7 +12,7 @@
             <name>Green</name>
         </band>
         <band>
-            <source><name>b3</name></source>
+            <source><name>b1</name></source>
             <name>Red</name>
         </band>
         

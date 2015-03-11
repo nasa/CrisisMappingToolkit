@@ -35,6 +35,7 @@ Goals for production GUI (Only for Google):
 import functools
 import sys
 import os
+import json
 import ee
 import cmt.domain
 
@@ -60,7 +61,8 @@ LANDSAT_8 = 8
 # Location of the sensor config files
 SENSOR_FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../config/sensors')
 
-# Calendar widget to select a date
+#-----------------------------------------------------------------------------------------------
+
 class DatePickerWidget(QtGui.QWidget):
     '''Simple calendar widget to select a date'''
     def __init__(self, callback):
@@ -75,6 +77,161 @@ class DatePickerWidget(QtGui.QWidget):
 
         self.setLayout(hbox) # Call QT function derived from parent QWidget class
 
+
+class FeatureTrainerWindow(QtGui.QWidget):
+    '''Window to control the selection of class regions in the main image'''
+    def __init__(self, mapWidgetHandle, parent=None):
+        super(FeatureTrainerWindow, self).__init__()
+        
+        # Set up connections to the main map widget
+        self.mapWidgetHandle = mapWidgetHandle
+        self.mapWidgetHandle.mapClickedSignal.connect(self._handleMapClick)
+        
+        # Start with no features
+        self.classDict     = dict() # Class polygon storage
+        self.selectedClass = None   # The name of the currently selected class
+        self.polygonOnMap  = None   # The polygon currently drawn on the map
+        self.lastFilePath  = ''
+    
+        # Set up the controls
+        self.classNameLine     = QtGui.QLineEdit("Class name", self)
+        self.addClassButton    = QtGui.QPushButton('Add New Class',   self)
+        self.deleteClassButton = QtGui.QPushButton('Delete Class',    self)
+        self.saveButton        = QtGui.QPushButton('Save Class File', self)
+        self.loadButton        = QtGui.QPushButton('Load Class File', self)
+        self.undoButton        = QtGui.QPushButton('Undo Last Point', self)
+        self.deselectButton    = QtGui.QPushButton('Deselect Class',  self)
+        self.classListBox   = QtGui.QListWidget()
+        
+        self.addClassButton.clicked.connect(self._addClass)
+        self.deleteClassButton.clicked.connect(self._deleteClass)
+        self.saveButton.clicked.connect(self._saveToFile)
+        self.loadButton.clicked.connect(self._loadFromFile)
+        self.undoButton.clicked.connect(self._undoPoint)
+        self.deselectButton.clicked.connect(self._deselectList)
+        self.classListBox.itemClicked.connect(self._setCurrentClass)
+        
+        # Lay everything out
+        vbox = QtGui.QVBoxLayout(self)
+        vbox.addWidget(self.loadButton)
+        vbox.addWidget(self.saveButton)
+        vbox.addWidget(self.classListBox)
+        vbox.addWidget(self.deselectButton)
+        vbox.addWidget(self.classNameLine)
+        vbox.addWidget(self.addClassButton)
+        vbox.addWidget(self.deleteClassButton)
+        vbox.addWidget(self.undoButton)
+        vbox.addStretch(1)
+        
+        self.setLayout(vbox)
+        
+    def __del__(self):
+        '''Clean up drawings on exit'''
+        self.clearDrawings()
+
+    def _clearDrawings(self):
+        '''Clear anything this window has drawn on the map'''
+        if self.polygonOnMap:
+            self.mapWidgetHandle.removeFromMap(self.polygonOnMap)
+            self.polygonOnMap = None
+
+    def _updateMap(self):
+        '''Updates the map with the current class'''
+
+        self._clearDrawings() # Remove all existing drawings
+        
+        if not self.selectedClass:
+            return
+
+        # Convert from current class to an EE feature
+        coordList = self.classDict[self.selectedClass]
+        if len(coordList) == 0:
+            return # Don't try to draw an empty list
+        if len(coordList) < 3:
+            eeRing = ee.Geometry.LineString(coordList)
+            return
+        else:
+            eeRing = ee.Geometry.LinearRing(coordList)
+
+        # Add the feature to the map
+        fc = ee.FeatureCollection(ee.Feature(eeRing))
+        polyImage = ee.Image().byte().paint(fc, 0, 4)
+        self.polygonOnMap = polyImage
+        self.mapWidgetHandle.addToMap(polyImage, {}, self.selectedClass, True)
+
+    def _setCurrentClass(self, current):
+        '''Handle when a class name is clicked in the list'''
+        self.selectedClass = str(current.text())
+        self._updateMap()
+        
+    def _deselectList(self):
+        '''Deselect all items in the class list'''
+        for i in range(self.classListBox.count()):
+            item = self.classListBox.item(i)
+            self.classListBox.setItemSelected(item, False)
+        self.selectedClass = None
+        self._updateMap()
+    
+    def _repopulateList(self):
+        '''Reset the list after loading a file'''
+        self.classListBox.clear()
+        for k in self.classDict:
+            self.classListBox.addItem(k)
+        
+        
+    def _addClass(self):
+        '''Add a new class to the list'''
+        className = str(self.classNameLine.text())
+        if className in self.classDict: # Ensure that the class name is unique
+            print 'A class with this name already exists!'
+            return
+        self.classDict[className] = []
+        self.classListBox.addItem(className)
+
+    def _deleteClass(self):
+        '''Remove class from the list'''
+        if not self.selectedClass:
+            print 'No class selected!'
+        className = self.selectedClass
+        for item in self.classListBox.selectedItems():
+            self.classListBox.takeItem(self.classListBox.row(item))
+        self.classDict.pop(className, None) # Remove from our list
+        self._deselectList()
+    
+    
+    def _saveToFile(self):
+        '''Write the class list to a JSON formatted text file'''
+        path = str(QtGui.QFileDialog.getSaveFileName(self, 'Save File', '', '*.json'))
+        #self.lastFilePath = path
+        print str(self.classDict)
+        with open(path, 'w') as f:
+            json.dump(self.classDict, f)
+        print 'Saved file ' + path
+    
+    def _loadFromFile(self):
+        '''Load a class list from a JSON formatted text file'''
+        path = str(QtGui.QFileDialog.getOpenFileName(self, 'Open File', '', '*.json'))
+        #self.lastFilePath = path
+        with open(path, 'r') as f:
+            self.classDict = json.load(f)
+        print 'Loaded file ' + path
+        print self.classDict
+        self._repopulateList()
+        self._updateMap()
+        
+    def _handleMapClick(self, x, y):
+        '''When the map is clicked, add the point to the currently selected class'''
+        if self.selectedClass:
+            newCoord = self.mapWidgetHandle.pixelCoordToLonLat(x, y)
+            self.classDict[self.selectedClass].append(newCoord)
+            self._updateMap()
+    
+    def _undoPoint(self):
+        '''Remove the last point of the currently selected class'''
+        if self.selectedClass:
+            self.classDict[self.selectedClass].pop()
+            self._updateMap()
+            
 
 class FloodDetectParams:
     '''Stores the parameters used by the flood detection algorithm'''    
@@ -108,10 +265,11 @@ class ProductionGui(QtGui.QMainWindow):
         self.guestImage     = None # A manually loaded image
         self.eeFunction     = None # Flood detection results TODO: Rename variable!
         self.landsatType    = None # One of the types at the top of the file
+        self.classWindow    = None # Handle for class training window
         
         # Now set up all the GUI stuff!
         QtGui.QWidget.__init__(self, parent)
-        self.mapWidget = MapViewWidget()
+        self.mapWidget  = MapViewWidget()
         
         # Set up all the components in a vertical layout
         vbox = QtGui.QVBoxLayout()
@@ -120,7 +278,7 @@ class ProductionGui(QtGui.QMainWindow):
         topHorizontalBox = QtGui.QHBoxLayout()
         
         TOP_BUTTON_HEIGHT = 30
-        TOP_LARGE_BUTTON_WIDTH  = 200
+        TOP_LARGE_BUTTON_WIDTH  = 150
         TOP_SMALL_BUTTON_WIDTH  = 100
         
         # Add a date selector to the top row of widgets
@@ -155,11 +313,18 @@ class ProductionGui(QtGui.QMainWindow):
         topHorizontalBox.addWidget(self.loadFloodButton1)
 
         # Add a "Load ME Image" button to the top row of widgets
-        self.loadMeImage = QtGui.QPushButton('Load ME Image', self)
-        self.loadMeImage.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.loadMeImage.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.loadMeImage.clicked[bool].connect(self._loadMapsEngineImage)
-        topHorizontalBox.addWidget(self.loadMeImage)
+        self.loadMeImageButton = QtGui.QPushButton('Load ME Image', self)
+        self.loadMeImageButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadMeImageButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.loadMeImageButton.clicked[bool].connect(self._loadMapsEngineImage)
+        topHorizontalBox.addWidget(self.loadMeImageButton)
+
+        # Add a "Open Class Trainer" button to the top row of widgets
+        self.openTrainerButton = QtGui.QPushButton('Open Class Trainer', self)
+        self.openTrainerButton.setMinimumSize(TOP_LARGE_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.openTrainerButton.setMaximumSize(TOP_LARGE_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
+        self.openTrainerButton.clicked[bool].connect(self._openClassTrainer)
+        topHorizontalBox.addWidget(self.openTrainerButton)
 
         # Add a "Clear All" button to the top row of widgets
         self.clearButton = QtGui.QPushButton('Clear Map', self)
@@ -168,18 +333,11 @@ class ProductionGui(QtGui.QMainWindow):
         self.clearButton.clicked[bool].connect(self._unloadCurrentImages)
         topHorizontalBox.addWidget(self.clearButton)
 
-        # Add an "About" button containing legal information
-        self.aboutButton = QtGui.QPushButton('About', self)
-        self.aboutButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.aboutButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        self.aboutButton.clicked[bool].connect(self._showAboutText)
-        topHorizontalBox.addWidget(self.aboutButton)
-
         # Add the row of widgets on the top of the GUI
         vbox.addLayout(topHorizontalBox)
         # Add the main map widget
         vbox.addWidget(self.mapWidget)
-        
+                
         # Set up a horizontal box below the map
         bottomHorizontalBox = QtGui.QHBoxLayout()
         # On the left side is a vertical box for the parameter controls
@@ -220,6 +378,10 @@ class ProductionGui(QtGui.QMainWindow):
         self.setWindowTitle('EE Flood Detector Tool')
         self.show()
 
+    def closeEvent(self, event):
+        '''Cleanup all other windows'''
+        if self.classWindow:
+            self.classWindow.close()
 
     def _addParamSlider(self, name, maxVal, minVal, defaultVal, container):
         '''Adds a single parameter slider to the passed in container.'''
@@ -257,6 +419,15 @@ class ProductionGui(QtGui.QMainWindow):
         container.addLayout(hbox)
         return container
     
+    
+    def _openClassTrainer(self):
+        '''Open a new window to define classifier training regions'''
+        # Create the class trainer window and connect it to the map widget
+        if not self.classWindow:
+            self.classWindow = FeatureTrainerWindow(self.mapWidget)
+            self.classWindow.show()
+        
+        
 
     def _unloadCurrentImages(self):
         '''Just unload all the current images. Low level function'''
@@ -304,7 +475,7 @@ class ProductionGui(QtGui.QMainWindow):
             self.radioButtons[0].setChecked(True)
             
             # Set up the other controls
-            self.lineIn       = QtGui.QLineEdit("Enter Earth Engine ID")
+            self.lineIn       = QtGui.QLineEdit("GME/images/00979750194450688595-02912990955588156238")#QtGui.QLineEdit("Earth Engine ID")
             self.okButton     = QtGui.QPushButton('Ok',     self)
             self.cancelButton = QtGui.QPushButton('Cancel', self)            
             self.okButton.clicked.connect(self.accept)
@@ -318,7 +489,6 @@ class ProductionGui(QtGui.QMainWindow):
             vbox.addWidget(self.okButton)
             vbox.addWidget(self.cancelButton)
             vbox.addStretch(1)
-            #groupBox.setLayout(vbox)
         
         def getValues(self):
             '''Return the selected values'''
@@ -327,7 +497,6 @@ class ProductionGui(QtGui.QMainWindow):
                     return (str(button.text()), str(self.lineIn.text()))
             raise Exception('GUI buttons are broken!')
         
-# GME/images/18108519531116889794-15007110928626476628
     def _loadMapsEngineImage(self):
         '''Loads in an image stored in Google Maps Engine'''
     
