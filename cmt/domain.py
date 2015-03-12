@@ -349,7 +349,6 @@ class SensorObservation(object):
         if not os.path.exists(sensor_xml_path):
             raise Exception('Could not find sensor file: ' + sensor_xml_path)
         # Load the XML and recursively call this function to parse it
-        print 'Reading file: ' + sensor_xml_path
         xml_root = ET.parse(sensor_xml_path).getroot()
         self._load_xml(xml_root, False, manual_ee_ID)
         #print 'Finished loading sensor file -----------------------'
@@ -446,6 +445,7 @@ class Domain(object):
         self.center           = None      # Center of the bounding box.
         self.ground_truth     = None      # Ground truth image.
         self.training_domain  = None      # Another domain used only for training.
+        self.unflooded_domain = None      # An unflooded historical domain used only for training.
         self.algorithm_params = {}        # Dictionary of algorithm parameters
         self.sensor_list      = []        # Contains a SensorObservation object for each related sensor.
         
@@ -537,6 +537,14 @@ class Domain(object):
                 if not os.path.exists(training_file_xml_path):
                     raise Exception('Training file not found: ' + training_file_xml_path)
                 self.training_domain = Domain(training_file_xml_path, True)
+            
+            unflooded_training_domain = root.find('unflooded_training_domain')
+            if unflooded_training_domain != None:
+                sensor_domain_folder = os.path.dirname(xml_file) # Look in the same directory as the primary xml file
+                training_file_xml_path = os.path.join(sensor_domain_folder, unflooded_training_domain.text + '.xml')
+                if not os.path.exists(training_file_xml_path):
+                    raise Exception('Training file not found: ' + training_file_xml_path)
+                self.unflooded_domain = Domain(training_file_xml_path, True)
                 
             # Load any algorithm params
             algorithm_params = root.find('algorithm_params')

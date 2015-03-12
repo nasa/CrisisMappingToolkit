@@ -279,10 +279,10 @@ def getAlgorithmList():
     '''Return the list of available algorithms'''
 
     # Code, name, recompute_all_results?
-    algorithmList = [(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold',  KEEP),
+    algorithmList = [#(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold',  KEEP),
                      (cmt.modis.flood_algorithms.EVI                , 'EVI',            KEEP),
                      (cmt.modis.flood_algorithms.XIAO               , 'XIAO',           KEEP),
-                     (cmt.modis.flood_algorithms.DIFFERENCE         , 'Difference',     KEEP),
+                     (cmt.modis.flood_algorithms.DIFF_LEARNED       , 'Difference',     KEEP),
                      (cmt.modis.flood_algorithms.CART               , 'CART',           KEEP),
                      (cmt.modis.flood_algorithms.SVM                , 'SVM',            KEEP),
                      (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', KEEP ),
@@ -291,8 +291,8 @@ def getAlgorithmList():
                      #(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM',  KEEP),
                      (cmt.modis.flood_algorithms.DNNS_DIFF          , 'DNNS Diff',      KEEP),
                      (cmt.modis.flood_algorithms.DNNS_DIFF_DEM      , 'DNNS Diff DEM',  KEEP),
-                     (cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP), # TODO: May need auto-thresholds!
-                     (cmt.modis.flood_algorithms.DARTMOUTH          , 'Dartmouth',      KEEP),
+                     #(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP), # TODO: May need auto-thresholds!
+                     (cmt.modis.flood_algorithms.DART_LEARNED       , 'Dartmouth',      KEEP),
                      (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  KEEP) ]
 
     return algorithmList
@@ -406,11 +406,9 @@ def processing_function(bounds, image, image_date, logger):
     trainingDomain.bounds             = bounds
     trainingDomain.add_dem(bounds)
     fakeDomain.training_domain        = trainingDomain
+    fakeDomain.unflooded_domain       = trainingDomain # learn parameters from this
     
-    # Finally, compute a set of algorithm parameters for this image
-    # - We use the training image and the water mask to estimate good values where possible.
-    fakeDomain.algorithm_params = cmt.modis.flood_algorithms.compute_algorithm_parameters(trainingDomain)
-
+    fakeDomain.algorithm_params = {'modis_mask_threshold' : 4.5, 'modis_change_threshold' : -3.0}
 
     # Loop through each algorithm
     for a in algorithmList:

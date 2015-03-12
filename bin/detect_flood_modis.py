@@ -42,15 +42,11 @@ import cmt.util.evaluation
 Tool for testing MODIS based flood detection algorithms using a simple GUI.
 '''
 
-
 # --------------------------------------------------------------
 # Configuration
 
-# Specify the data set to use - see /modis/domains.py
-#DOMAIN = modis.domains.BORDER
-
 # Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
-ALGORITHMS = [DARTMOUTH, DIFFERENCE, DEM_THRESHOLD, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
+ALGORITHMS = [DARTMOUTH, DART_LEARNED, DIFFERENCE, DIFF_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
 
 # --------------------------------------------------------------
 # Functions
@@ -79,19 +75,8 @@ if len(sys.argv) < 2:
 
 cmt.ee_authenticate.initialize()
 
-
 # Fetch data set information
 domain = cmt.domain.Domain(sys.argv[1])
-
-#try: # Automatically compute parameters for these algorithms
-computed_params = compute_algorithm_parameters(domain.training_domain)
-domain.algorithm_params['modis_diff_threshold'] = computed_params['modis_diff_threshold'  ]
-domain.algorithm_params['dartmouth_threshold' ] = computed_params['dartmouth_threshold'   ]
-domain.algorithm_params['dem_threshold'       ] = computed_params['dem_threshold'         ]
-print 'Using computed parameters for several algorithms'
-#except:
-#    print 'Failed to automatically compute algorithm parameters'
-#    pass
 
 # Display the Landsat and MODIS data for the data set
 visualizeDomain(domain)

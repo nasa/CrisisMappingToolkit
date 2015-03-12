@@ -41,6 +41,8 @@ MARTINIS_TREE      = 13
 SKYBOX_ASSIST      = 14
 DNNS_DIFF          = 15
 DNNS_DIFF_DEM      = 16
+DIFF_LEARNED       = 17
+DART_LEARNED       = 18
 
 def compute_modis_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
@@ -122,8 +124,8 @@ def compute_binary_threshold(valueImage, classification, bounds, mixed_threshold
     valueInTrue    = valueImage.mask(classification)
     NUM_BINS       = 128
     SCALE          = 250 # In meters
-    histogramFalse = valueInFalse.reduceRegion(ee.Reducer.histogram(NUM_BINS, None, None), bounds, SCALE).getInfo()['sur_refl_b02']
-    histogramTrue  = valueInTrue.reduceRegion( ee.Reducer.histogram(NUM_BINS, None, None), bounds, SCALE).getInfo()['sur_refl_b02']
+    histogramFalse = valueInFalse.reduceRegion(ee.Reducer.histogram(NUM_BINS, None, None), bounds, SCALE).getInfo()['b1']
+    histogramTrue  = valueInTrue.reduceRegion( ee.Reducer.histogram(NUM_BINS, None, None), bounds, SCALE).getInfo()['b1']
     
     # Get total number of pixels in each histogram
     false_total = sum(histogramFalse['histogram'])
@@ -183,46 +185,12 @@ def compute_binary_threshold(valueImage, classification, bounds, mixed_threshold
             (threshold, true_sum / true_total * 100.0, false_sum / false_total * 100.0)
         return threshold
 
-def compute_algorithm_parameters(training_domain):
-    '''Compute algorithm parameters from a classified training image'''
-    
-    # Unfortunately we need to recreate some of algorithm code here
-    b         = compute_modis_indices(training_domain)
-    bounds    = training_domain.bounds
-    truthMask = training_domain.ground_truth
-    
-    modisDiff    = b['b2'].subtract(b['b1'])
-    dartmouthVal = b['b2'].add(500).divide(b['b1'].add(2500))
-    demHeight    = training_domain.get_dem().image
-    
-    # These values are computed by comparing the algorithm output in land/water regions
-    # - To be passed in to the threshold function a consistent band name is needed
-    algorithm_params = dict()
-    algorithm_params['modis_diff_threshold'   ] = compute_binary_threshold(modisDiff,    truthMask, bounds)
-    algorithm_params['dartmouth_threshold'    ] = compute_binary_threshold(dartmouthVal, truthMask, bounds)
-    algorithm_params['dem_threshold'          ] = compute_binary_threshold(demHeight.select(['elevation'], ['sur_refl_b02']), truthMask, bounds)
-    algorithm_params['modis_diff_mixed_window'] = compute_binary_threshold(modisDiff,    truthMask, bounds, True)
-    
-    # TODO: It would be much more accurate to compute these!
-    # These would be tougher to compute so we just use some general purpose values
-    algorithm_params['modis_mask_threshold'  ] =  4.5
-    algorithm_params['modis_change_threshold'] = -3.0
-
-    print 'Computed the following algorithm parameters: '
-    print algorithm_params
-    
-    return algorithm_params
-
-
-
 def dem_threshold(domain, b):
     '''Just use a height threshold on the DEM!'''
 
     heightLevel = float(domain.algorithm_params['dem_threshold'])
     dem         = domain.get_dem().image
     return dem.lt(heightLevel).select(['elevation'], ['b1'])
-
-
 
 def evi(domain, b):
     '''Simple EVI based classifier'''
@@ -250,6 +218,20 @@ def floating_algae_index(domain, b):
     FAI = b['b2'].subtract(b['b1'].add(b['b5'].subtract(b['b1']).multiply((859.0 - 645) / (1240 - 645))))
     return FAI
 
+def get_permanent_water_mask():
+    return ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
+
+def get_diff(b):
+    return b['b2'].subtract(b['b1']).select(['sur_refl_b02'], ['b1'])
+
+
+def diff_learned(domain, b):
+    unflooded_b = compute_modis_indices(domain.unflooded_domain)
+    water_mask = get_permanent_water_mask()
+    
+    threshold = compute_binary_threshold(get_diff(unflooded_b), water_mask, domain.bounds)
+    return modis_diff(domain, b, threshold)
+
 def modis_diff(domain, b, threshold=None):
     '''Compute (b2-b1) < threshold, a simple water detection index.
     
@@ -257,7 +239,7 @@ def modis_diff(domain, b, threshold=None):
     '''
     if threshold == None: # If no threshold value passed in, load it based on the data set.
         threshold = float(domain.algorithm_params['modis_diff_threshold'])
-    return b['b2'].subtract(b['b1']).lte(threshold).select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
+    return get_diff(b).lte(threshold)
 
 
 def _create_learning_image(domain, b):
@@ -381,7 +363,10 @@ def dnns(domain, b, use_modis_diff=False):
     # Use CART classifier to divide pixels up into water, land, and mixed.
     # - Mixed pixels are just low probability water/land pixels.
     if use_modis_diff:
-        thresholds = domain.algorithm_params['modis_diff_mixed_window']
+        unflooded_b = compute_modis_indices(domain.unflooded_domain)
+        water_mask = get_permanent_water_mask()
+        thresholds = compute_binary_threshold(get_diff(unflooded_b), water_mask, domain.bounds, True)
+
         pureWater = modis_diff(domain, b, thresholds[0])
         pureLand = modis_diff(domain, b, thresholds[1]).Not()
         mixed = pureWater.Or(pureLand).Not()
@@ -624,17 +609,26 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
 
 
 
+def get_dartmouth(b):
+    A = 500
+    B = 2500
+    return b['b2'].add(A).divide(b['b1'].add(B)).select(['sur_refl_b02'], ['b1'])
 
+def dart_learned(domain, b):
+    unflooded_b = compute_modis_indices(domain.unflooded_domain)
+    water_mask = get_permanent_water_mask()
+    
+    threshold = compute_binary_threshold(get_dartmouth(unflooded_b), water_mask, domain.bounds)
+    return dartmouth(domain, b, threshold)
 
-def dartmouth(domain, b):
+def dartmouth(domain, b, threshold=None):
     '''A flood detection method from the Dartmouth Flood Observatory.
     
         This method is a refinement of the simple b2-b1 detection method.
     '''
-    A = 500
-    B = 2500
-    dartmouth_threshold = float(domain.algorithm_params['dartmouth_threshold'])
-    return b['b2'].add(A).divide(b['b1'].add(B)).lte(dartmouth_threshold).select(['sur_refl_b02'], ['b1'])
+    if threshold == None:
+        threshold = float(domain.algorithm_params['dartmouth_threshold'])
+    return get_dartmouth(b).lte(threshold)
 
 
 # This algorithm is not too different from the corrected DNNS algorithm.
@@ -974,6 +968,7 @@ __ALGORITHMS = {
         EVI                : ('EVI',                     evi,            False, 'FF00FF'),
         XIAO               : ('XIAO',                    xiao,           False, 'FFFF00'),
         DIFFERENCE         : ('Difference',              modis_diff,     False, '00FFFF'),
+        DIFF_LEARNED       : ('Diff. Learned',           diff_learned,   False, '00FFFF'),
         CART               : ('CART',                    cart,           False, 'CC6600'),
         SVM                : ('SVM',                     svm,            False, 'FFAA33'),
         RANDOM_FORESTS     : ('Random Forests',          random_forests, False, 'CC33FF'),
@@ -984,6 +979,7 @@ __ALGORITHMS = {
         DNNS_DIFF_DEM      : ('DNNS Diff with DEM',      dnns_diff_dem,  False, '9900FF'),
         DIFFERENCE_HISTORY : ('Difference with History', history_diff,   False, '0099FF'),
         DARTMOUTH          : ('Dartmouth',               dartmouth,      False, '33CCFF'),
+        DART_LEARNED       : ('Dartmouth Learned',       dart_learned,   False, '33CCFF'),
         DEM_THRESHOLD      : ('DEM Threshold',           dem_threshold,  False, 'FFCC33'),
         MARTINIS_TREE      : ('Martinis Tree',           martinis_tree,  False, 'CC0066'),
         SKYBOX_ASSIST      : ('Skybox Assist',           skyboxAssist,   False, '00CC66')
