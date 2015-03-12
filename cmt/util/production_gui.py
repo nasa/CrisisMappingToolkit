@@ -65,10 +65,12 @@ SENSOR_FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../
 
 class DatePickerWidget(QtGui.QWidget):
     '''Simple calendar widget to select a date'''
-    def __init__(self, callback):
+    def __init__(self, callback, start_date):
         super(DatePickerWidget, self).__init__()
         
         self.datePicker = QtGui.QCalendarWidget(self)
+        if start_date != None:
+            self.datePicker.setSelectedDate(start_date)
         self.datePicker.clicked.connect(callback)
 
         # Set up all the components in a box layout
@@ -254,6 +256,7 @@ class ProductionGui(QtGui.QMainWindow):
     def __init__(self, parent=None):
         # First set up the flood detection stuff
         self.detectParams = FloodDetectParams()
+        self.qtDate         = None # Date of the flood to analyze.
         self.floodDate      = None # Date of the flood to analyze.
         self.lowResModis    = None # 250m MODIS image on the date.
         self.highResModis   = None # 500m MODIS image on the date.
@@ -761,6 +764,7 @@ class ProductionGui(QtGui.QMainWindow):
         
     def _setDate(self, date):
         '''Sets the current date'''
+        self.qtDate = date
         self.floodDate = ee.Date.fromYMD(date.year(), date.month(), date.day()) # Load into an EE object
         self.dateButton.setText(date.toString('yyyy/MM/dd')) # Format for humans to read
         
@@ -775,7 +779,7 @@ class ProductionGui(QtGui.QMainWindow):
         '''Pop up a little calendar window so the user can select a date'''
         menu   = QtGui.QMenu(self)
         action = QtGui.QWidgetAction(menu)
-        item   = DatePickerWidget(self._setDate) # Pass in callback function
+        item   = DatePickerWidget(self._setDate, self.qtDate) # Pass in callback function
         action.setDefaultWidget(item)
         menu.addAction(action)
         menu.popup(QtGui.QCursor.pos())
