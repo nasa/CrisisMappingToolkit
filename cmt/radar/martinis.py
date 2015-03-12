@@ -69,7 +69,7 @@ def getBoundingBox(bounds):
             maxLat = c[1]
     return (minLon, minLat, maxLon, maxLat)
 
-def divideUpBounds(bounds, boxSizeMeters):
+def divideUpBounds(bounds, boxSizeMeters, maxBoxesPerSide):
     '''Divides up a single boundary into a grid based on a grid size in meters'''
 
     # Get the four corners of the box and side widths in meters
@@ -85,7 +85,12 @@ def divideUpBounds(bounds, boxSizeMeters):
     # Determine the number of boxes
     numBoxesX = int(math.ceil(width  / boxSizeMeters))
     numBoxesY = int(math.ceil(height / boxSizeMeters))
-    print 'Using ' + str(numBoxesX*numBoxesY) + ' boxes'
+    if numBoxesX > maxBoxesPerSide:
+        numBoxesX = maxBoxesPerSide
+    if numBoxesY > maxBoxesPerSide:
+        numBoxesY = maxBoxesPerSide
+    boxSizeMeters = ((width/numBoxesX) + (height/numBoxesY)) / 2
+    print 'Using ' + str(numBoxesX*numBoxesY) + ' boxes of size ' + str(boxSizeMeters)
     
     # Now compute the box boundaries in degrees
     boxWidthLon  = (maxLon - minLon) / numBoxesX
@@ -101,7 +106,7 @@ def divideUpBounds(bounds, boxSizeMeters):
             #print boxBounds
             boxList.append(boxBounds)
 
-    return boxList
+    return boxList, boxSizeMeters
     
   
 def getBoundsCenter(bounds):
@@ -185,7 +190,7 @@ def applyCutlerLinearLogScale(grayImage, roi):
     
     return scaledImage
 
-def sar_martinis(domain, cr_method=False):
+def sar_martinis(domain, cr_method=True):
     '''Compute a global threshold via histogram splitting on selected subregions'''
     
     sensor     = domain.get_radar()
@@ -196,16 +201,18 @@ def sar_martinis(domain, cr_method=False):
     # 1: Divide up the image into a grid of tiles, X
     
     # Divide up the region into a grid of subregions
-    BOX_SIZE_METERS = 3000
-    boxList  = divideUpBounds(domain.bounds, BOX_SIZE_METERS)
+    MAX_BOXES_PER_SIDE = 12 # Cap the number of boxes at 144
+    DESIRED_BOX_SIZE_METERS = 3000
+    boxList, boxSizeMeters  = divideUpBounds(domain.bounds, DESIRED_BOX_SIZE_METERS, MAX_BOXES_PER_SIDE)
     
     # Extract the center point from each box
     centersList = map(getBoundsCenter, boxList)
     
     # SENTINEL = 12m/pixel
-    METERS_PER_PIXEL = 200
+    KERNEL_SIZE = 13 # Each box will be covered by a 13x13 pixel kernel
+    metersPerPixel = boxSizeMeters / KERNEL_SIZE
+    print 'Using metersPerPixel: ' + str(metersPerPixel)
     
-    KERNEL_SIZE = 13 # <-- TODO!!! The kernel needs to be the size of a box
     avgKernel   = ee.Kernel.square(KERNEL_SIZE, 'pixels', True); # <-- EE fails if this is in meters!
 
     # Select the radar layer we want to work in
@@ -221,7 +228,7 @@ def sar_martinis(domain, cr_method=False):
     
     
     # Compute the global mean, then make a constant image out of it.
-    globalMean      = grayLayer.reduceRegion(ee.Reducer.mean(), domain.bounds, METERS_PER_PIXEL)
+    globalMean      = grayLayer.reduceRegion(ee.Reducer.mean(), domain.bounds, metersPerPixel)
     globalMeanImage = ee.Image.constant(globalMean.getInfo()[channelName])
     
     print 'global mean = ' + str(globalMean.getInfo()[channelName])
@@ -242,8 +249,8 @@ def sar_martinis(domain, cr_method=False):
     addToMap(stdImage,  {'min': 0, 'max': 40,       'opacity': 1.0, 'palette': GRAY_PALETTE}, 'StdDev', False)
         
     # Compute these two statistics across the entire image
-    CV = meanImage.divide(stdImage).reproject(       "EPSG:4326", None, METERS_PER_PIXEL)
-    R  = meanImage.divide(globalMeanImage).reproject("EPSG:4326", None, METERS_PER_PIXEL)
+    CV = meanImage.divide(stdImage).reproject(       "EPSG:4326", None, metersPerPixel)
+    R  = meanImage.divide(globalMeanImage).reproject("EPSG:4326", None, metersPerPixel)
     
     
     # 2: Prune to a reduced set of tiles X'
@@ -263,8 +270,8 @@ def sar_martinis(domain, cr_method=False):
         MIN_CR = 0.10
     
         # sar_griefeneder reccomends replacing CV with CR = (std / gray value range), min value 0.05
-        imageMin  = grayLayer.reduceRegion(ee.Reducer.min(), domain.bounds, METERS_PER_PIXEL).getInfo()[channelName]
-        imageMax  = grayLayer.reduceRegion(ee.Reducer.max(), domain.bounds, METERS_PER_PIXEL).getInfo()[channelName]
+        imageMin  = grayLayer.reduceRegion(ee.Reducer.min(), domain.bounds, metersPerPixel).getInfo()[channelName]
+        imageMax  = grayLayer.reduceRegion(ee.Reducer.max(), domain.bounds, metersPerPixel).getInfo()[channelName]
         grayRange = imageMax - imageMin
         CR = stdImage.divide(grayRange)
     
@@ -280,7 +287,7 @@ def sar_martinis(domain, cr_method=False):
         temp = CR.gte(MIN_CR).And(t3).And(t4)
     else:
         temp = t1.And(t2).And(t3).And(t4)
-    X_prime = temp.reproject("EPSG:4326", None, METERS_PER_PIXEL)
+    X_prime = temp.reproject("EPSG:4326", None, metersPerPixel)
     addToMap(X_prime.mask(X_prime),  {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': TEAL_PALETTE}, 'X_prime',  False)
        
     # 3: Prune again to a final set of tiles X''
@@ -309,7 +316,7 @@ def sar_martinis(domain, cr_method=False):
             thisLoc = ee.Geometry.Point(loc[1], loc[0])
         
             # If the mask for this location is invalid, skip this location
-            maskValue = maskWrapper.getRegion(thisLoc, METERS_PER_PIXEL);
+            maskValue = maskWrapper.getRegion(thisLoc, metersPerPixel);
             maskValue = maskValue.getInfo()[1][4] # TODO: Not the best way to grab the value!
             if not maskValue:
                 rejectedPointList.append(thisLoc)
@@ -317,7 +324,7 @@ def sar_martinis(domain, cr_method=False):
         
             # Otherwise pull down all the pixel values surrounding this center point
             
-            pointData = collection.getRegion(thisLoc, METERS_PER_PIXEL)
+            pointData = collection.getRegion(thisLoc, metersPerPixel)
             pixelVals = pointData.getInfo()[1][4:] # TODO: Not the best way to grab the value!
     
             # TODO: Can EE handle making a histogram around this region or do we need to do this ourselves?

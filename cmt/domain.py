@@ -36,9 +36,10 @@ class SensorObservation(object):
         '''Initialize the object from XML data and the desired bounding box'''
                
         # xml_source can be a path to an xml file or a parsed xml object
-        if os.path.isfile(xml_source):
+        try:
+        #if os.path.isfile(xml_source):
             xml_root = ET.parse(xml_source).getroot()
-        else:
+        except:
             xml_root = xml_source
                
         # Public class members
@@ -265,8 +266,8 @@ class SensorObservation(object):
         # This is setting up an EE object, not actually downloading any data from the web.
         
         # Load the bands, combine into image
-        for i in range(len(self.band_names)):
-            thisBandName = self.band_names[i]
+        missingBands = []
+        for thisBandName in self.band_names:
             source       = self._band_sources[thisBandName]
             #print '======================================='
             #print 'Loading band: ' + thisBandName
@@ -278,9 +279,12 @@ class SensorObservation(object):
                 im = ee.Image(source['eeid'])
             elif ('collection' in source) and ('start_date' in source) and ('end_date' in source):
                 # Select a single image from an Earth Engine image collection
-                im = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date']).mean();
+                im = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date']).mean()
             else: # Not enough information was provided!
-                raise Exception('Incomplete source information for band: ' + thisBandName)
+                print 'Warning: Incomplete source information for band: ' + thisBandName
+                #raise Exception('Incomplete source information for band: ' + thisBandName)
+                missingBands.append(thisBandName)
+                continue # Skip this band
                 
             #print im.getInfo()
             sourceBandName = self._getSourceBandName(source, im)
@@ -292,6 +296,10 @@ class SensorObservation(object):
                 self.image = self.image.addBands(band)
             # set band as member variable, e.g., self.__dict__['hv'] is equivalent to self.hv
             self.__dict__[thisBandName] = band
+        # If any bands failed to load, remove them from the band list!
+        for band in missingBands:
+            self.band_names.remove(band)
+            
             
         #print '---------------------------'
         #print self.image.getInfo()
@@ -341,8 +349,9 @@ class SensorObservation(object):
         if not os.path.exists(sensor_xml_path):
             raise Exception('Could not find sensor file: ' + sensor_xml_path)
         # Load the XML and recursively call this function to parse it
-        #print 'Reading file: ' + sensor_xml_path
-        self._load_xml(sensor_xml_path, False, manual_ee_ID)
+        print 'Reading file: ' + sensor_xml_path
+        xml_root = ET.parse(sensor_xml_path).getroot()
+        self._load_xml(xml_root, False, manual_ee_ID)
         #print 'Finished loading sensor file -----------------------'
 
     def _load_xml(self, xml_root, isDomainFile=False, manual_ee_ID=None):
@@ -358,7 +367,7 @@ class SensorObservation(object):
         self.sensor_name = name.text.lower()
 
         if isDomainFile: # Load the matching sensor XML file first
-            self._load_sensor_xml(self.sensor_name, manual_ee_ID)
+            self._load_sensor_xml_file(self.sensor_name, manual_ee_ID)
 
         # Search for the min and max values of the sensor
         (a, b) = self._load_range(xml_root.find('range'))
@@ -544,7 +553,7 @@ class Domain(object):
         # Load each <sensor> tag seperately
         for sensor_node in sensors.findall('sensor'):
             # Send the sensor node of the domain file for parsing
-            newSensor = SensorObservation(xml_root=sensor_node, ee_bounds=self.bounds,
+            newSensor = SensorObservation(xml_source=sensor_node, ee_bounds=self.bounds,
                                           is_domain_file=True) 
             self.sensor_list.append(newSensor)   # Store the new sensor object
             

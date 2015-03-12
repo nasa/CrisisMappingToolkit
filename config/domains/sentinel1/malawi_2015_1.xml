@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Malawi 2015 Flood, Jan</name>
+    <sensors>
+    
+      <sensor>
+        <name>SRTM90</name>
+      </sensor>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2015-01-21</start_date>
+            <end_date>2015-01-22</end_date>
+          </source>
+        </bands>
+      </sensor>
+
+      <sensor>
+        <name>Sentinel1</name>
+        <bands>
+            <band>
+                <name>vv</name>
+                <source>
+                    <eeid>18108519531116889794-15658084116283052074</eeid>
+                    <name>b1</name>
+                </source>
+            </band>
+        </bands>
+      </sensor>
+
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>35.0793</lon>
+            <lat>-17.7408</lat>
+        </bottomleft>
+        <topright>
+            <lon>35.4337</lon>
+            <lat>-16.723</lat>
+        </topright>
+    </bbox>
+    
+    <truth>18108519531116889794-06852393645150519151</truth>
+   
+    
+</domain>
+
