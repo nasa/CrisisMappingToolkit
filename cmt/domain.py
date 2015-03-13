@@ -18,6 +18,7 @@
 import os
 import xml.etree.ElementTree as ET
 import ee
+import json
 
 # Default search path for domain xml files: [root]/config/domains/[sensor_name]/
 DOMAIN_SOURCE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
@@ -439,15 +440,16 @@ class Domain(object):
         file specific to a sensor type, which can be overridden.'''
     def __init__(self, xml_file, is_training=False):
         
-        self.name             = 'Unnamed' # The name assigned to the domain.
-        self.bbox             = None      # Bounding box of the domain.
-        self.bounds           = None      # Copy of self.bbox in Earth Engine format
-        self.center           = None      # Center of the bounding box.
-        self.ground_truth     = None      # Ground truth image.
-        self.training_domain  = None      # Another domain used only for training.
-        self.unflooded_domain = None      # An unflooded historical domain used only for training.
-        self.algorithm_params = {}        # Dictionary of algorithm parameters
-        self.sensor_list      = []        # Contains a SensorObservation object for each related sensor.
+        self.name              = 'Unnamed' # The name assigned to the domain.
+        self.bbox              = None      # Bounding box of the domain.
+        self.bounds            = None      # Copy of self.bbox in Earth Engine format
+        self.center            = None      # Center of the bounding box.
+        self.ground_truth      = None      # Ground truth image.
+        self.training_domain   = None      # Another domain used only for training.
+        self.unflooded_domain  = None      # An unflooded historical domain used only for training.
+        self.training_features = None      # Training features in EE classifier format
+        self.algorithm_params  = {}        # Dictionary of algorithm parameters
+        self.sensor_list       = []        # Contains a SensorObservation object for each related sensor.
         
 
         # You can also access each sensor as a member variable, e.g. self.uavsar
@@ -489,9 +491,6 @@ class Domain(object):
         print self.sensor_list
         raise LookupError('Unable to find a radar image in domain!')
 
-
-    
-
     def _load_bbox(self, root):
         '''read a bbox, <bbox>'''
         b = None
@@ -506,6 +505,32 @@ class Domain(object):
         if (b[0] > b[2]) or (b[1] > b[3]): # Check that min and max values are properly ordered
             raise Exception("Illegal bounding box values!")
         return b
+
+    def _load_training_json(self, sensor_domain_folder, json_file_name):
+        '''Load in a JSON file containing training features for an EE classifier'''
+        
+        # Load the input file
+        json_file_path       = os.path.join(sensor_domain_folder, json_file_name.text + '.json')
+        print 'Loading JSON training data: ' + json_file_path
+        with open(json_file_path, 'r') as f:
+            feature_dict = json.load(f)
+        if not feature_dict:
+            raise Exception('Failed to read JSON file ' + json_file_path)
+
+        # Convert the data into the desired training format
+        # - The input data is N entries, each containing a polygon of points.
+        # - The output data is ee formatted and classified as either 0 (land) or 1 (water)
+        feature_list = []
+        for key in feature_dict:
+            # Assign as land unless water is in the key name!
+            terrain_code = 0
+            if 'water' in key.lower():
+                terrain_code = 1
+            this_geometry = ee.Geometry.LinearRing(feature_dict[key])
+            this_feature  = ee.Feature(this_geometry, {'classification': terrain_code})
+            feature_list.append(this_feature)
+        
+        self.training_features = ee.FeatureCollection(feature_list)
 
     def _load_xml(self, xml_file, is_training=False):
         '''load an xml file representing a domain or a sensor'''
@@ -527,12 +552,12 @@ class Domain(object):
         self.bounds = apply(ee.geometry.Geometry.Rectangle, self.bbox)
         self.center = ((self.bbox[0] + self.bbox[2]) / 2, (self.bbox[1] + self.bbox[3]) / 2)
         
+        sensor_domain_folder = os.path.dirname(xml_file) # Look in the same directory as the primary xml file
+        
         if not is_training:
             # Try to load the training domain
             training_domain = root.find('training_domain')
             if training_domain != None:
-                #sensor_domain_folder     = os.path.join(DOMAIN_SOURCE_DIR,
-                sensor_domain_folder = os.path.dirname(xml_file) # Look in the same directory as the primary xml file
                 training_file_xml_path = os.path.join(sensor_domain_folder, training_domain.text + '.xml')
                 if not os.path.exists(training_file_xml_path):
                     raise Exception('Training file not found: ' + training_file_xml_path)
@@ -540,7 +565,6 @@ class Domain(object):
             
             unflooded_training_domain = root.find('unflooded_training_domain')
             if unflooded_training_domain != None:
-                sensor_domain_folder = os.path.dirname(xml_file) # Look in the same directory as the primary xml file
                 training_file_xml_path = os.path.join(sensor_domain_folder, unflooded_training_domain.text + '.xml')
                 if not os.path.exists(training_file_xml_path):
                     raise Exception('Training file not found: ' + training_file_xml_path)
@@ -551,7 +575,14 @@ class Domain(object):
             if algorithm_params != None:
                 for child in algorithm_params:
                     self.algorithm_params[child.tag] = child.text
-                
+                    
+        else: # Load certain things only in a training domain
+            
+            # Try to load a training feature JSON file    
+            json_file_name = root.find('training_json')
+            if json_file_name != None:
+                self._load_training_json(sensor_domain_folder, json_file_name)
+        
         
         # Make sure the <sensors> tag is present
         sensors = root.find('sensors')
