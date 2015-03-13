@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Kashmore No Flood</name>
+    
+    <sensors>
+
+      <sensor>
+          <name>SRTM90</name>
+          <range>
+              <minimum>70</minimum>
+              <maximum>120</maximum>
+          </range>
+      </sensor>
+
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2009-08-13</start_date>
+            <end_date>2009-08-14</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>69.5</lon>
+            <lat>28.25</lat>
+        </bottomleft>
+        <topright>
+            <lon>70.1</lon>
+            <lat>28.65</lat>
+        </topright>
+      </bbox>
+
+</domain>
+

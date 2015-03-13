@@ -44,6 +44,7 @@
     
     <truth>18108519531116889794-10343636198137636421</truth>
     <training_domain>bosnia_west_2014_5</training_domain>
+    <unflooded_training_domain>unflooded_bosnia_2013</unflooded_training_domain>
     
     <algorithm_params>
       <modis_diff_threshold>1200</modis_diff_threshold>

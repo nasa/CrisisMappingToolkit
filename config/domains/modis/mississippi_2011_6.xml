@@ -46,7 +46,8 @@
     </bbox>
     
     <truth>18108519531116889794-12921502713420913455</truth>
-    <training_domain>mississippi_2011_5</training_domain>
+    <training_domain>arkansas_city_2011_5</training_domain>
+    <unflooded_training_domain>unflooded_mississippi_2010</unflooded_training_domain>
     
     <algorithm_params>
       <modis_diff_threshold>1150</modis_diff_threshold>

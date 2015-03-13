@@ -48,6 +48,7 @@
     
     <truth>18108519531116889794-14495543923251622067</truth>
     <training_domain>kashmore_north_2010_8</training_domain>
+    <unflooded_training_domain>unflooded_kashmore_2009</unflooded_training_domain>
     
     <algorithm_params>
       <modis_diff_threshold>350</modis_diff_threshold>

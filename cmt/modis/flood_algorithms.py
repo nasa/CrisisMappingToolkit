@@ -226,6 +226,9 @@ def get_diff(b):
 
 
 def diff_learned(domain, b):
+    if domain.unflooded_domain == None:
+        print 'No unflooded training domain provided.'
+        return None
     unflooded_b = compute_modis_indices(domain.unflooded_domain)
     water_mask = get_permanent_water_mask()
     
@@ -615,9 +618,11 @@ def get_dartmouth(b):
     return b['b2'].add(A).divide(b['b1'].add(B)).select(['sur_refl_b02'], ['b1'])
 
 def dart_learned(domain, b):
+    if domain.unflooded_domain == None:
+        print 'No unflooded training domain provided.'
+        return None
     unflooded_b = compute_modis_indices(domain.unflooded_domain)
     water_mask = get_permanent_water_mask()
-    
     threshold = compute_binary_threshold(get_dartmouth(unflooded_b), water_mask, domain.bounds)
     return dartmouth(domain, b, threshold)
 

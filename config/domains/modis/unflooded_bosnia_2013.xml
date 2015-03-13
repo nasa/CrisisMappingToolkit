@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Bosnia Herzegovina No Flood</name>
+    
+    <sensors>
+    
+      <sensor>
+          <name>SRTM90</name>
+      </sensor>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2013-06-14</start_date>
+            <end_date>2014-06-15</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>18.5072</lon>
+            <lat>44.919</lat>
+        </bottomleft>
+        <topright>
+            <lon>18.809</lon>
+            <lat>45.1006</lat>
+        </topright>
+    </bbox>
+  
+</domain>
+

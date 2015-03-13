@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Baghlan 2014 No Flood</name>
+    
+    <sensors>
+
+      <sensor>
+          <name>SRTM90</name>
+          <range>
+              <minimum>430</minimum>
+              <maximum>600</maximum>
+          </range>
+      </sensor>
+
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2013-06-18</start_date>
+            <end_date>2013-06-19</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>68.6824</lon>
+            <lat>36.19</lat>
+        </bottomleft>
+        <topright>
+            <lon>68.8348</lon>
+            <lat>36.3726</lat>
+        </topright>
+    </bbox>
+    
+</domain>
+
