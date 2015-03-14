@@ -37,19 +37,8 @@
         </topright>
     </bbox>
 
-    <truth>18108519531116889794-12711473776610999401</truth>
-    <training_domain>gloucester_2014_10_training</training_domain>
-    
-    <algorithm_params>
-      <modis_diff_threshold>500</modis_diff_threshold>
-      
-      <modis_mask_threshold>3.5</modis_mask_threshold>
-      <modis_change_threshold>-3.5</modis_change_threshold>
-      
-      <dartmouth_threshold>0.50</dartmouth_threshold>
-    </algorithm_params>    
-    
-    
+    <training_json>gloucester_2014_10_training</training_json>
+        
     
 </domain>
 

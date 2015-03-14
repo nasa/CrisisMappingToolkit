@@ -151,7 +151,6 @@ class FeatureTrainerWindow(QtGui.QWidget):
             return # Don't try to draw an empty list
         if len(coordList) < 3:
             eeRing = ee.Geometry.LineString(coordList)
-            return
         else:
             eeRing = ee.Geometry.LinearRing(coordList)
 
@@ -426,8 +425,11 @@ class ProductionGui(QtGui.QMainWindow):
     def _openClassTrainer(self):
         '''Open a new window to define classifier training regions'''
         # Create the class trainer window and connect it to the map widget
+        
         if not self.classWindow:
             self.classWindow = FeatureTrainerWindow(self.mapWidget)
+            self.classWindow.show()
+        else:
             self.classWindow.show()
         
         

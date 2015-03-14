@@ -310,20 +310,38 @@ def _create_learning_image(domain, b):
 def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
     '''Apply EE classifier tool using a ground truth image.'''
     
+    # Training requires a training image plus either ground truth or training features.
+    
     if not domain.training_domain:
         raise Exception('Cannot run classifier algorithm without a training domain!')
-    
     training_domain = domain.training_domain    
     training_image  = _create_learning_image(training_domain, compute_modis_indices(training_domain))
-    args = {
-            'image'             : training_image,
-            'subsampling'       : 0.2, # TODO: Reduce this on failure?
-            'training_image'    : training_domain.ground_truth,
-            'training_band'     : "b1",
-            'training_region'   : training_domain.bounds,
-            'max_classification': 2,
-            'classifier_name'   : classifier_name
-           }
+    if training_domain.training_features:
+        #print 'USING FEATURES'
+        #print training_domain.training_features.getInfo()
+        args = {
+                'training_features' : training_domain.training_features,
+                'training_property' : 'classification',
+                #'crs'               : 'EPSG:32736',
+                #'crs_transform'     : [0.8,0,733605.2,0,-0.8,8117589.2]
+                "crs": "EPSG:4326", # TODO: What to use here???
+                "crs_transform": [8.9831528411952135e-05, 0, -180, 0, -8.9831528411952135e-05, 90],
+               }
+    elif training_domain.ground_truth:
+        args = {
+                'training_image'    : training_domain.ground_truth,
+                'training_band'     : "b1",
+                'training_region'   : training_domain.bounds
+               }
+    else:
+        raise Exception('Cannot run classifier algorithm without a training features or a ground truth!')
+    common_args = {
+                   'image'             : training_image,
+                   'subsampling'       : 0.2, # TODO: Reduce this on failure?
+                   'max_classification': 2,
+                   'classifier_name'   : classifier_name
+                  }
+    args.update(common_args)
     args.update(extra_args)
     classifier = ee.apply("TrainClassifier", args)  # Call the EE classifier
     classified = _create_learning_image(domain, b).classify(classifier).select(['classification'], ['b1']); 
