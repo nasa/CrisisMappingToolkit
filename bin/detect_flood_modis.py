@@ -46,7 +46,7 @@ Tool for testing MODIS based flood detection algorithms using a simple GUI.
 # Configuration
 
 # Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
-ALGORITHMS = [DARTMOUTH, DART_LEARNED, DIFFERENCE, DIFF_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
+ALGORITHMS = [DARTMOUTH, DART_LEARNED, DIFFERENCE, DIFF_LEARNED, FAI, FAI_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
 
 # --------------------------------------------------------------
 # Functions
@@ -88,6 +88,8 @@ addToMap(waterMask.mask(waterMask), {'min': 0, 'max': 1}, 'Permanent Water Mask'
 for a in range(len(ALGORITHMS)):
     # Run the algorithm on the data and get the results
     (alg, result) = detect_flood(domain, ALGORITHMS[a])
+    if result == None:
+        continue
 
     # Get a color pre-associated with the algorithm, then draw it on the map
     color = get_algorithm_color(ALGORITHMS[a])

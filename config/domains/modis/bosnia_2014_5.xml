@@ -54,6 +54,8 @@
       
       <dartmouth_threshold>0.75</dartmouth_threshold>
       
+      <fai_threshold>700</fai_threshold>
+      
       <dem_threshold>79</dem_threshold>
     </algorithm_params>
     

@@ -43,6 +43,8 @@ DNNS_DIFF          = 15
 DNNS_DIFF_DEM      = 16
 DIFF_LEARNED       = 17
 DART_LEARNED       = 18
+FAI                = 19
+FAI_LEARNED        = 20
 
 def compute_modis_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
@@ -52,6 +54,7 @@ def compute_modis_indices(domain):
 
     # Other bands must be used at lower resolution
     band3 = domain.modis.sur_refl_b03 # pBLUE
+    band5 = domain.modis.sur_refl_b05
     band6 = domain.modis.sur_refl_b06 # pSWIR
 
     NDVI = (band2.subtract(band1)).divide(band2.add(band1));
@@ -64,7 +67,7 @@ def compute_modis_indices(domain):
     # Convenience measure
     DVEL = EVI.subtract(LSWI)
 
-    return {'b1': band1, 'b2': band2, 'b3': band3, 'b6': band6,
+    return {'b1': band1, 'b2': band2, 'b3': band3, 'b5' : band5, 'b6': band6,
             'NDVI': NDVI, 'NDWI': NDWI, 'EVI': EVI, 'LSWI': LSWI, 'DVEL': DVEL,
             'pRED': band1, 'pNIR': band2, 'pBLUE': band3, 'pSWIR': band6}
 
@@ -130,7 +133,7 @@ def compute_binary_threshold(valueImage, classification, bounds, mixed_threshold
     # Get total number of pixels in each histogram
     false_total = sum(histogramFalse['histogram'])
     true_total  = sum(histogramTrue[ 'histogram'])
-
+    
     # WARNING: This method assumes that the false histogram is composed of greater numbers than the true histogram!!
     #        : This happens to be the case for the three algorithms we are currently using this for.
     
@@ -153,9 +156,8 @@ def compute_binary_threshold(valueImage, classification, bounds, mixed_threshold
                 (histogramFalse['bucketMin'] + false_index*histogramFalse['bucketWidth'] < x) ):
             false_sum   -= histogramFalse['histogram'][false_index] # Remove the pixels from the current false bin
             false_index += 1 # Move to the next bin of the false histogram
-            
-        # Using the current value of x, compute how many pixels are correctly classified by: (val < x)
-        percent_true_under_thresh  = true_sum/true_total
+    
+        percent_true_under_thresh = true_sum/true_total
         percent_false_over_thresh = false_sum/false_total
             
         if mixed_thresholds:
@@ -164,7 +166,6 @@ def compute_binary_threshold(valueImage, classification, bounds, mixed_threshold
             if upper_mixed_index == None and (true_total - true_sum) / float(false_sum) <= 0.05:
                 upper_mixed_index = i
         else:
-            # Keep increasing the true bin and x until about equal numbers of pixels are misclassified
             if threshold_index == None and (percent_false_over_thresh < percent_true_under_thresh) and (percent_true_under_thresh > 0.5):
                 break
 
@@ -209,21 +210,11 @@ def xiao(domain, b):
     '''
     return b['LSWI'].subtract(b['NDVI']).gte(0.05).Or(b['LSWI'].subtract(b['EVI']).gte(0.05)).select(['sur_refl_b02'], ['b1']);
 
-
-def floating_algae_index(domain, b):
-    ''' Floating Algae Index. Method from paper: Feng, Hu, Chen, Cai, Tian, Gan,
-    Assessment of inundation changes of Poyang Lake using MODIS observations
-    between 2000 and 2010. Remote Sensing of Environment, 2012.
-    '''
-    FAI = b['b2'].subtract(b['b1'].add(b['b5'].subtract(b['b1']).multiply((859.0 - 645) / (1240 - 645))))
-    return FAI
-
 def get_permanent_water_mask():
     return ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
 
 def get_diff(b):
     return b['b2'].subtract(b['b1']).select(['sur_refl_b02'], ['b1'])
-
 
 def diff_learned(domain, b):
     if domain.unflooded_domain == None:
@@ -244,6 +235,27 @@ def modis_diff(domain, b, threshold=None):
         threshold = float(domain.algorithm_params['modis_diff_threshold'])
     return get_diff(b).lte(threshold)
 
+def get_fai(b):
+    return b['b2'].subtract(b['b1'].add(b['b5'].subtract(b['b1']).multiply((859.0 - 645) / (1240 - 645)))).select(['sur_refl_b02'], ['b1'])
+
+def fai_learned(domain, b):
+    if domain.unflooded_domain == None:
+        print 'No unflooded training domain provided.'
+        return None
+    unflooded_b = compute_modis_indices(domain.unflooded_domain)
+    water_mask = get_permanent_water_mask()
+    
+    threshold = compute_binary_threshold(get_fai(unflooded_b), water_mask, domain.bounds)
+    return fai(domain, b, threshold)
+
+def fai(domain, b, threshold=None):
+    ''' Floating Algae Index. Method from paper: Feng, Hu, Chen, Cai, Tian, Gan,
+    Assessment of inundation changes of Poyang Lake using MODIS observations
+    between 2000 and 2010. Remote Sensing of Environment, 2012.
+    '''
+    if threshold == None:
+        threshold = float(domain.algorithm_params['fai_threshold'])
+    return get_fai(b).lte(threshold)
 
 def _create_learning_image(domain, b):
     '''Set up features for the classifier to be trained on: [b2, b2/b1, b2/b1, NDVI, NDWI]'''
@@ -974,6 +986,10 @@ __ALGORITHMS = {
         XIAO               : ('XIAO',                    xiao,           False, 'FFFF00'),
         DIFFERENCE         : ('Difference',              modis_diff,     False, '00FFFF'),
         DIFF_LEARNED       : ('Diff. Learned',           diff_learned,   False, '00FFFF'),
+        DARTMOUTH          : ('Dartmouth',               dartmouth,      False, '33CCFF'),
+        DART_LEARNED       : ('Dartmouth Learned',       dart_learned,   False, '33CCFF'),
+        FAI                : ('Floating Algae',          fai,            False, '3399FF'),
+        FAI_LEARNED        : ('Floating Algae Learned',  fai_learned,    False, '3399FF'),
         CART               : ('CART',                    cart,           False, 'CC6600'),
         SVM                : ('SVM',                     svm,            False, 'FFAA33'),
         RANDOM_FORESTS     : ('Random Forests',          random_forests, False, 'CC33FF'),
@@ -983,8 +999,6 @@ __ALGORITHMS = {
         DNNS_DEM           : ('DNNS with DEM',           dnns_dem,       False, '9900FF'),
         DNNS_DIFF_DEM      : ('DNNS Diff with DEM',      dnns_diff_dem,  False, '9900FF'),
         DIFFERENCE_HISTORY : ('Difference with History', history_diff,   False, '0099FF'),
-        DARTMOUTH          : ('Dartmouth',               dartmouth,      False, '33CCFF'),
-        DART_LEARNED       : ('Dartmouth Learned',       dart_learned,   False, '33CCFF'),
         DEM_THRESHOLD      : ('DEM Threshold',           dem_threshold,  False, 'FFCC33'),
         MARTINIS_TREE      : ('Martinis Tree',           martinis_tree,  False, 'CC0066'),
         SKYBOX_ASSIST      : ('Skybox Assist',           skyboxAssist,   False, '00CC66')
