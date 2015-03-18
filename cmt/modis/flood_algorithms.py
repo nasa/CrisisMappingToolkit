@@ -16,6 +16,7 @@
 # -----------------------------------------------------------------------------
 
 import ee
+import math
 #from domains import *
 
 from cmt.mapclient_qt import addToMap
@@ -45,6 +46,7 @@ DIFF_LEARNED       = 17
 DART_LEARNED       = 18
 FAI                = 19
 FAI_LEARNED        = 20
+EXPERIMENTAL       = 21
 
 def compute_modis_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
@@ -903,7 +905,135 @@ def martinis_tree(domain, b):
 
     return outputFlood.select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
 
+def _create_extended_learning_image(domain, b):
+    #a = get_diff(b).select(['b1'], ['b1'])
+    a = b['b1'].select(['sur_refl_b01'], ['b1'])
+    a = a.addBands(b['b2'].select(['sur_refl_b02'], ['b2']))
+    a = a.addBands(b['b2'].divide(b['b1']).select(['sur_refl_b02'], ['ratio']))
+    a = a.addBands(b['NDVI'].select(['sur_refl_b02'], ['NDVI']))
+    a = a.addBands(b['NDWI'].select(['sur_refl_b01'], ['NDWI']))
+    a = a.addBands(get_diff(b).select(['b1'], ['diff']))
+    a = a.addBands(get_fai(b).select(['b1'], ['fai']))
+    a = a.addBands(get_dartmouth(b).select(['b1'], ['dartmouth']))
+    a = a.addBands(b['LSWI'].subtract(b['NDVI']).subtract(0.05).select(['sur_refl_b02'], ['LSWIminusNDVI']))
+    a = a.addBands(b['LSWI'].subtract(b['EVI']).subtract(0.05).select(['sur_refl_b02'], ['LSWIminusEVI']))
+    a = a.addBands(b['EVI'].subtract(0.3).select(['sur_refl_b02'], ['EVI']))
+    a = a.addBands(b['LSWI'].select(['sur_refl_b02'], ['LSWI']))
+    return a
 
+# binary search to find best threshold
+def __find_optimal_threshold(domains, images, truths, band_name, weights, splits):
+    choices = []
+    for i in range(len(splits) - 1):
+        choices.append((splits[i] + splits[i+1]) / 2)
+    best = None
+    best_value = None
+    for i in range(len(choices)):
+        c = choices[i]
+        flood_and_threshold_sum = sum([weights[i].mask(images[i].select(band_name).lte(c)).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250).getInfo()['constant'] for i in range(len(domains))])
+        ts = [truths[i].multiply(weights[i]).divide(flood_and_threshold_sum).mask(images[i].select(band_name).lte(c)) for i in range(len(domains))]
+        entropies1 = [-ts[i].multiply(ts[i].log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250).getInfo()['b1'] for i in range(len(domains))]# H(Y | X <= c)
+
+        ts = [truths[i].multiply(weights[i]).divide(1 - flood_and_threshold_sum).mask(images[i].select(band_name).gt(c)) for i in range(len(domains))]
+        entropies2 = [-ts[i].multiply(ts[i].log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250).getInfo()['b1'] for i in range(len(domains))]# H(Y | X > c)
+        
+        entropy1 = sum(entropies1)
+        entropy2 = sum(entropies2)
+        gain = (entropy1 * flood_and_threshold_sum + entropy2 * (1 - flood_and_threshold_sum))
+        print c, gain, flood_and_threshold_sum, entropy1, entropy2
+        if best == None or gain < best_value:
+            best = i
+            best_value = gain
+    return (choices[best], best + 1, best_value)
+
+def apply_classifier(image, band, threshold):
+    return image.select(band).lte(threshold).multiply(2).subtract(1)
+
+def adaboost(domain, b, classifier = None):
+    if classifier == None:
+        classifier = [(u'dartmouth', 0.6746916226821668, 0.9545783139872039), (u'b1', 817.4631578947368, -0.23442294410851128), (u'ratio', 3.4957167876866304, -0.20613698036794326), (u'LSWIminusNDVI', -0.18319560006184613, -0.20191291743554216), (u'EVI', 1.2912227247420454, -0.11175138956289551), (u'dartmouth', 0.7919185558963437, 0.09587432900090082), (u'diff', 971.2916666666666, -0.10554565939141827), (u'LSWIminusEVI', -0.06318265061389294, -0.09533981402236558), (u'LSWI', 0.18809171182282547, 0.07057035145131643), (u'LSWI', 0.29177473609507737, -0.10405606800405826), (u'b1', 639.7947368421053, 0.04609306857534169), (u'b1', 550.9605263157895, 0.08536825945329486), (u'LSWI', 0.23993322395895142, 0.0686895188858698), (u'LSWIminusNDVI', -0.2895140352747048, -0.05149197092271741), (u'b2', 1713.761111111111, -0.05044107229585143), (u'b2', 2147.325, 0.08569272886858223), (u'dartmouth', 0.7333050892892552, -0.0658128496826074), (u'LSWI', 0.21401246789088846, 0.047469648515471446), (u'LSWIminusNDVI', -0.34267325288113415, -0.0402902367049306), (u'ratio', 2.382344524011886, -0.03795571511345347), (u'fai', 611.5782694327731, 0.03742837135530962), (u'ratio', 2.9390306558492583, -0.03454143179044789), (u'fai', 925.5945969012605, 0.05054908824123665), (u'diff', 1336.7708333333333, -0.042539270450854885), (u'LSWIminusNDVI', -0.3160936440779195, -0.03518287810525178)]
+    test_image = _create_extended_learning_image(domain, b)
+    total = ee.Image(0).select(['constant'], ['b1'])
+    for c in classifier:
+      total = total.add(test_image.select(c[0]).lte(c[1]).multiply(2).subtract(1).multiply(c[2]))
+    return total.gte(0.0)
+
+def __compute_threshold_ranges(training_domains, training_images, water_masks, bands):
+    band_splits = dict()
+    for band_name in bands:
+      split = None
+      print band_name
+      for i in range(len(training_domains)):
+        ret = training_images[i].select(band_name).mask(water_masks[i]).reduceRegion(ee.Reducer.percentile([20, 80], ['s', 'b']), training_domains[i].bounds, 250).getInfo()
+        s = [ret[band_name + '_s'], ret[band_name + '_b']]
+        if split == None:
+            split = s
+        else:
+            split[0] = min(split[0], s[0])
+            split[1] = max(split[1], s[1])
+      band_splits[band_name] = [split[0], split[1], split[1] + (split[1] - split[0])]
+    return band_splits
+
+def adaboost_learn(domain, b):
+    training_domains = [domain.unflooded_domain]
+    water_masks = [get_permanent_water_mask()]
+    transformed_masks = [water_mask.multiply(2).subtract(1) for water_mask in water_masks]
+    training_images = [_create_extended_learning_image(d, compute_modis_indices(d)) for d in training_domains]
+    bands = training_images[0].bandNames().getInfo()
+    print 'Computing threshold ranges.'
+    band_splits = __compute_threshold_ranges(training_domains, training_images, water_masks, bands)
+    counts = [training_images[i].select('b1').reduceRegion(ee.Reducer.count(), training_domains[i].bounds, 250).getInfo()['b1'] for i in range(len(training_domains))]
+    count = sum(counts)
+
+    weights = [ee.Image(1.0 / count) for i in range(len(training_domains))]
+    full_classifier = []
+    # initialize for pre-existing partially trained classifier
+    for (c, t, alpha) in full_classifier:
+      band_splits[c].append(t)
+      band_splits[c] = sorted(band_splits[c])
+      total = 0
+      for i in range(len(training_domains)):
+        weights[i] = weights[i].multiply(apply_classifier(training_images[i], c, t).multiply(transformed_masks[i]).multiply(-alpha).exp())
+        total += weights[i].reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250).getInfo()['constant']
+      for i in range(len(training_domains)):
+        weights[i] = weights[i].divide(total)
+    
+    test_image = _create_extended_learning_image(domain, b)
+    while len(full_classifier) < 20:
+      best = None
+      for band_name in bands:
+        (threshold, ind, value) = __find_optimal_threshold(training_domains, training_images, water_masks, band_name, weights, band_splits[band_name])
+        errors = [weights[i].multiply(training_images[i].select(band_name).lte(threshold).neq(water_masks[i])).reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250).getInfo()['constant'] for i in range(len(training_domains))]
+        error = sum(errors)
+        print '%s found threshold %g with entropy %g error %g' % (band_name, threshold, value, error)
+        if best == None or abs(0.5 - error) > abs(0.5 - best[0]): # classifiers that are always wrong are also good with negative alpha
+          best = (error, band_name, threshold, ind)
+      band_splits[best[1]].insert(best[3], best[2])
+      print 'Using %s < %g. Error %g.' % (best[1], best[2], best[0])
+      alpha = 0.5 * math.log((1 - best[0]) / best[0])
+      classifier = (best[1], best[2], alpha)
+      full_classifier.append(classifier)
+      weights = [weights[i].multiply(apply_classifier(training_images[i], classifier[0], classifier[1]).multiply(transformed_masks[i]).multiply(-alpha).exp()) for i in range(len(training_domains))]
+      totals = [weights[i].reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250).getInfo()['constant'] for i in range(len(training_domains))]
+      total = sum(totals)
+      weights = [w.divide(total) for w in weights]
+      print full_classifier
+      addToMap(adaboost(domain, b, full_classifier))
+
+def experimental(domain, b):
+    return adaboost_learn(domain, b)
+    #args = {
+    #        'training_image'    : water_mask,
+    #        'training_band'     : "b1",
+    #        'training_region'   : training_domain.bounds,
+    #        'image'             : training_image,
+    #        'subsampling'       : 0.2, # TODO: Reduce this on failure?
+    #        'max_classification': 2,
+    #        'classifier_name'   : 'Cart'
+    #       }
+    #classifier = ee.apply("TrainClassifier", args)  # Call the EE classifier
+    #classified = _create_extended_learning_image(domain, b).classify(classifier).select(['classification'], ['b1']); 
+    return classified;
 
 
 def skyboxAssist(domain, b):
@@ -1019,7 +1149,8 @@ __ALGORITHMS = {
         DIFFERENCE_HISTORY : ('Difference with History', history_diff,   False, '0099FF'),
         DEM_THRESHOLD      : ('DEM Threshold',           dem_threshold,  False, 'FFCC33'),
         MARTINIS_TREE      : ('Martinis Tree',           martinis_tree,  False, 'CC0066'),
-        SKYBOX_ASSIST      : ('Skybox Assist',           skyboxAssist,   False, '00CC66')
+        SKYBOX_ASSIST      : ('Skybox Assist',           skyboxAssist,   False, '00CC66'),
+        EXPERIMENTAL       : ('Experimental',            experimental,   False, '00FFFF')
 }
 
 
