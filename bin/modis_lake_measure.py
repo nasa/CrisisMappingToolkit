@@ -51,10 +51,10 @@ from cmt.mapclient_qt import downloadEeImage
 class LoggingClass(LakeDataLoggerBase):
     '''Log MODIS flood detection results for a lake compared with the permanent water mask'''
     
-    def __init__(self, logDirectory, ee_lake):
+    def __init__(self, logDirectory, ee_lake, lake_name):
         '''Open and prep the output file'''
         # Base class init function
-        LakeDataLoggerBase.__init__(self, logDirectory, ee_lake)
+        LakeDataLoggerBase.__init__(self, logDirectory, ee_lake, lake_name)
         
         # Get the file path
         filePrefix      = LakeDataLoggerBase.computeLakePrefix(self)
@@ -68,6 +68,7 @@ class LoggingClass(LakeDataLoggerBase):
         '''On destruction write out the file to disk'''
         if self.entryList:
             self.writeAllEntries()
+    
 
     def saveResultsImage(self, classifiedImage, ee_bounds, imageName, cloudMask, waterMask, resolution=30):
         '''Records a diagnostic image to the log directory'''
@@ -283,9 +284,9 @@ def getAlgorithmList():
                      (cmt.modis.flood_algorithms.EVI                , 'EVI',            KEEP),
                      (cmt.modis.flood_algorithms.XIAO               , 'XIAO',           KEEP),
                      (cmt.modis.flood_algorithms.DIFF_LEARNED       , 'Difference',     KEEP),
-                     (cmt.modis.flood_algorithms.CART               , 'CART',           KEEP),
-                     (cmt.modis.flood_algorithms.SVM                , 'SVM',            KEEP),
-                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', KEEP ),
+                     (cmt.modis.flood_algorithms.CART               , 'CART',           RECOMPUTE_IF_FALSE),
+                     (cmt.modis.flood_algorithms.SVM                , 'SVM',            RECOMPUTE_IF_FALSE),
+                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', RECOMPUTE_IF_FALSE ),
                      #(cmt.modis.flood_algorithms.DNNS               , 'DNNS',           KEEP),
                      #(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised',   KEEP),
                      #(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM',  KEEP),
@@ -327,11 +328,11 @@ def processing_function(bounds, image, image_date, logger):
             
         if not needToRedo: # If we have everything we need, just return it.
             print 'Nothing new to compute'
-            return waterResults
+            return waterResults   
     
     # If we made it to here then we need to run at least one algorithm.
     
-    MAX_CLOUD_PERCENTAGE = 0.02
+    MAX_CLOUD_PERCENTAGE = 0.05
 
     # Needed to change EE formats for later function calls
     eeDate     = ee.Date(image_date)
@@ -340,11 +341,19 @@ def processing_function(bounds, image, image_date, logger):
     # First check the input image for clouds.  If there are too many just raise an exception.
     cloudPercentage = cmt.modis.flood_algorithms.getCloudPercentage(image, rectBounds)
     if cloudPercentage > MAX_CLOUD_PERCENTAGE:
+        cmt.util.processManyLakes.addLakeToBadList(logger.getLakeName(), logger.getOutputDirectory())
         raise Exception('Input image has too many cloud pixels!')
     
     # Get the cloud mask and apply it to the input image
     cloudMask   = cmt.modis.flood_algorithms.getModisBadPixelMask(image)
     maskedImage = image.mask(cloudMask.Not()) # TODO: Verify this is having an effect!
+
+    # Check if the data is all zero
+    onCount = maskedImage.select('sur_refl_b01').reduceRegion(ee.Reducer.sum(), bounds, 4000).getInfo()['sur_refl_b01']
+    print 'onCount = ' + str(onCount)
+    if onCount < 10:
+        cmt.util.processManyLakes.addLakeToBadList(logger.getLakeName(), logger.getOutputDirectory())
+        raise Exception('Masked image is blank!')
 
     # Save the input image
     imageName = 'input_modis_' + str(image_date)
@@ -403,6 +412,7 @@ def processing_function(bounds, image, image_date, logger):
     trainingDomain.modis.sur_refl_b06 = trainingImage.select('sur_refl_b06')
     trainingDomain.modis.image        = trainingImage
     trainingDomain.ground_truth       = waterMask
+    trainingDomain.training_features  = None
     trainingDomain.bounds             = bounds
     trainingDomain.add_dem(bounds)
     fakeDomain.training_domain        = trainingDomain
@@ -583,7 +593,12 @@ def main():
         return cmt.util.processManyLakes.main(processing_function, LoggingClass, cmt.util.processManyLakes.get_image_collection_modis)
         
     # Compile flag found, just compile the logs.
-    return compileLakeResults(sys.argv[pos+1])
+    try:
+        dataFolder = sys.argv[pos+1]
+    except:
+        print 'The data folder must follow "--compile-logs"'
+        return 0
+    return compileLakeResults(dataFolder)
 
 
 

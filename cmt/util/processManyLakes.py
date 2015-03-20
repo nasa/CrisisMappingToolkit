@@ -103,20 +103,21 @@ class LakeDataLoggerBase(object):
         One of these will be used for each lake.
         This class is a dummy base class that should be derived from.'''
     
-    def __init__(self, logDirectory, ee_lake):
+    def __init__(self, logDirectory, ee_lake, lake_name):
         '''Initialize with lake information'''
         self.ee_lake        = ee_lake
-        self.base_directory = logDirectory       
+        self.base_directory = logDirectory
+        self.lake_name = lake_name
+       
+    def getOutputDirectory(self):
+        return self.base_directory
+       
+    def getLakeName(self):
+        return self.lake_name
        
     def computeLakePrefix(self):
         '''Returns a file prefix for this lake in the log directory'''
-       
-        name = self.ee_lake.getInfo()['properties']['LAKE_NAME']
-        if not name:
-            raise Exception('Cannot process a lake without a name!')
-        safe_name = name.replace(' ', '_')
-        prefix    = os.path.join(self.base_directory, safe_name)
-        return prefix
+        return os.path.join(self.base_directory, self.lake_name)
     
     #def findRecordByDate(self, date):
     #    '''Searches for a record with a particular date and returns it'''
@@ -168,91 +169,76 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
     '''Computes lake statistics over a date range and writes them to a log file.
         processing_function is called with two arguments: a bounding box and an ee_image.'''
     
-    # Extract the lake name
-    name = lake['properties']['LAKE_NAME']
-    name = name.replace("'","").replace(".","").replace(",","") # Strip out weird characters
-    if name == '': # Can't proceed without the name!
-        #print '#' + lake['properties']['LAKE_NAME'] +'#'
-        #raise Exception('No name present for lake!')
-        print 'Skipping lake with no name!'
-        return False
+    try:
+        
+        # Extract the lake name
+        name = lake['properties']['LAKE_NAME']
+        name = name.replace("'","").replace(".","").replace(",","").replace(" ","_") # Strip out weird characters
+        if name == '': # Can't proceed without the name!
+            print 'Skipping lake with no name!'
+            return False
+    
+        # Check if the lake is in the bad lake list
+        if isLakeInBadList(name, output_directory):
+            print 'Skipping known bad lake ' + name
+            return False
+    
+        boundsInfo = ee_lake.geometry().bounds().getInfo()
+    
+        # Take the lake boundary and expand it out in all directions by 1000 meters
+        # - Need to use bounding boxes instead of exact geometeries, otherwise
+        #    Earth Engine's memory usage will explode!
+        ee_bounds = ee_lake.geometry().bounds().buffer(1000).bounds()
+        
+        print 'Processing lake: ' + name
+        
+        # Set up logging object for this lake
+        logger = logging_class(output_directory, ee_lake, name)
+        
+        
+        # Fetch all the landsat 5 imagery covering the lake on the date range
+        collection    = image_fetching_function(ee_bounds, start_date, end_date)
+        ee_image_list = collection.toList(1000000)
+        
+        num_images_found = len(ee_image_list.getInfo())
+        print 'Found ' + str(num_images_found) + ' images for this lake.'
+    
+        # Iterate through all the images we retrieved
+        results = []
+        all_image_info = ee_image_list.getInfo()
+        for i in range(len(all_image_info)):
+            
+            
+            # Extract the date - look for it in several locations
+            if 'DATE_ACQUIRED' in all_image_info[i]['properties']: # Landsat 5
+                this_date = all_image_info[i]['properties']['DATE_ACQUIRED']
+            else:
+                # MODIS: The date is stored in the 'id' field in this format: 'MOD09GA/MOD09GA_005_2004_08_15'
+                text       = all_image_info[i]['id']
+                dateStart1 = text.rfind('MOD09GA_') + len('MOD09GA_')
+                dateStart2 = text.find('_', dateStart1) + 1
+                this_date  = text[dateStart2:].replace('_', '-')
+            
+            print 'Processing date ' + str(this_date)
+            
+            # Retrieve the image data and fetch the sun elevation (suggests the amount of light present)
+            this_ee_image = ee.Image(ee_image_list.get(i))
+            #sun_elevation = all_image_info[i]['properties']['SUN_ELEVATION'] # Easily available in Landsat5       
+            
+            # Call processing algorithms on the lake with second try in case EE chokes.
+            try:
+                result = processing_function(ee_bounds, this_ee_image, this_date, logger)
+            except Exception as e:
+                print 'Processing failed, skipping this date --> ' + str(e)
+                continue
+            
+            # Append some metadata to the record and log it
+            #r['sun_elevation'] = sun_elevation
+            result['date'] = this_date
+            logger.addDataRecord(result)
 
-    # Check if the lake is in the bad lake list
-    if isLakeInBadList(name, output_directory):
-        print 'Skipping known bad lake ' + name
-        return False
-
-    boundsInfo = ee_lake.geometry().bounds().getInfo()
-    
-    #maxAbsLat = 0
-    #for coord in boundsInfo['coordinates'][0]:
-    #    lat = abs(coord[1])
-    #    if lat > maxAbsLat:
-    #        maxAbsLat = lat
-    #if maxAbsLat > MAX_LATITUDE:
-    #    print name + ' is too high latitude, skipping it.'
-    #    addLakeToBadList(name, output_directory)
-    #    return False
-    
-    ## Compute the size of the area and quit if it is too big to handle
-    #size = ee_lake.geometry().area(10).getInfo() / 1000000 # Convert answer to square kilometers
-    #if size > MAX_LAKE_SIZE:
-    #    print name + ' is too large, skipping it.'
-    #    addLakeToBadList(name, output_directory)
-    #    return False
-    
-
-    # Take the lake boundary and expand it out in all directions by 1000 meters
-    # - Need to use bounding boxes instead of exact geometeries, otherwise
-    #    Earth Engine's memory usage will explode!
-    ee_bounds = ee_lake.geometry().bounds().buffer(1000).bounds()
-    
-    print 'Processing lake: ' + name
-    
-    # Set up logging object for this lake
-    logger = logging_class(output_directory, ee_lake)
-    
-    
-    # Fetch all the landsat 5 imagery covering the lake on the date range
-    collection    = image_fetching_function(ee_bounds, start_date, end_date)
-    ee_image_list = collection.toList(1000000)
-    
-    num_images_found = len(ee_image_list.getInfo())
-    print 'Found ' + str(num_images_found) + ' images for this lake.'
-
-    # Iterate through all the images we retrieved
-    results = []
-    all_image_info = ee_image_list.getInfo()
-    for i in range(len(all_image_info)):
-        
-        
-        # Extract the date - look for it in several locations
-        if 'DATE_ACQUIRED' in all_image_info[i]['properties']: # Landsat 5
-            this_date = all_image_info[i]['properties']['DATE_ACQUIRED']
-        else:
-            # MODIS: The date is stored in the 'id' field in this format: 'MOD09GA/MOD09GA_005_2004_08_15'
-            text       = all_image_info[i]['id']
-            dateStart1 = text.rfind('MOD09GA_') + len('MOD09GA_')
-            dateStart2 = text.find('_', dateStart1) + 1
-            this_date  = text[dateStart2:].replace('_', '-')
-        
-        print 'Processing date ' + str(this_date)
-        
-        # Retrieve the image data and fetch the sun elevation (suggests the amount of light present)
-        this_ee_image = ee.Image(ee_image_list.get(i))
-        #sun_elevation = all_image_info[i]['properties']['SUN_ELEVATION'] # Easily available in Landsat5       
-        
-        # Call processing algorithms on the lake with second try in case EE chokes.
-        try:
-            result = processing_function(ee_bounds, this_ee_image, this_date, logger)
-        except Exception as e:
-            print 'Processing failed, skipping this date --> ' + str(e)
-            continue
-        
-        # Append some metadata to the record and log it
-        #r['sun_elevation'] = sun_elevation
-        result['date'] = this_date
-        logger.addDataRecord(result)
+    except Exception:
+        print 'Caught exception processing the lake!'
 
     print 'Finished processing lake: ' + name
 

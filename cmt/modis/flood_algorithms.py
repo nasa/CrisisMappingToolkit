@@ -219,6 +219,7 @@ def get_diff(b):
     return b['b2'].subtract(b['b1']).select(['sur_refl_b02'], ['b1'])
 
 def diff_learned(domain, b):
+    '''modis_diff but with the threshold calculation included (training image required)'''
     if domain.unflooded_domain == None:
         print 'No unflooded training domain provided.'
         return None
@@ -261,15 +262,16 @@ def fai(domain, b, threshold=None):
 
 def _create_learning_image(domain, b):
     '''Set up features for the classifier to be trained on: [b2, b2/b1, b2/b1, NDVI, NDWI]'''
-    diff  = b['b2'].subtract(b['b1'])
-    ratio = b['b2'].divide(b['b1'])
-    modisBands = b['b1'].addBands(b['b2']).addBands(diff).addBands(ratio).addBands(b['NDVI']).addBands(b['NDWI'])
+    diff        = b['b2'].subtract(b['b1'])
+    ratio       = b['b2'].divide(b['b1'])
+    modisBands  = b['b1'].addBands(b['b2']).addBands(diff).addBands(ratio).addBands(b['NDVI']).addBands(b['NDWI'])
     outputBands = modisBands
     
     # Try to add a DEM
     try:
         dem = domain.get_dem().image
         outputBands.addBands(dem)
+        #outputBands = dem
     except AttributeError:
         pass # Suppress error if there is no DEM data
     
@@ -289,8 +291,10 @@ def _create_learning_image(domain, b):
         bandList    = texture2Raw.getInfo()['bands']
         bandName    = [x['id'] for x in bandList if 'idm' in x['id']]
         texture2    = texture2Raw.select(bandName).convolve(ee.Kernel.square(5, 'pixels'))
-        skyboxBands = rgbBands.addBands(texture).addBands(texture2)
+        #skyboxBands = rgbBands.addBands(texture).addBands(texture2)
+        skyboxBands = rgbBands.addBands(texture2)
         outputBands = outputBands.addBands(skyboxBands)
+        #outputBands = skyboxBands
         
         #addToMap(grayBand, {'min': 0, 'max': 1200}, 'grayBand')       
         #addToMap(edges, {'min': 0, 'max': 250}, 'edges')
@@ -341,12 +345,25 @@ def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
                    'image'             : training_image,
                    'subsampling'       : 0.2, # TODO: Reduce this on failure?
                    'max_classification': 2,
+                   'classifier_mode' : 'classification',
                    'classifier_name'   : classifier_name
                   }
     args.update(common_args)
     args.update(extra_args)
     classifier = ee.apply("TrainClassifier", args)  # Call the EE classifier
-    classified = _create_learning_image(domain, b).classify(classifier).select(['classification'], ['b1']); 
+    classified = _create_learning_image(domain, b).classify(classifier).select(['classification'], ['b1'])
+    
+    
+    # For high resolution Skybox images, apply an additional filter step to clean up speckles.
+    try:
+        try: # The Skybox data can be in one of two names
+            skyboxSensor = domain.skybox
+        except:
+            skyboxSensor = domain.skybox_nir
+        classified = classified.focal_min(13, 'circle', 'meters').focal_max(13, 'circle', 'meters')
+    except:
+        pass
+    
     return classified;
 
 def cart(domain, b):
@@ -362,6 +379,8 @@ def random_forests(domain, b):
     return earth_engine_classifier(domain, b, 'RifleSerialClassifier')
 
 def dnns_diff(domain, b):
+    '''The DNNS algorithm but faster because it approximates the initial CART classification with
+        a simple difference based method.'''
     return dnns(domain, b, True)
 
 def dnns(domain, b, use_modis_diff=False):
@@ -409,6 +428,8 @@ def dnns(domain, b, use_modis_diff=False):
         classes   = earth_engine_classifier(domain, b, 'Pegasos', {'classifier_mode' : 'probability'})
         pureWater = classes.gte(0.95)
         pureLand  = classes.lte(0.05)
+        #addToMap(classes, {'min': -1, 'max': 1}, 'CLASSES')
+        #raise Exception('DEBUG')
         mixed     = pureWater.Not().And(pureLand.Not())
     averageWater      = pureWater.mask(pureWater).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
     averageWaterImage = ee.Image([averageWater.getInfo()['sur_refl_b01'], averageWater.getInfo()['sur_refl_b02'], averageWater.getInfo()['sur_refl_b06']])
@@ -477,6 +498,8 @@ def dnns(domain, b, use_modis_diff=False):
     return water_fraction.select(['sum_2'], ['b1']) # Rename sum_2 to b1
 
 def dnns_diff_dem(domain, b):
+    '''The DNNS DEM algorithm but faster because it approximates the initial CART classification with
+        a simple difference based method.'''
     return dnns_dem(domain, b, True)
 
 def dnns_dem(domain, b, use_modis_diff=False):
@@ -650,6 +673,7 @@ def get_dartmouth(b):
     return b['b2'].add(A).divide(b['b1'].add(B)).select(['sur_refl_b02'], ['b1'])
 
 def dart_learned(domain, b):
+    '''The dartmouth method but with threshold calculation included (training image required)'''
     if domain.unflooded_domain == None:
         print 'No unflooded training domain provided.'
         return None
