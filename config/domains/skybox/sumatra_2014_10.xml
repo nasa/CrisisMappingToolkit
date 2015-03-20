@@ -5,6 +5,10 @@
     
       <sensor>
         <name>SRTM90</name>
+        <range>
+          <minimum>0</minimum>
+          <maximum>15</maximum>
+        </range>
       </sensor>
     
       <sensor>
