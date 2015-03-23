@@ -117,7 +117,7 @@ def getCloudPercentage(lowResModis, region):
     cloudMask  = getModisBadPixelMask(lowResModis)
     areaCount  = oneMask.reduceRegion(  ee.Reducer.sum(), region, MODIS_CLOUD_RESOLUTION)
     cloudCount = cloudMask.reduceRegion(ee.Reducer.sum(), region, MODIS_CLOUD_RESOLUTION)
-    percentage = cloudCount.getInfo()['cloud_state'] / areaCount.getInfo()['constant']
+    percentage = safe_get_info(cloudCount)['cloud_state'] / safe_get_info(areaCount)['constant']
     print 'Detected cloud percentage: ' + str(percentage)
     return percentage
 
@@ -132,8 +132,8 @@ def compute_binary_threshold(valueImage, classification, bounds, mixed_threshold
     valueInTrue    = valueImage.mask(classification)
     NUM_BINS       = 128
     SCALE          = 250 # In meters
-    histogramFalse = valueInFalse.reduceRegion(ee.Reducer.histogram(NUM_BINS, None, None), bounds, SCALE).getInfo()['b1']
-    histogramTrue  = valueInTrue.reduceRegion( ee.Reducer.histogram(NUM_BINS, None, None), bounds, SCALE).getInfo()['b1']
+    histogramFalse = safe_get_info(valueInFalse.reduceRegion(ee.Reducer.histogram(NUM_BINS, None, None), bounds, SCALE))['b1']
+    histogramTrue  = safe_get_info(valueInTrue.reduceRegion( ee.Reducer.histogram(NUM_BINS, None, None), bounds, SCALE))['b1']
     
     # Get total number of pixels in each histogram
     false_total = sum(histogramFalse['histogram'])
@@ -291,7 +291,7 @@ def _create_learning_image(domain, b):
         edges       = grayBand.convolve(ee.Kernel.laplacian8(normalize=True)).abs()
         texture     = edges.convolve(ee.Kernel.square(3, 'pixels')).select(['Red'], ['Texture'])
         texture2Raw = grayBand.glcmTexture()
-        bandList    = texture2Raw.getInfo()['bands']
+        bandList    = safe_get_info(texture2Raw)['bands']
         bandName    = [x['id'] for x in bandList if 'idm' in x['id']]
         texture2    = texture2Raw.select(bandName).convolve(ee.Kernel.square(5, 'pixels'))
         #skyboxBands = rgbBands.addBands(texture).addBands(texture2)
@@ -326,8 +326,6 @@ def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
     training_domain = domain.training_domain    
     training_image  = _create_learning_image(training_domain, compute_modis_indices(training_domain))
     if training_domain.training_features:
-        #print 'USING FEATURES'
-        #print training_domain.training_features.getInfo()
         args = {
                 'training_features' : training_domain.training_features,
                 'training_property' : 'classification',
@@ -434,8 +432,8 @@ def dnns(domain, b, use_modis_diff=False):
         #addToMap(classes, {'min': -1, 'max': 1}, 'CLASSES')
         #raise Exception('DEBUG')
         mixed     = pureWater.Not().And(pureLand.Not())
-    averageWater      = pureWater.mask(pureWater).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
-    averageWaterImage = ee.Image([averageWater.getInfo()['sur_refl_b01'], averageWater.getInfo()['sur_refl_b02'], averageWater.getInfo()['sur_refl_b06']])
+    averageWater      = safe_get_info(pureWater.mask(pureWater).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS))
+    averageWaterImage = ee.Image([averageWater['sur_refl_b01'], averageWater['sur_refl_b02'], averageWater['sur_refl_b06']])
     
     # For each pixel, compute the number of nearby pure water pixels
     pureWaterCount = pureWater.convolve(kernel)
@@ -447,10 +445,10 @@ def dnns(domain, b, use_modis_diff=False):
 
    
     # Compute a backup, global pure land value to use when pixels have none nearby.
-    averagePureLand      = pureLand.mask(pureLand).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
+    averagePureLand      = safe_get_info(pureLand.mask(pureLand).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS))
     #averagePureLand      = composite_image.mask(pureLand).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
     
-    averagePureLandImage = ee.Image([averagePureLand.getInfo()['sur_refl_b01'], averagePureLand.getInfo()['sur_refl_b02'], averagePureLand.getInfo()['sur_refl_b06']])
+    averagePureLandImage = ee.Image([averagePureLand['sur_refl_b01'], averagePureLand['sur_refl_b02'], averagePureLand['sur_refl_b06']])
     
     # Implement equations 10 and 11 from the paper --> It takes many lines of code to compute the local land pixels!
     oneOverSix   = b['b1'].divide(b['b6'])
@@ -647,11 +645,8 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
     maskedMean       = diffInWaterMask.reduceRegion(ee.Reducer.mean(),   bounds, MODIS_RESOLUTION)
     maskedStdDev     = diffInWaterMask.reduceRegion(ee.Reducer.stdDev(), bounds, MODIS_RESOLUTION)
     
-    #print 'Water mean = ' + str(maskedMean.getInfo())
-    #print 'Water STD  = ' + str(maskedStdDev.getInfo())
-    
     # Use the water mask statistics to compute a difference threshold, then find all pixels below the threshold.
-    waterThreshold  = maskedMean.getInfo()['sur_refl_b02'] + dev_thresh*(maskedStdDev.getInfo()['sur_refl_b02']);
+    waterThreshold  = safe_get_info(maskedMean)['sur_refl_b02'] + dev_thresh*(safe_get_info(maskedStdDev)['sur_refl_b02']);
     #print 'Water threshold == ' + str(waterThreshold)
     waterPixels     = flood_diff_function2(high_res_modis).lte(waterThreshold)
     #waterPixels     = modis_diff(domain, b, waterThreshold)
@@ -695,7 +690,7 @@ def dartmouth(domain, b, threshold=None):
     return get_dartmouth(b).lte(threshold)
 
 def get_mod_ndwi(b):
-    return b['b4'].subtract(b['b6']).divide(b['b4'].add(b['b6'])).select(['sur_refl_b04'], ['b1']).multiply(-1)
+    return b['b6'].subtract(b['b4']).divide(b['b4'].add(b['b6'])).select(['sur_refl_b06'], ['b1'])
 
 def mod_ndwi_learned(domain, b):
     if domain.unflooded_domain == None:
@@ -737,8 +732,8 @@ def dnns_revised(domain, b):
     
     # Compute the mean value of pure water pixels across the entire region, then store in a constant value image.
     AVERAGE_SCALE_METERS = 30 # This value seems to have no effect on the results
-    averageWater      = pureWater.mask(pureWater).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
-    averageWaterImage = ee.Image([averageWater.getInfo()['sur_refl_b01'], averageWater.getInfo()['sur_refl_b02'], averageWater.getInfo()['sur_refl_b06']])
+    averageWater      = safe_get_info(pureWater.mask(pureWater).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS))
+    averageWaterImage = ee.Image([averageWater['sur_refl_b01'], averageWater['sur_refl_b02'], averageWater['sur_refl_b06']])
     
     # For each pixel, compute the number of nearby pure water pixels
     pureWaterCount = pureWater.convolve(kernel)
@@ -752,8 +747,8 @@ def dnns_revised(domain, b):
     # Use simple diff method to select pure land pixels
     #LAND_THRESHOLD   = 2000 # TODO: Move to domain selector
     pureLand             = b['b2'].subtract(b['b1']).gte(PURELAND_THRESHOLD).select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
-    averagePureLand      = pureLand.mask(pureLand).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS)
-    averagePureLandImage = ee.Image([averagePureLand.getInfo()['sur_refl_b01'], averagePureLand.getInfo()['sur_refl_b02'], averagePureLand.getInfo()['sur_refl_b06']])
+    averagePureLand      = safe_get_info(pureLand.mask(pureLand).multiply(composite_image).reduceRegion(ee.Reducer.mean(), domain.bounds, AVERAGE_SCALE_METERS))
+    averagePureLandImage = ee.Image([averagePureLand['sur_refl_b01'], averagePureLand['sur_refl_b02'], averagePureLand['sur_refl_b06']])
     pureLandCount        = pureLand.convolve(kernel)        # Get nearby pure land count for each pixel
     averagePureLandLocal = pureLand.multiply(composite_image).convolve(kernel).multiply(pureLandCount.gte(MIN_PURE_NEARBY)).divide(pureLandCount)
     averagePureLandLocal = averagePureLandLocal.add(averagePureLandImage.multiply(averagePureLandLocal.Not())) # For pixels that did not have any pure land nearby, use mean
@@ -953,15 +948,16 @@ def _create_extended_learning_image(domain, b):
     a = b['b1'].select(['sur_refl_b01'], ['b1'])
     a = a.addBands(b['b2'].select(['sur_refl_b02'], ['b2']))
     a = a.addBands(b['b2'].divide(b['b1']).select(['sur_refl_b02'], ['ratio']))
+    a = a.addBands(b['LSWI'].subtract(b['NDVI']).subtract(0.05).select(['sur_refl_b02'], ['LSWIminusNDVI']))
+    a = a.addBands(b['LSWI'].subtract(b['EVI']).subtract(0.05).select(['sur_refl_b02'], ['LSWIminusEVI']))
+    a = a.addBands(b['EVI'].subtract(0.3).select(['sur_refl_b02'], ['EVI']))
+    a = a.addBands(b['LSWI'].select(['sur_refl_b02'], ['LSWI']))
     a = a.addBands(b['NDVI'].select(['sur_refl_b02'], ['NDVI']))
     a = a.addBands(b['NDWI'].select(['sur_refl_b01'], ['NDWI']))
     a = a.addBands(get_diff(b).select(['b1'], ['diff']))
     a = a.addBands(get_fai(b).select(['b1'], ['fai']))
     a = a.addBands(get_dartmouth(b).select(['b1'], ['dartmouth']))
-    a = a.addBands(b['LSWI'].subtract(b['NDVI']).subtract(0.05).select(['sur_refl_b02'], ['LSWIminusNDVI']))
-    a = a.addBands(b['LSWI'].subtract(b['EVI']).subtract(0.05).select(['sur_refl_b02'], ['LSWIminusEVI']))
-    a = a.addBands(b['EVI'].subtract(0.3).select(['sur_refl_b02'], ['EVI']))
-    a = a.addBands(b['LSWI'].select(['sur_refl_b02'], ['LSWI']))
+    a = a.addBands(get_mod_ndwi(b).select(['b1'], ['MNDWI']))
     return a
 
 # binary search to find best threshold
