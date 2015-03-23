@@ -42,7 +42,7 @@ def threshold(domain, historical_domain=None):
         TODO: ????
     '''    
     
-    sensor = domain.sensor_list[0] # We are only expecting one sensor
+    sensor = domain.get_radar() # Get the first radar sensor available
     hist   = RadarHistogram(domain, sensor)
     
     thresholds = hist.get_thresholds() # Get thresholds for each band

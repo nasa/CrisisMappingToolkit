@@ -44,17 +44,21 @@ class RadarHistogram(object):
         self.sensor = sensor
         self.backscatter_model = []
         for i in range(len(sensor.band_names)):
-            if backscatter_model != None:
-                self.backscatter_model.append(backscatter_model)
-            else:
-                if sensor.water_distributions[sensor.band_names[i]]['model'] == 'peak':
-                    self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_PEAK)
-                elif sensor.water_distributions[sensor.band_names[i]]['model'] == 'dip':
-                    self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_DIP)
-                elif sensor.water_distributions[sensor.band_names[i]]['model'] == 'lambda':
-                    self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_GAMMA)
+
+            try:
+                if backscatter_model != None:
+                    self.backscatter_model.append(backscatter_model)
                 else:
-                    self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_GAUSSIAN)
+                    if sensor.water_distributions[sensor.band_names[i]]['model'] == 'peak':
+                        self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_PEAK)
+                    elif sensor.water_distributions[sensor.band_names[i]]['model'] == 'dip':
+                        self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_DIP)
+                    elif sensor.water_distributions[sensor.band_names[i]]['model'] == 'lambda':
+                        self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_GAMMA)
+                    else:
+                        self.backscatter_model.append(RadarHistogram.BACKSCATTER_MODEL_GAUSSIAN)
+            except KeyError: # Skip bands without a distribution model
+                pass
         
         self.hist_image = self.__preprocess_image(sensor)
 

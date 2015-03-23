@@ -53,8 +53,8 @@ def compute_band_statistics(ee_image, classified_image, region):
         band_names.append(km)
 
     print 'Computed band statistics: '
-    print band_names
-    print band_statistics
+    for b, s in zip(band_names, band_statistics):
+        print b + ': ' + str(s)
     
     return (band_names, band_statistics)
 
@@ -228,12 +228,7 @@ class Loop(object):
             n      = band_counts[i]
 
             (expected_water_mean, expected_water_std_dev, allowed_deviations) = self.band_statistics[i]
-            #if self.image_is_log_10:
-            #    expected_water_mean    = math.log10(expected_water_mean)
-            #    expected_water_std_dev = math.log10(expected_water_std_dev)
-                
             #print str(expected_water_mean) +', ' +  str(expected_water_std_dev)
-                
             
             if n == 0: # No points inside the contour
                 return (0, 0)
@@ -590,7 +585,7 @@ def initialize_active_contour(domain, ee_image, band_statistics, image_is_log_10
     # - All bands will be used so only pass in the bands you want used!
     band_entries = ee_image.getInfo()['bands']
     band_names   = [b['id'] for b in band_entries]
-    print 'Running active contour on bands: ' + str(band_names)
+    #print 'Running active contour on bands: ' + str(band_names)
     local_image = LocalEEImage(ee_image, domain.bbox, scale_meters, band_names, 'ActiveContour_' + str(domain.name))
     (w, h) = local_image.size()
     
@@ -612,10 +607,19 @@ def initialize_active_contour(domain, ee_image, band_statistics, image_is_log_10
 
 MAX_STEPS = 10000
 
-def active_contour(domain, ee_image, band_statistics, image_is_log_10):
+def active_contour(domain):
     '''Start up an active contour and process it until it finishes'''
     
-    (local_image, snake) = initialize_active_contour(domain, ee_image, band_statistics, image_is_log_10)
+    sensor         = domain.get_radar()
+    detect_channel = domain.algorithm_params['water_detect_radar_channel']
+    ee_image       = sensor.image.select([detect_channel]).toUint16()
+    if sensor.log_scale:
+        statisics_image = ee_image.log10()
+    else:
+        statisics_image = ee_image
+    (band_names, band_statistics) = compute_band_statistics(statisics_image, domain.ground_truth, domain.bounds)
+    
+    (local_image, snake) = initialize_active_contour(domain, ee_image, band_statistics, sensor.log_scale)
     for i in range(MAX_STEPS):
         if i % 10 == 0:
             snake.respace_nodes()
