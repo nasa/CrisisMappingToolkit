@@ -29,14 +29,14 @@ def __learning_threshold(domain, algorithm):
     training_domain = domain.training_domain
     if not training_domain:
         raise Exception('Cannot use learning algorithms without a training image defined by the domain!')
-    classifier = ee.apply('TrainClassifier', {'image': training_domain.sensor_list[0].image,
+    classifier = ee.apply('TrainClassifier', {'image': training_domain.get_radar().image,
                             'subsampling'       : 0.07,
-                            'training_image'    : domains.get_ground_truth(training_domain),
+                            'training_image'    : training_domain.ground_truth,
                             'training_band'     : 'b1',
                             'training_region'   : training_domain.bounds,
                             'max_classification': 2,
                             'classifier_name'   : algorithm})
-    classified = ee.call('ClassifyImage', domain.image, classifier).select(['classification'], ['b1']);
+    classified = ee.call('ClassifyImage', domain.get_radar().image, classifier).select(['classification'], ['b1']);
     return classified;
 
 def decision_tree(domain):

@@ -47,9 +47,15 @@ app = QtGui.QApplication(sys.argv)
 
 
 THIS_FILE_FOLDER = os.path.dirname(os.path.realpath(__file__))
-domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/uavsar/mississippi.xml')
-#domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/modis/malawi_2015.xml')
-#result = active_contour(domain)
+
+
+# DOMAIN SELECTION IS HERE!
+#domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/uavsar/mississippi.xml')
+#domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/skybox/malawi_2015.xml')
+#domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/sentinel1/malawi_2015_1.xml')
+domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/sentinel1/rome_small.xml')
+
+#result = active_contour(domain) # Run this to compute the final results!
 
 def active_contour_step(local_image, snake, step):
     '''Perform another step of the active contour algorithm'''
@@ -75,24 +81,45 @@ class ActiveContourWindow(QtGui.QWidget):
         self.setWindowTitle('Active Contour')
         self.domain = domain
         
-        # Initialize the contour with the selected sensor band
-        sensor_name = 'uavsar'
-        sensor      = getattr(domain, sensor_name)
-        ee_image    = sensor.image.select(['hh'])
         
-        # TODO: Make sure the name and statistics line up inside the class!
-        # Compute statistics for each band -> Log10 needs to be applied here!
-        (band_names, band_statistics) = compute_band_statistics(ee_image.log10(), domain.ground_truth, domain.bounds)
+        # Fetch image and compute statistics    
+        sensor         = domain.get_radar()
+        detect_channel = domain.algorithm_params['water_detect_radar_channel']
+        ee_image       = sensor.image.select([detect_channel]).toUint16()
+        if sensor.log_scale:
+            statisics_image = ee_image.log10()
+        else:
+            statisics_image = ee_image
+        (band_names, band_statistics) = compute_band_statistics(statisics_image, domain.ground_truth, domain.bounds)
         
         (self.local_image, self.snake) = initialize_active_contour(domain, ee_image, band_statistics, sensor.log_scale)
         
         # Retrieve the local image bands and merge them into a fake RGB image
-        #channels = [self.local_image.get_image('hh'), self.local_image.get_image('hv'), self.local_image.get_image('vv')]
-        channels = [self.local_image.get_image('hh'), self.local_image.get_image('hh'), self.local_image.get_image('hh')]
-        channel_images = [PIL.Image.fromarray(numpy.uint8(c >> 8)) for c in channels] # Convert from 16 bit to 8 bit
+        channels = [self.local_image.get_image(detect_channel), self.local_image.get_image(detect_channel), self.local_image.get_image(detect_channel)]
+        channel_images = [PIL.Image.fromarray(numpy.uint8(c*255/1200)) for c in channels] # Convert from 16 bit to 8 bit
         self.display_image = PIL.Image.merge('RGB', channel_images)
         self.step = 1
         self.show()
+        
+        
+        ## Initialize the contour with the selected sensor band
+        #sensor_name = 'uavsar'
+        #sensor      = getattr(domain, sensor_name)
+        #ee_image    = sensor.image.select(['hh'])
+        #
+        ## TODO: Make sure the name and statistics line up inside the class!
+        ## Compute statistics for each band -> Log10 needs to be applied here!
+        #(band_names, band_statistics) = compute_band_statistics(statisics_image, domain.ground_truth, domain.bounds)
+        #
+        #(self.local_image, self.snake) = initialize_active_contour(domain, ee_image, band_statistics, sensor.log_scale)
+        #
+        ## Retrieve the local image bands and merge them into a fake RGB image
+        ##channels = [self.local_image.get_image('hh'), self.local_image.get_image('hv'), self.local_image.get_image('vv')]
+        #channels = [self.local_image.get_image('hh'), self.local_image.get_image('hh'), self.local_image.get_image('hh')]
+        #channel_images = [PIL.Image.fromarray(numpy.uint8(c >> 8)) for c in channels] # Convert from 16 bit to 8 bit
+        #self.display_image = PIL.Image.merge('RGB', channel_images)
+        #self.step = 1
+        #self.show()
 
         ## Initialize the contour with the selected sensor band
         #sensor_name = 'skybox_nir'

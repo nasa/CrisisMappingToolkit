@@ -20,6 +20,7 @@
         </topright>
     </bbox>
     <truth>18108519531116889794-03516536627963450262</truth>
+    <training_domain>arkansas_city</training_domain>
     
     <algorithm_params>
       <water_detect_radar_channel>hv</water_detect_radar_channel>

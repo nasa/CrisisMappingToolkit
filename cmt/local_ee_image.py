@@ -61,6 +61,7 @@ class LocalEEImage(object):
         image_name = image_name.replace(' ', '') # can't have space in filename
         if image_name == None: # Use a default name if needed
             image_name = uuid.uuid4()
+        # If you get an invalid asset ID here that probably means there is a problem with image_name
         url = eeobject.getDownloadUrl({'name' : image_name, 'scale': scale, 'crs': 'EPSG:4326',
                                        'region': apply(ee.Geometry.Rectangle, bbox).toGeoJSONString()})
         tempFile = '%s_%g,%g_%g,%g_%g.zip' % (image_name, bbox[0], bbox[1], bbox[2], bbox[3], scale)

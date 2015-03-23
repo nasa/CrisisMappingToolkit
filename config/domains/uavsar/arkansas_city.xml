@@ -20,5 +20,11 @@
         </topright>
     </bbox>
     <truth>18108519531116889794-09052745394509652502</truth>
+    
+    <algorithm_params>
+      <water_detect_radar_channel>hv</water_detect_radar_channel>
+    </algorithm_params> 
+    
+    
 </domain>
 
