@@ -48,8 +48,8 @@ def compute_band_statistics(ee_image, classified_image, region):
     band_statistics = []
     band_names      = []
     for km, ks in zip(means, stdDevs):
-        #band_statistics.append((means[km], stdDevs[ks], ALLOWED_DEVIATIONS))
-        band_statistics.append((2.7, 0.35, ALLOWED_DEVIATIONS))
+        band_statistics.append((means[km], stdDevs[ks], ALLOWED_DEVIATIONS))
+        #band_statistics.append((2.7, 0.35, ALLOWED_DEVIATIONS))
         band_names.append(km)
 
     print 'Computed band statistics: '
@@ -595,7 +595,7 @@ def initialize_active_contour(domain, ee_image, band_statistics, image_is_log_10
     CELL_SIZE      = (w - 2 * B) / VERTICAL_CELLS
     loops = []
     for i in range(B, w - B, CELL_SIZE):
-        for j in range(B + int(4 * B * float(i - B) / CELL_SIZE / VERTICAL_CELLS), h - B, CELL_SIZE):
+        for j in range(B, h - B, CELL_SIZE):
             nextj = min(j + CELL_SIZE, h - B)
             nexti = min(i + CELL_SIZE, w - B)
             loops.append([(i, j), (i, nextj), (nexti, nextj), (nexti, j)])
@@ -617,6 +617,7 @@ def active_contour(domain):
         statisics_image = ee_image.log10()
     else:
         statisics_image = ee_image
+    print 'WARNING: Training with the domain ground truth --> This will have to change to training data!!!!!!'
     (band_names, band_statistics) = compute_band_statistics(statisics_image, domain.ground_truth, domain.bounds)
     
     (local_image, snake) = initialize_active_contour(domain, ee_image, band_statistics, sensor.log_scale)
