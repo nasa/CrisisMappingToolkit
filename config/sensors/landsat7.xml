@@ -2,37 +2,37 @@
 <sensor>
     <name>LANDSAT_7</name>
     <bands>
-        <source><collection>L7_L1T</collection></source>
+        <source><collection>LE7_L1T</collection></source>
         <band>
-            <source><name>10</name></source>
+            <source><name>B1</name></source>
             <name>B1</name>
         </band>
         <band>
-            <source><name>20</name></source>
+            <source><name>B2</name></source>
             <name>B2</name>
         </band>
         <band>
-            <source><name>30</name></source>
+            <source><name>B3</name></source>
             <name>B3</name>
         </band>
         <band>
-            <source><name>40</name></source>
+            <source><name>B4</name></source>
             <name>B4</name>
         </band>
         <band>
-            <source><name>50</name></source>
+            <source><name>B5</name></source>
             <name>B5</name>
         </band>
         <band>
-            <source><name>60</name></source>
+            <source><name>B6</name></source>
             <name>B6</name>
         </band>
           <band>
-              <source><name>70</name></source>
+              <source><name>B7</name></source>
               <name>B7</name>
           </band>
           <band>
-              <source><name>80</name></source>
+              <source><name>B8</name></source>
               <name>B8</name>
           </band>
           <resolution>30</resolution>
