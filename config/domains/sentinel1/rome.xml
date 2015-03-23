@@ -22,6 +22,7 @@
         </bands>
       </sensor>
     </sensors>
+    
     <bbox>
         <bottomleft>
             <lon>12.2</lon>
@@ -32,7 +33,9 @@
             <lat>41.83</lat>
         </topright>
     </bbox>
+    
     <truth>18108519531116889794-01677512005004143246</truth>
+    <training_domain>lanciano</training_domain>
     
     <algorithm_params>
       <water_detect_radar_channel>vh</water_detect_radar_channel>

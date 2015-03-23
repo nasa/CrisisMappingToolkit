@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <domain>
-    <name>Malawi 2015 Flood, Jan</name>
+    <name>Malawi Jan 2015 Flood</name>
     <sensors>
     
       <sensor>
@@ -44,6 +44,11 @@
     </bbox>
     
     <truth>18108519531116889794-06852393645150519151</truth>
+    <training_domain>malawi_2015_1_training</training_domain>
+   
+    <algorithm_params>
+      <water_detect_radar_channel>vv</water_detect_radar_channel>
+    </algorithm_params> 
    
     
 </domain>
