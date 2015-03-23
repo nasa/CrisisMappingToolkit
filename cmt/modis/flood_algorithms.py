@@ -17,9 +17,9 @@
 
 import ee
 import math
-#from domains import *
 
 from cmt.mapclient_qt import addToMap
+from cmt.util.evaluation import safe_get_info
 
 '''
 Contains implementations of multiple MODIS-based flood detection algorithms.
@@ -47,6 +47,8 @@ DART_LEARNED       = 18
 FAI                = 19
 FAI_LEARNED        = 20
 EXPERIMENTAL       = 21
+MODNDWI            = 22
+MODNDWI_LEARNED    = 23
 
 def compute_modis_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
@@ -56,6 +58,7 @@ def compute_modis_indices(domain):
 
     # Other bands must be used at lower resolution
     band3 = domain.modis.sur_refl_b03 # pBLUE
+    band4 = domain.modis.sur_refl_b04
     band5 = domain.modis.sur_refl_b05
     band6 = domain.modis.sur_refl_b06 # pSWIR
 
@@ -69,7 +72,7 @@ def compute_modis_indices(domain):
     # Convenience measure
     DVEL = EVI.subtract(LSWI)
 
-    return {'b1': band1, 'b2': band2, 'b3': band3, 'b5' : band5, 'b6': band6,
+    return {'b1': band1, 'b2': band2, 'b3': band3, 'b4' : band4, 'b5' : band5, 'b6': band6,
             'NDVI': NDVI, 'NDWI': NDWI, 'EVI': EVI, 'LSWI': LSWI, 'DVEL': DVEL,
             'pRED': band1, 'pNIR': band2, 'pBLUE': band3, 'pSWIR': band6}
 
@@ -691,6 +694,22 @@ def dartmouth(domain, b, threshold=None):
         threshold = float(domain.algorithm_params['dartmouth_threshold'])
     return get_dartmouth(b).lte(threshold)
 
+def get_mod_ndwi(b):
+    return b['b4'].subtract(b['b6']).divide(b['b4'].add(b['b6'])).select(['sur_refl_b04'], ['b1']).multiply(-1)
+
+def mod_ndwi_learned(domain, b):
+    if domain.unflooded_domain == None:
+        print 'No unflooded training domain provided.'
+        return None
+    unflooded_b = compute_modis_indices(domain.unflooded_domain)
+    water_mask = get_permanent_water_mask()
+    threshold = compute_binary_threshold(get_mod_ndwi(unflooded_b), water_mask, domain.bounds)
+    return mod_ndwi(domain, b, threshold)
+
+def mod_ndwi(domain, b, threshold=None):
+    if threshold == None:
+        threshold = float(domain.algorithm_params['mod_ndwi_threshold'])
+    return get_mod_ndwi(b).lte(threshold)
 
 # This algorithm is not too different from the corrected DNNS algorithm.
 def dnns_revised(domain, b):
@@ -954,12 +973,12 @@ def __find_optimal_threshold(domains, images, truths, band_name, weights, splits
     best_value = None
     for i in range(len(choices)):
         c = choices[i]
-        flood_and_threshold_sum = sum([weights[i].mask(images[i].select(band_name).lte(c)).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250).getInfo()['constant'] for i in range(len(domains))])
+        flood_and_threshold_sum = sum([safe_get_info(weights[i].mask(images[i].select(band_name).lte(c)).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250))['constant'] for i in range(len(domains))])
         ts = [truths[i].multiply(weights[i]).divide(flood_and_threshold_sum).mask(images[i].select(band_name).lte(c)) for i in range(len(domains))]
-        entropies1 = [-ts[i].multiply(ts[i].log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250).getInfo()['b1'] for i in range(len(domains))]# H(Y | X <= c)
+        entropies1 = [-safe_get_info(ts[i].multiply(ts[i].log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250))['b1'] for i in range(len(domains))]# H(Y | X <= c)
 
         ts = [truths[i].multiply(weights[i]).divide(1 - flood_and_threshold_sum).mask(images[i].select(band_name).gt(c)) for i in range(len(domains))]
-        entropies2 = [-ts[i].multiply(ts[i].log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250).getInfo()['b1'] for i in range(len(domains))]# H(Y | X > c)
+        entropies2 = [-safe_get_info(ts[i].multiply(ts[i].log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250))['b1'] for i in range(len(domains))]# H(Y | X > c)
         
         entropy1 = sum(entropies1)
         entropy2 = sum(entropies2)
@@ -988,7 +1007,7 @@ def __compute_threshold_ranges(training_domains, training_images, water_masks, b
       split = None
       print band_name
       for i in range(len(training_domains)):
-        ret = training_images[i].select(band_name).mask(water_masks[i]).reduceRegion(ee.Reducer.percentile([20, 80], ['s', 'b']), training_domains[i].bounds, 250).getInfo()
+        ret = safe_get_info(training_images[i].select(band_name).mask(water_masks[i]).reduceRegion(ee.Reducer.percentile([20, 80], ['s', 'b']), training_domains[i].bounds, 250))
         s = [ret[band_name + '_s'], ret[band_name + '_b']]
         if split == None:
             split = s
@@ -1003,10 +1022,10 @@ def adaboost_learn(domain, b):
     water_masks = [get_permanent_water_mask()]
     transformed_masks = [water_mask.multiply(2).subtract(1) for water_mask in water_masks]
     training_images = [_create_extended_learning_image(d, compute_modis_indices(d)) for d in training_domains]
-    bands = training_images[0].bandNames().getInfo()
+    bands = safe_get_info(training_images[0].bandNames())
     print 'Computing threshold ranges.'
     band_splits = __compute_threshold_ranges(training_domains, training_images, water_masks, bands)
-    counts = [training_images[i].select('b1').reduceRegion(ee.Reducer.count(), training_domains[i].bounds, 250).getInfo()['b1'] for i in range(len(training_domains))]
+    counts = [safe_get_info(training_images[i].select('b1').reduceRegion(ee.Reducer.count(), training_domains[i].bounds, 250))['b1'] for i in range(len(training_domains))]
     count = sum(counts)
 
     weights = [ee.Image(1.0 / count) for i in range(len(training_domains))]
@@ -1018,16 +1037,16 @@ def adaboost_learn(domain, b):
       total = 0
       for i in range(len(training_domains)):
         weights[i] = weights[i].multiply(apply_classifier(training_images[i], c, t).multiply(transformed_masks[i]).multiply(-alpha).exp())
-        total += weights[i].reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250).getInfo()['constant']
+        total += safe_get_info(weights[i].reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250))['constant']
       for i in range(len(training_domains)):
         weights[i] = weights[i].divide(total)
     
     test_image = _create_extended_learning_image(domain, b)
-    while len(full_classifier) < 20:
+    while len(full_classifier) < 100:
       best = None
       for band_name in bands:
         (threshold, ind, value) = __find_optimal_threshold(training_domains, training_images, water_masks, band_name, weights, band_splits[band_name])
-        errors = [weights[i].multiply(training_images[i].select(band_name).lte(threshold).neq(water_masks[i])).reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250).getInfo()['constant'] for i in range(len(training_domains))]
+        errors = [safe_get_info(weights[i].multiply(training_images[i].select(band_name).lte(threshold).neq(water_masks[i])).reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250))['constant'] for i in range(len(training_domains))]
         error = sum(errors)
         print '%s found threshold %g with entropy %g error %g' % (band_name, threshold, value, error)
         if best == None or abs(0.5 - error) > abs(0.5 - best[0]): # classifiers that are always wrong are also good with negative alpha
@@ -1038,11 +1057,10 @@ def adaboost_learn(domain, b):
       classifier = (best[1], best[2], alpha)
       full_classifier.append(classifier)
       weights = [weights[i].multiply(apply_classifier(training_images[i], classifier[0], classifier[1]).multiply(transformed_masks[i]).multiply(-alpha).exp()) for i in range(len(training_domains))]
-      totals = [weights[i].reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250).getInfo()['constant'] for i in range(len(training_domains))]
+      totals = [safe_get_info(weights[i].reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250))['constant'] for i in range(len(training_domains))]
       total = sum(totals)
       weights = [w.divide(total) for w in weights]
       print full_classifier
-      addToMap(adaboost(domain, b, full_classifier))
 
 def experimental(domain, b):
     return adaboost_learn(domain, b)
@@ -1162,6 +1180,8 @@ __ALGORITHMS = {
         DART_LEARNED       : ('Dartmouth Learned',       dart_learned,   False, '33CCFF'),
         FAI                : ('Floating Algae',          fai,            False, '3399FF'),
         FAI_LEARNED        : ('Floating Algae Learned',  fai_learned,    False, '3399FF'),
+        MODNDWI            : ('Mod. NDWI',               mod_ndwi,       False, '00FFFF'),
+        MODNDWI_LEARNED    : ('Mod. NDWI Learned',      mod_ndwi_learned,False, '00FFFF'),
         CART               : ('CART',                    cart,           False, 'CC6600'),
         SVM                : ('SVM',                     svm,            False, 'FFAA33'),
         RANDOM_FORESTS     : ('Random Forests',          random_forests, False, 'CC33FF'),

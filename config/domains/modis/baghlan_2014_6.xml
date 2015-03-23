@@ -58,6 +58,8 @@
       <dartmouth_threshold>0.75</dartmouth_threshold>
       
       <fai_threshold>250</fai_threshold>
+
+      <mod_ndwi_threshold>0.144531</mod_ndwi_threshold>
       
       <dem_threshold>480</dem_threshold>
     </algorithm_params>

@@ -18,6 +18,15 @@
 import ee
 import threading
 import functools
+import time
+
+def safe_get_info(ee_object):
+    while True:
+        try:
+            return ee_object.getInfo()
+        except Exception as e:
+            print 'Earth Engine Error: %s. Waiting 10s and then retrying.' % (e)
+            time.sleep(10)
 
 class WaitForResult(threading.Thread):
     '''Starts up a thread to run a pair of functions in series'''
