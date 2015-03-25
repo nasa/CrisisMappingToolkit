@@ -16,10 +16,11 @@
 # -----------------------------------------------------------------------------
 
 import ee
-import threading
-import functools
-import time
-#import cmt.mapclient_qt
+import os
+
+
+# Location of the sensor config files
+SENSOR_FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../config/sensors')
 
 def safe_get_info(ee_object, max_num_attempts=None):
     '''Keep trying to call getInfo() on an Earth Engine object until it succeeds.'''
@@ -37,3 +38,24 @@ def safe_get_info(ee_object, max_num_attempts=None):
 def get_permanent_water_mask():
     '''Returns the global permanent water mask'''
     return ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
+
+
+def regionIsInUnitedStates(region):
+        '''Returns true if the current region is inside the US.'''
+        
+        # Extract the geographic boundary of the US.
+        nationList = ee.FeatureCollection('ft:1tdSwUL7MVpOauSgRzqVTOwdfy17KDbw-1d9omPw')
+        nation     = ee.Feature(nationList.filter(ee.Filter.eq('Country', 'United States')).first())
+        nationGeo  = ee.Geometry(nation.geometry())
+        result     = nationGeo.contains(region)
+
+        return (str(result.getInfo()) == 'True')
+    
+def getDefinedSensorNames():
+        '''Returns the list of known sensor types'''
+        # Get a list of xml files from the sensor files directory
+        return [f[:-4] for f in os.listdir(SENSOR_FILE_DIR) if f.endswith('.xml')]
+    
+    
+    
+    

@@ -170,8 +170,9 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
         print 'truth_sum   = ' + str(truth_sum)
         #cmt.mapclient_qt.addToMap(correct, {}, 'CORRECT')
  
-    # Test our result evaluation that does not depend on the ground truth!
-    no_truth_result = evaluate_result_quality(result, region)
+    ## A test of our result evaluation that does not depend on the ground truth!
+    #no_truth_result = evaluate_result_quality(result, region)
+    no_truth_result = 0 # For now skip calculating this to reduce the computation time
     
     return (precision, recall, eval_res, no_truth_result)
 

@@ -161,12 +161,15 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
         # TODO: Add a filter here to remove cloud-filled images
     
     # Simple function implements the b2 - b1 difference method
-    # - Using two methods like this is a hack to get a call from modis_lake_measure.py to work!
-    flood_diff_function1 = lambda x : x.select(['sur_refl_b02']).subtract(x.select(['sur_refl_b01']))
-    flood_diff_function2 = lambda x : x.sur_refl_b02.subtract(x.sur_refl_b01)
+    # - This needs to work with domains and with the input from production_gui
+    def flood_diff_function(image):
+        try:
+            return image.select(['sur_refl_b02']).subtract(image.select(['sur_refl_b01']))
+        except:
+            return image.sur_refl_b02.subtract(image.sur_refl_b01)
     
     # Apply difference function to all images in history, then compute mean and standard deviation of difference scores.
-    historyDiff   = historyHigh.map(flood_diff_function1)
+    historyDiff   = historyHigh.map(flood_diff_function)
     historyMean   = historyDiff.mean()
     historyStdDev = historyDiff.reduce(ee.Reducer.stdDev())
     
@@ -178,7 +181,7 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
     #addToMap(historyStdDev, {'min' : 0, 'max' : 2000}, 'History stdDev', False)
     
     # Compute flood diff on current image and compare to historical mean/STD.
-    floodDiff   = flood_diff_function2(high_res_modis)   
+    floodDiff   = flood_diff_function(high_res_modis)   
     diffOfDiffs = floodDiff.subtract(historyMean)
     ddDivDev    = diffOfDiffs.divide(historyStdDev)
     changeFlood = ddDivDev.lt(change_thresh)  # Mark all pixels which are enough STD's away from the mean.
@@ -199,7 +202,7 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
     # Use the water mask statistics to compute a difference threshold, then find all pixels below the threshold.
     waterThreshold  = safe_get_info(maskedMean)['sur_refl_b02'] + dev_thresh*(safe_get_info(maskedStdDev)['sur_refl_b02']);
     #print 'Water threshold == ' + str(waterThreshold)
-    waterPixels     = flood_diff_function2(high_res_modis).lte(waterThreshold)
+    waterPixels     = flood_diff_function(high_res_modis).lte(waterThreshold)
     #waterPixels     = modis_diff(domain, b, waterThreshold)
     
     #addToMap(waterPixels,    {'min' : 0,   'max' : 1}, 'waterPixels',    False)
