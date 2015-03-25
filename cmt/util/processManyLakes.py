@@ -37,7 +37,7 @@ import threading
 import multiprocessing
 import os
 import functools
-
+import traceback
 import ee
 
 
@@ -176,6 +176,7 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
         name = name.replace("'","").replace(".","").replace(",","").replace(" ","_") # Strip out weird characters
         if name == '': # Can't proceed without the name!
             print 'Skipping lake with no name!'
+            print lake['properties']
             return False
     
         # Check if the lake is in the bad lake list
@@ -230,6 +231,7 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
                 result = processing_function(ee_bounds, this_ee_image, this_date, logger)
             except Exception as e:
                 print 'Processing failed, skipping this date --> ' + str(e)
+                traceback.print_exc(file=sys.stdout)
                 continue
             
             # Append some metadata to the record and log it
@@ -272,9 +274,10 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
             raise Exception('Failed to find user specified lake name!')
     else: 
         all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").filterMetadata(
-                        u'AREA_SKM', u'less_than', MAX_LAKE_SIZE).filterMetadata(
-                        u'LAT_DEG',  u'less_than',     MAX_LATITUDE).filterMetadata(
-                        u'LAT_DEG',  u'greater_than', -MAX_LATITUDE).toList(args.max_lakes)
+                        u'LAKE_NAME',  u'not_equals',    "").filterMetadata(
+                        u'AREA_SKM',   u'less_than',     MAX_LAKE_SIZE).filterMetadata(
+                        u'LAT_DEG',    u'less_than',     MAX_LATITUDE).filterMetadata(
+                        u'LAT_DEG',    u'greater_than', -MAX_LATITUDE).toList(args.max_lakes)
         #pprint(ee.Feature(all_lakes.get(0)).getInfo())
     
     # Fetch ee information for all of the lakes we loaded from the database
@@ -296,17 +299,10 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
     manager = multiprocessing.Manager()
     
     
-    lake_results    = []
-    SKIP = 40
-    count = 0
+    lake_results = []
     for i in range(len(all_lakes_local)): # For each lake...
         # Get this one lake
         ee_lake = ee.Feature(all_lakes.get(i)) 
-
-        #if args.lake == None:
-        #    count += 1
-        #    if count < SKIP:
-        #        continue
 
         #process_lake(all_lakes_local[i], ee_lake, start_date, end_date, args.results_dir, processing_function, logging_class, image_fetching_function)
         

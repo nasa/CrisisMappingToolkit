@@ -22,6 +22,7 @@ from cmt.mapclient_qt import addToMap
 from cmt.util.miscUtilities import safe_get_info, get_permanent_water_mask
 from modis_utilities import *
 import ee_classifiers
+import simple_modis_algorithms
 
 '''
 Contains the DNNS set of MODIS algorithms.
@@ -72,10 +73,10 @@ def dnns(domain, b, use_modis_diff=False):
     if use_modis_diff:
         unflooded_b = compute_modis_indices(domain.unflooded_domain)
         water_mask = get_permanent_water_mask()
-        thresholds = compute_binary_threshold(get_diff(unflooded_b), water_mask, domain.bounds, True)
+        thresholds = compute_binary_threshold(simple_modis_algorithms.get_diff(unflooded_b), water_mask, domain.bounds, True)
 
-        pureWater = modis_diff(domain, b, thresholds[0])
-        pureLand = modis_diff(domain, b, thresholds[1]).Not()
+        pureWater  = simple_modis_algorithms.modis_diff(domain, b, thresholds[0])
+        pureLand   = simple_modis_algorithms.modis_diff(domain, b, thresholds[1]).Not()
         mixed = pureWater.Or(pureLand).Not()
     else:
         classes   = ee_classifiers.earth_engine_classifier(domain, b, 'Pegasos', {'classifier_mode' : 'probability'})

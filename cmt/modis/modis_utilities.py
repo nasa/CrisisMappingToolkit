@@ -102,7 +102,8 @@ def get_permanent_water_mask():
 
 
 
-# If mixed_thresholds is true, we find the thresholds that contain 0.05 land and 0.95 water
+# If mixed_thresholds is true, we find the thresholds that contain 0.05 land and 0.95 water,
+#  otherwise we find the threshold that most accurately splits the training data.
 def compute_binary_threshold(valueImage, classification, bounds, mixed_thresholds=False):
     '''Computes a threshold for a value given examples in a classified binary image'''
     
@@ -121,10 +122,10 @@ def compute_binary_threshold(valueImage, classification, bounds, mixed_threshold
     # WARNING: This method assumes that the false histogram is composed of greater numbers than the true histogram!!
     #        : This happens to be the case for the three algorithms we are currently using this for.
     
-    false_index = 0
-    false_sum   = false_total
-    true_sum    = 0.0
-    threshold_index = None
+    false_index       = 0
+    false_sum         = false_total
+    true_sum          = 0.0
+    threshold_index   = None
     lower_mixed_index = None
     upper_mixed_index = None
     for i in range(len(histogramTrue['histogram'])): # Iterate through the bins of the true histogram
@@ -155,10 +156,12 @@ def compute_binary_threshold(valueImage, classification, bounds, mixed_threshold
 
     
     if mixed_thresholds:
+        if (not lower_mixed_index) or (not upper_mixed_index):
+            raise Exception('Failed to compute mixed threshold values!')
         lower = histogramTrue['bucketMin'] + lower_mixed_index * histogramTrue['bucketWidth'] + histogramTrue['bucketWidth']/2
         upper = histogramTrue['bucketMin'] + upper_mixed_index * histogramTrue['bucketWidth'] + histogramTrue['bucketWidth']/2
         if lower > upper:
-            temp = lower
+            temp  = lower
             lower = upper
             upper = temp
         print 'Thresholds (%g, %g) found.' % (lower, upper)

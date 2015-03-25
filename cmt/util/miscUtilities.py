@@ -47,7 +47,7 @@ def regionIsInUnitedStates(region):
         nationList = ee.FeatureCollection('ft:1tdSwUL7MVpOauSgRzqVTOwdfy17KDbw-1d9omPw')
         nation     = ee.Feature(nationList.filter(ee.Filter.eq('Country', 'United States')).first())
         nationGeo  = ee.Geometry(nation.geometry())
-        result     = nationGeo.contains(region)
+        result     = nationGeo.contains(region, 10)
 
         return (str(result.getInfo()) == 'True')
     
@@ -56,6 +56,21 @@ def getDefinedSensorNames():
         # Get a list of xml files from the sensor files directory
         return [f[:-4] for f in os.listdir(SENSOR_FILE_DIR) if f.endswith('.xml')]
     
+    
+def unComputeRectangle(eeRect):
+    '''"Decomputes" an ee Rectangle object so more functions will work on it'''
+    # This function is to work around some dumb EE behavior
+
+    LON = 0 # Helper constants
+    LAT = 1    
+    rectCoords  = eeRect.getInfo()['coordinates']    # EE object -> dictionary -> string
+    minLon      = rectCoords[0][0][LON]           # Exctract the numbers from the string
+    minLat      = rectCoords[0][0][LAT]
+    maxLon      = rectCoords[0][2][LON]
+    maxLat      = rectCoords[0][2][LAT]
+    bbox        = [minLon, minLat, maxLon, maxLat]   # Pack in order
+    eeRectFixed = apply(ee.Geometry.Rectangle, bbox) # Convert back to EE rectangle object
+    return eeRectFixed
     
     
     
