@@ -19,7 +19,7 @@ import ee
 import math
 
 from cmt.mapclient_qt import addToMap
-from cmt.util.evaluation import safe_get_info
+from cmt.util.miscUtilities import safe_get_info, get_permanent_water_mask
 
 '''
 Contains implementations of multiple MODIS-based flood detection algorithms.
@@ -49,6 +49,9 @@ FAI_LEARNED        = 20
 EXPERIMENTAL       = 21
 MODNDWI            = 22
 MODNDWI_LEARNED    = 23
+
+#==============================================================
+# Utility functions
 
 def compute_modis_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
@@ -123,6 +126,8 @@ def getCloudPercentage(lowResModis, region):
 
 
 
+
+
 # if mixed_thresholds is true, we find the thresholds that contain 0.05 land and 0.95 water
 def compute_binary_threshold(valueImage, classification, bounds, mixed_thresholds=False):
     '''Computes a threshold for a value given examples in a classified binary image'''
@@ -191,6 +196,21 @@ def compute_binary_threshold(valueImage, classification, bounds, mixed_threshold
             (threshold, true_sum / true_total * 100.0, false_sum / false_total * 100.0)
         return threshold
 
+
+def compute_dem_slope_degrees(dem, resolution):
+    '''Computes a slope in degrees for each pixel of the DEM'''
+    
+    deriv = dem.derivative()
+    dZdX    = deriv.select(['elevation_x']).divide(resolution)
+    dZdY    = deriv.select(['elevation_y']).divide(resolution)
+    slope = dZdX.multiply(dZdX).add(dZdY.multiply(dZdY)).sqrt().reproject("EPSG:4269", None, resolution); 
+    RAD2DEG = 180 / 3.14159
+    slopeAngle = slope.atan().multiply(RAD2DEG);
+    return slopeAngle
+
+
+#==============================================================
+
 def dem_threshold(domain, b):
     '''Just use a height threshold on the DEM!'''
 
@@ -215,10 +235,11 @@ def xiao(domain, b):
     '''
     return b['LSWI'].subtract(b['NDVI']).gte(0.05).Or(b['LSWI'].subtract(b['EVI']).gte(0.05)).select(['sur_refl_b02'], ['b1']);
 
-def get_permanent_water_mask():
-    return ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
+
+#==============================================================
 
 def get_diff(b):
+    '''Just the internals of the difference method'''
     return b['b2'].subtract(b['b1']).select(['sur_refl_b02'], ['b1'])
 
 def diff_learned(domain, b):
@@ -227,7 +248,7 @@ def diff_learned(domain, b):
         print 'No unflooded training domain provided.'
         return None
     unflooded_b = compute_modis_indices(domain.unflooded_domain)
-    water_mask = get_permanent_water_mask()
+    water_mask  = get_permanent_water_mask()
     
     threshold = compute_binary_threshold(get_diff(unflooded_b), water_mask, domain.bounds)
     return modis_diff(domain, b, threshold)
@@ -241,7 +262,55 @@ def modis_diff(domain, b, threshold=None):
         threshold = float(domain.algorithm_params['modis_diff_threshold'])
     return get_diff(b).lte(threshold)
 
+#==============================================================
+
+def get_dartmouth(b):
+    A = 500
+    B = 2500
+    return b['b2'].add(A).divide(b['b1'].add(B)).select(['sur_refl_b02'], ['b1'])
+
+def dart_learned(domain, b):
+    '''The dartmouth method but with threshold calculation included (training image required)'''
+    if domain.unflooded_domain == None:
+        print 'No unflooded training domain provided.'
+        return None
+    unflooded_b = compute_modis_indices(domain.unflooded_domain)
+    water_mask = get_permanent_water_mask()
+    threshold = compute_binary_threshold(get_dartmouth(unflooded_b), water_mask, domain.bounds)
+    return dartmouth(domain, b, threshold)
+
+def dartmouth(domain, b, threshold=None):
+    '''A flood detection method from the Dartmouth Flood Observatory.
+    
+        This method is a refinement of the simple b2-b1 detection method.
+    '''
+    if threshold == None:
+        threshold = float(domain.algorithm_params['dartmouth_threshold'])
+    return get_dartmouth(b).lte(threshold)
+
+#==============================================================
+
+def get_mod_ndwi(b):
+    return b['b6'].subtract(b['b4']).divide(b['b4'].add(b['b6'])).select(['sur_refl_b06'], ['b1'])
+
+def mod_ndwi_learned(domain, b):
+    if domain.unflooded_domain == None:
+        print 'No unflooded training domain provided.'
+        return None
+    unflooded_b = compute_modis_indices(domain.unflooded_domain)
+    water_mask = get_permanent_water_mask()
+    threshold = compute_binary_threshold(get_mod_ndwi(unflooded_b), water_mask, domain.bounds)
+    return mod_ndwi(domain, b, threshold)
+
+def mod_ndwi(domain, b, threshold=None):
+    if threshold == None:
+        threshold = float(domain.algorithm_params['mod_ndwi_threshold'])
+    return get_mod_ndwi(b).lte(threshold)
+
+#==============================================================
+
 def get_fai(b):
+    '''Just the internals of the FAI method'''
     return b['b2'].subtract(b['b1'].add(b['b5'].subtract(b['b1']).multiply((859.0 - 645) / (1240 - 645)))).select(['sur_refl_b02'], ['b1'])
 
 def fai_learned(domain, b):
@@ -263,6 +332,9 @@ def fai(domain, b, threshold=None):
         threshold = float(domain.algorithm_params['fai_threshold'])
     return get_fai(b).lte(threshold)
 
+#==============================================================
+# Functions relying on built in Earth Engine classifiers
+
 def _create_learning_image(domain, b):
     '''Set up features for the classifier to be trained on: [b2, b2/b1, b2/b1, NDVI, NDWI]'''
     diff        = b['b2'].subtract(b['b1'])
@@ -273,8 +345,8 @@ def _create_learning_image(domain, b):
     # Try to add a DEM
     try:
         dem = domain.get_dem().image
-        outputBands.addBands(dem)
-        #outputBands = dem
+        #outputBands.addBands(dem)
+        outputBands = dem
     except AttributeError:
         pass # Suppress error if there is no DEM data
     
@@ -378,6 +450,10 @@ def svm(domain, b):
 def random_forests(domain, b):
     '''Classify using RifleSerialClassifier (Random Forests)'''
     return earth_engine_classifier(domain, b, 'RifleSerialClassifier')
+
+
+#==============================================================
+
 
 def dnns_diff(domain, b):
     '''The DNNS algorithm but faster because it approximates the initial CART classification with
@@ -573,6 +649,101 @@ def dnns_dem(domain, b, use_modis_diff=False):
     return dem_water.Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
 
 
+
+
+def martinis_tree(domain, b):
+    '''Based on Figure 3 from "A Multi-Scale Flood Monitoring System Based on Fully
+        Automatic MODIS and TerraSAR-X Processing Chains" by 
+        Sandro Martinis, Andre Twele, Christian Strobl, Jens Kersten and Enrico Stein
+        
+       Some steps had to be approximated such as the cloud filtering.  The main pixel
+       classification steps are implemented as accurately as can be determined from 
+       the figure.
+'''
+    # Note: Nodes with the same name are numbered top to bottom, left to right in order
+    #       to distinguish which one a variable represents.
+
+    # ---- Apply the initial classification at the top of the figure ----
+    # Indices already computed in the 'b' object
+    clouds        = b['pBLUE'].gte(0.27)
+    temp1         = b['EVI'].lte(0.3 ).And(b['DVEL'].lte(0.05))
+    temp2         = b['EVI'].lte(0.05).And(b['LSWI'].lte(0.00))
+    nonFlood1     = b['EVI'].gt(0.3).And(temp1.Not())
+    waterRelated1 = temp1.Or(temp2)
+    nonFlood2     = temp1.And(temp2.Not())
+    
+    # ---- Apply DEM filtering ----
+    
+    # Retrieve the dem compute slopes
+    demSensor       = domain.get_dem()
+    dem             = demSensor.image
+    demSlopeDegrees = compute_dem_slope_degrees(demSensor.image, demSensor.band_resolutions[demSensor.band_names[0]])
+    #addToMap(demSlopeDegrees, {'min': 0, 'max': 90}, 'DEM slope',  False)
+    
+    # Filter regions of high slope
+    highSlope = demSlopeDegrees.gt(10).Or( demSlopeDegrees.gt(8).And(dem.gt(2000)) )
+    
+    waterRelated2 = waterRelated1.And(highSlope.Not())
+    nonFlood3     = waterRelated1.And(highSlope).Or(nonFlood2)
+    
+    mixture1 = waterRelated2.And(b['EVI'].gt(0.1))
+    flood1   = waterRelated2.And(b['EVI'].lte(0.1))
+    
+    # ---- Approximate region growing ----
+    
+    # Earth Engine can't do a real region grow so approximate one with a big dilation
+    REGION_GROW_SIZE = 35 # Pixels
+    expansionKernel  = ee.Kernel.circle(REGION_GROW_SIZE, 'pixels', False)
+    
+    # Region growing 1
+    temp1 = b['EVI'].lte(0.31).And(b['DVEL'].lte(0.07))
+    temp2 = b['EVI'].lte(0.06).And(b['LSWI'].lte(0.01))
+    relaxedConditions      = temp1.Or(temp2)
+    potentialExpansionArea = waterRelated2.convolve(expansionKernel).And(nonFlood3)
+    waterRelated3          = potentialExpansionArea.And(relaxedConditions)
+    
+    mixture3 = waterRelated3.And(b['EVI'].gt(0.1))
+    flood3   = waterRelated3.And(b['EVI'].lte(0.1))
+    
+    # Region growing 2
+    potentialExpansionArea = flood1.convolve(expansionKernel).And(mixture1)
+    mixture2 = potentialExpansionArea.And(b['LSWI'].lt(0.08))
+    flood2   = potentialExpansionArea.And(b['LSWI'].gte(0.08))
+    
+    # ---- Apply water mask ----
+    
+    waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'])
+
+    # Not sure how exactly the paper does this but we don't care about anything in the permanent water mask!
+    recedingWater = nonFlood3.And(waterMask)
+    
+    mergedFlood   = flood1.Or(flood2).Or(flood3)
+    standingWater = mergedFlood.And(waterMask)
+    flood4        = mergedFlood.And(waterMask.Not())
+
+    # ---- Cloud handling? ----
+
+    # In place of the complicated cloud geometery, just remove pixels
+    #  that are flagged as bad in the input MODIS imagery.
+    badModisPixels = getModisBadPixelMask(domain.modis.image)
+
+    flood5 = flood4.And(badModisPixels.Not())
+
+    # ---- Time series handling ----
+    # --> This step is not included
+
+    fullMixture = mixture2.Or(mixture3)
+
+    # Generate the binary flood detection output we are interested in
+    outputFlood = flood5.Or(standingWater)
+
+    return outputFlood.select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
+
+
+    
+#==============================================================
+# Experimental classifiers
+
 def history_diff(domain, b):
     '''Wrapper function for passing domain data into history_diff_core'''
     
@@ -582,6 +753,7 @@ def history_diff(domain, b):
     
     # Call the core algorithm with all the parameters it needs from the domain
     return history_diff_core(domain.modis, domain.modis.get_date(), dev_thresh, change_thresh, domain.bounds)
+
     
 def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
     '''Leverage historical data and the permanent water mask to improve the threshold method.
@@ -665,46 +837,6 @@ def history_diff_core(high_res_modis, date, dev_thresh, change_thresh, bounds):
 
 
 
-def get_dartmouth(b):
-    A = 500
-    B = 2500
-    return b['b2'].add(A).divide(b['b1'].add(B)).select(['sur_refl_b02'], ['b1'])
-
-def dart_learned(domain, b):
-    '''The dartmouth method but with threshold calculation included (training image required)'''
-    if domain.unflooded_domain == None:
-        print 'No unflooded training domain provided.'
-        return None
-    unflooded_b = compute_modis_indices(domain.unflooded_domain)
-    water_mask = get_permanent_water_mask()
-    threshold = compute_binary_threshold(get_dartmouth(unflooded_b), water_mask, domain.bounds)
-    return dartmouth(domain, b, threshold)
-
-def dartmouth(domain, b, threshold=None):
-    '''A flood detection method from the Dartmouth Flood Observatory.
-    
-        This method is a refinement of the simple b2-b1 detection method.
-    '''
-    if threshold == None:
-        threshold = float(domain.algorithm_params['dartmouth_threshold'])
-    return get_dartmouth(b).lte(threshold)
-
-def get_mod_ndwi(b):
-    return b['b6'].subtract(b['b4']).divide(b['b4'].add(b['b6'])).select(['sur_refl_b06'], ['b1'])
-
-def mod_ndwi_learned(domain, b):
-    if domain.unflooded_domain == None:
-        print 'No unflooded training domain provided.'
-        return None
-    unflooded_b = compute_modis_indices(domain.unflooded_domain)
-    water_mask = get_permanent_water_mask()
-    threshold = compute_binary_threshold(get_mod_ndwi(unflooded_b), water_mask, domain.bounds)
-    return mod_ndwi(domain, b, threshold)
-
-def mod_ndwi(domain, b, threshold=None):
-    if threshold == None:
-        threshold = float(domain.algorithm_params['mod_ndwi_threshold'])
-    return get_mod_ndwi(b).lte(threshold)
 
 # This algorithm is not too different from the corrected DNNS algorithm.
 def dnns_revised(domain, b):
@@ -826,237 +958,215 @@ def dnns_revised(domain, b):
 
 
 
-def compute_dem_slope_degrees(dem, resolution):
-    '''Computes a slope in degrees for each pixel of the DEM'''
-    
-    deriv = dem.derivative()
-    dZdX    = deriv.select(['elevation_x']).divide(resolution)
-    dZdY    = deriv.select(['elevation_y']).divide(resolution)
-    slope = dZdX.multiply(dZdX).add(dZdY.multiply(dZdY)).sqrt().reproject("EPSG:4269", None, resolution); 
-    RAD2DEG = 180 / 3.14159
-    slopeAngle = slope.atan().multiply(RAD2DEG);
-    return slopeAngle
 
 
-def martinis_tree(domain, b):
-    '''Based on Figure 3 from "A Multi-Scale Flood Monitoring System Based on Fully
-        Automatic MODIS and TerraSAR-X Processing Chains" by 
-        Sandro Martinis, Andre Twele, Christian Strobl, Jens Kersten and Enrico Stein
-        
-       Some steps had to be approximated such as the cloud filtering.  The main pixel
-       classification steps are implemented as accurately as can be determined from 
-       the figure.
-'''
-    # Note: Nodes with the same name are numbered top to bottom, left to right in order
-    #       to distinguish which one a variable represents.
 
-    # ---- Apply the initial classification at the top of the figure ----
-    # Indices already computed in the 'b' object
-    clouds        = b['pBLUE'].gte(0.27)
-    temp1         = b['EVI'].lte(0.3 ).And(b['DVEL'].lte(0.05))
-    temp2         = b['EVI'].lte(0.05).And(b['LSWI'].lte(0.00))
-    nonFlood1     = b['EVI'].gt(0.3).And(temp1.Not())
-    waterRelated1 = temp1.Or(temp2)
-    nonFlood2     = temp1.And(temp2.Not())
-    
-    #addToMap(b['EVI'],  {'min': 0, 'max': 1}, 'EVI',   False)
-    #addToMap(b['LSWI'], {'min': 0, 'max': 1}, 'LSWI',  False)
-    #addToMap(b['DVEL'], {'min': 0, 'max': 1}, 'DVEL',  False)
-    #addToMap(waterRelated1, {'min': 0, 'max': 1}, 'waterRelated1',  False)
-    
-    # ---- Apply DEM filtering ----
-    
-    # Retrieve the dem compute slopes
-    demSensor       = domain.get_dem()
-    dem             = demSensor.image
-    demSlopeDegrees = compute_dem_slope_degrees(demSensor.image, demSensor.band_resolutions[demSensor.band_names[0]])
-    #addToMap(demSlopeDegrees, {'min': 0, 'max': 90}, 'DEM slope',  False)
-    
-    # Filter regions of high slope
-    highSlope = demSlopeDegrees.gt(10).Or( demSlopeDegrees.gt(8).And(dem.gt(2000)) )
-    
-    waterRelated2 = waterRelated1.And(highSlope.Not())
-    nonFlood3     = waterRelated1.And(highSlope).Or(nonFlood2)
-    
-    mixture1 = waterRelated2.And(b['EVI'].gt(0.1))
-    flood1   = waterRelated2.And(b['EVI'].lte(0.1))
-    
-    #addToMap(waterRelated2, {'min': 0, 'max': 1}, 'waterRelated2',  False)
-    
-    # ---- Approximate region growing ----
-    
-    # Earth Engine can't do a real region grow so approximate one with a big dilation
-    REGION_GROW_SIZE = 35 # Pixels
-    expansionKernel  = ee.Kernel.circle(REGION_GROW_SIZE, 'pixels', False)
-    
-    # Region growing 1
-    temp1 = b['EVI'].lte(0.31).And(b['DVEL'].lte(0.07))
-    temp2 = b['EVI'].lte(0.06).And(b['LSWI'].lte(0.01))
-    relaxedConditions      = temp1.Or(temp2)
-    potentialExpansionArea = waterRelated2.convolve(expansionKernel).And(nonFlood3)
-    waterRelated3          = potentialExpansionArea.And(relaxedConditions)
-    
-    mixture3 = waterRelated3.And(b['EVI'].gt(0.1))
-    flood3   = waterRelated3.And(b['EVI'].lte(0.1))
-    
-    # Region growing 2
-    potentialExpansionArea = flood1.convolve(expansionKernel).And(mixture1)
-    mixture2 = potentialExpansionArea.And(b['LSWI'].lt(0.08))
-    flood2   = potentialExpansionArea.And(b['LSWI'].gte(0.08))
-    
-    #addToMap(nonFlood1, {'min': 0, 'max': 1}, 'nonFlood1',  False)
-    #addToMap(nonFlood2, {'min': 0, 'max': 1}, 'nonFlood2',  False)
-    #addToMap(nonFlood3, {'min': 0, 'max': 1}, 'nonFlood3',  False)
-    #
-    #addToMap(mixture1, {'min': 0, 'max': 1}, 'mixture1',  False)
-    #addToMap(mixture2, {'min': 0, 'max': 1}, 'mixture2',  False)
-    #addToMap(mixture3, {'min': 0, 'max': 1}, 'mixture3',  False)
-    #addToMap(waterRelated3, {'min': 0, 'max': 1}, 'waterRelated3',  False)
-    
-    # ---- Apply water mask ----
-    
-    waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'])
+# ==============================================================================
+# Adaboost stuff
 
-    # Not sure how exactly the paper does this but we don't care about anything in the permanent water mask!
-    recedingWater = nonFlood3.And(waterMask)
+def _create_adaboost_learning_image(domain, b):
+    '''Like _create_learning_image but using a lot of simple classifiers to feed into Adaboost'''
     
-    mergedFlood   = flood1.Or(flood2).Or(flood3)
-    standingWater = mergedFlood.And(waterMask)
-    flood4        = mergedFlood.And(waterMask.Not())
-
-    # ---- Cloud handling? ----
-
-    # In place of the complicated cloud geometery, just remove pixels
-    #  that are flagged as bad in the input MODIS imagery.
-    badModisPixels = getModisBadPixelMask(domain.modis.image)
-
-    flood5 = flood4.And(badModisPixels.Not())
-
-    # ---- Time series handling ----
-    # --> This step is not included
-
-    fullMixture = mixture2.Or(mixture3)
-    #addToMap(fullMixture, {'min': 0, 'max': 1}, 'fullMixture',  False)
-
-    # Generate the binary flood detection output we are interested in
-    outputFlood = flood5.Or(standingWater)
-
-    return outputFlood.select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
-
-def _create_extended_learning_image(domain, b):
     #a = get_diff(b).select(['b1'], ['b1'])
-    a = b['b1'].select(['sur_refl_b01'], ['b1'])
-    a = a.addBands(b['b2'].select(['sur_refl_b02'], ['b2']))
-    a = a.addBands(b['b2'].divide(b['b1']).select(['sur_refl_b02'], ['ratio']))
+    a = b['b1'].select(['sur_refl_b01'],                                                 ['b1'           ])
+    a = a.addBands(b['b2'].select(['sur_refl_b02'],                                      ['b2'           ]))
+    a = a.addBands(b['b2'].divide(b['b1']).select(['sur_refl_b02'],                      ['ratio'        ]))
     a = a.addBands(b['LSWI'].subtract(b['NDVI']).subtract(0.05).select(['sur_refl_b02'], ['LSWIminusNDVI']))
-    a = a.addBands(b['LSWI'].subtract(b['EVI']).subtract(0.05).select(['sur_refl_b02'], ['LSWIminusEVI']))
-    a = a.addBands(b['EVI'].subtract(0.3).select(['sur_refl_b02'], ['EVI']))
-    a = a.addBands(b['LSWI'].select(['sur_refl_b02'], ['LSWI']))
-    a = a.addBands(b['NDVI'].select(['sur_refl_b02'], ['NDVI']))
-    a = a.addBands(b['NDWI'].select(['sur_refl_b01'], ['NDWI']))
-    a = a.addBands(get_diff(b).select(['b1'], ['diff']))
-    a = a.addBands(get_fai(b).select(['b1'], ['fai']))
-    a = a.addBands(get_dartmouth(b).select(['b1'], ['dartmouth']))
-    a = a.addBands(get_mod_ndwi(b).select(['b1'], ['MNDWI']))
+    a = a.addBands(b['LSWI'].subtract(b['EVI']).subtract(0.05).select(['sur_refl_b02'],  ['LSWIminusEVI' ]))
+    a = a.addBands(b['EVI'].subtract(0.3).select(['sur_refl_b02'],                       ['EVI'          ]))
+    a = a.addBands(b['LSWI'].select(['sur_refl_b02'],                                    ['LSWI'         ]))
+    a = a.addBands(b['NDVI'].select(['sur_refl_b02'],                                    ['NDVI'         ]))
+    a = a.addBands(b['NDWI'].select(['sur_refl_b01'],                                    ['NDWI'         ]))
+    a = a.addBands(get_diff(b).select(['b1'],                                            ['diff'         ]))
+    a = a.addBands(get_fai(b).select(['b1'],                                             ['fai'          ]))
+    a = a.addBands(get_dartmouth(b).select(['b1'],                                       ['dartmouth'    ]))
+    a = a.addBands(get_mod_ndwi(b).select(['b1'],                                        ['MNDWI'        ]))
     return a
 
-# binary search to find best threshold
-def __find_optimal_threshold(domains, images, truths, band_name, weights, splits):
+
+def _find_adaboost_optimal_threshold(domains, images, truths, band_name, weights, splits):
+    '''Binary search to find best threshold for this band'''
+    
+    EVAL_RESOLUTION = 250
     choices = []
     for i in range(len(splits) - 1):
         choices.append((splits[i] + splits[i+1]) / 2)
-    best = None
-    best_value = None
-    for i in range(len(choices)):
-        c = choices[i]
-        flood_and_threshold_sum = sum([safe_get_info(weights[i].mask(images[i].select(band_name).lte(c)).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250))['constant'] for i in range(len(domains))])
-        ts = [truths[i].multiply(weights[i]).divide(flood_and_threshold_sum).mask(images[i].select(band_name).lte(c)) for i in range(len(domains))]
-        entropies1 = [-safe_get_info(ts[i].multiply(ts[i].log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250))['b1'] for i in range(len(domains))]# H(Y | X <= c)
-
-        ts = [truths[i].multiply(weights[i]).divide(1 - flood_and_threshold_sum).mask(images[i].select(band_name).gt(c)) for i in range(len(domains))]
-        entropies2 = [-safe_get_info(ts[i].multiply(ts[i].log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250))['b1'] for i in range(len(domains))]# H(Y | X > c)
         
+    domain_range = range(len(domains))
+    best         = None
+    best_value   = None
+    for j in range(len(choices)):
+        # Pick a threshold and count how many pixels fall under it across all the input images
+        c = choices[i]
+        threshold_sums = [safe_get_info(weights[i].mask(images[i].select(band_name).lte(c)).reduceRegion(ee.Reducer.sum(), domains[i].bounds, EVAL_RESOLUTION))['constant'] for i in domain_range]
+        flood_and_threshold_sum = sum(threshold_sums)
+        
+        #ts         = [truths[i].multiply(weights[i]).divide(flood_and_threshold_sum).mask(images[i].select(band_name).lte(c))              for i in domain_range]
+        #entropies1 = [-safe_get_info(ts[i].multiply(ts[i].log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, EVAL_RESOLUTION))['b1'] for i in domain_range]# H(Y | X <= c)
+        #ts         = [truths[i].multiply(weights[i]).divide(1 - flood_and_threshold_sum).mask(images[i].select(band_name).gt(c))           for i in domain_range]
+        #entropies2 = [-safe_get_info(ts[i].multiply(ts[i].log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, EVAL_RESOLUTION))['b1'] for i in domain_range]# H(Y | X > c)
+        
+        # Compute the sums of two entropy measures across all images
+        entropies1 = entropies2 = []
+        for i in domain_range:
+            band_image     = images[i].select(band_name)
+            weighted_truth = truths[i].multiply(weights[i])
+            ts1            = weighted_truth.divide(    flood_and_threshold_sum).mask(band_image.lte(c)) # <= threshold
+            ts2            = weighted_truth.divide(1 - flood_and_threshold_sum).mask(band_image.gt( c)) # >  threshold
+            entropies1.append(-safe_get_info(ts1.multiply(ts1.log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, EVAL_RESOLUTION))['b1'])# H(Y | X <= c)
+            entropies2.append(-safe_get_info(ts2.multiply(ts2.log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, EVAL_RESOLUTION))['b1'])# H(Y | X > c)
         entropy1 = sum(entropies1)
         entropy2 = sum(entropies2)
-        gain = (entropy1 * flood_and_threshold_sum + entropy2 * (1 - flood_and_threshold_sum))
+        
+        # Compute the gain for this threshold choice
+        gain = (entropy1 * (    flood_and_threshold_sum)+
+                entropy2 * (1 - flood_and_threshold_sum))
         print c, gain, flood_and_threshold_sum, entropy1, entropy2
-        if best == None or gain < best_value:
-            best = i
+        
+        if (best == None) or (gain < best_value): # Record the maximum gain
+            best       = j
             best_value = gain
+    
+    # ??
     return (choices[best], best + 1, best_value)
 
 def apply_classifier(image, band, threshold):
+    '''Apply LTE threshold and convert to -1 / 1 (Adaboost requires this)'''
     return image.select(band).lte(threshold).multiply(2).subtract(1)
 
 def adaboost(domain, b, classifier = None):
+    '''Run Adaboost classifier'''
+    
+    # These are a set of known good computed values:  (Algorithm, Detection threshold, Weight)
+    # - These were trained on non-flooded MODIS images.
     if classifier == None:
-        classifier = [(u'dartmouth', 0.6746916226821668, 0.9545783139872039), (u'b1', 817.4631578947368, -0.23442294410851128), (u'ratio', 3.4957167876866304, -0.20613698036794326), (u'LSWIminusNDVI', -0.18319560006184613, -0.20191291743554216), (u'EVI', 1.2912227247420454, -0.11175138956289551), (u'dartmouth', 0.7919185558963437, 0.09587432900090082), (u'diff', 971.2916666666666, -0.10554565939141827), (u'LSWIminusEVI', -0.06318265061389294, -0.09533981402236558), (u'LSWI', 0.18809171182282547, 0.07057035145131643), (u'LSWI', 0.29177473609507737, -0.10405606800405826), (u'b1', 639.7947368421053, 0.04609306857534169), (u'b1', 550.9605263157895, 0.08536825945329486), (u'LSWI', 0.23993322395895142, 0.0686895188858698), (u'LSWIminusNDVI', -0.2895140352747048, -0.05149197092271741), (u'b2', 1713.761111111111, -0.05044107229585143), (u'b2', 2147.325, 0.08569272886858223), (u'dartmouth', 0.7333050892892552, -0.0658128496826074), (u'LSWI', 0.21401246789088846, 0.047469648515471446), (u'LSWIminusNDVI', -0.34267325288113415, -0.0402902367049306), (u'ratio', 2.382344524011886, -0.03795571511345347), (u'fai', 611.5782694327731, 0.03742837135530962), (u'ratio', 2.9390306558492583, -0.03454143179044789), (u'fai', 925.5945969012605, 0.05054908824123665), (u'diff', 1336.7708333333333, -0.042539270450854885), (u'LSWIminusNDVI', -0.3160936440779195, -0.03518287810525178)]
-    test_image = _create_extended_learning_image(domain, b)
-    total = ee.Image(0).select(['constant'], ['b1'])
+        classifier = [(u'dartmouth',        0.6746916226821668,   0.9545783139872039),
+                      (u'b1',             817.4631578947368,     -0.23442294410851128),
+                      (u'ratio',            3.4957167876866304,  -0.20613698036794326),
+                      (u'LSWIminusNDVI',   -0.18319560006184613, -0.20191291743554216),
+                      (u'EVI',              1.2912227247420454,  -0.11175138956289551),
+                      (u'dartmouth',        0.7919185558963437,   0.09587432900090082),
+                      (u'diff',           971.2916666666666,     -0.10554565939141827),
+                      (u'LSWIminusEVI',    -0.06318265061389294, -0.09533981402236558),
+                      (u'LSWI',             0.18809171182282547,  0.07057035145131643),
+                      (u'LSWI',             0.29177473609507737, -0.10405606800405826),
+                      (u'b1',             639.7947368421053,      0.04609306857534169),
+                      (u'b1',             550.9605263157895,      0.08536825945329486),
+                      (u'LSWI',             0.23993322395895142,  0.0686895188858698),
+                      (u'LSWIminusNDVI',   -0.2895140352747048,  -0.05149197092271741),
+                      (u'b2',            1713.761111111111, -     0.05044107229585143),
+                      (u'b2',            2147.325,                0.08569272886858223),
+                      (u'dartmouth',        0.7333050892892552,  -0.0658128496826074),
+                      (u'LSWI',             0.21401246789088846,  0.047469648515471446),
+                      (u'LSWIminusNDVI',   -0.34267325288113415, -0.0402902367049306),
+                      (u'ratio',            2.382344524011886,   -0.03795571511345347),
+                      (u'fai',            611.5782694327731,      0.03742837135530962),
+                      (u'ratio',            2.9390306558492583,  -0.03454143179044789),
+                      (u'fai',            925.5945969012605,      0.05054908824123665),
+                      (u'diff',          1336.7708333333333,     -0.042539270450854885),
+                      (u'LSWIminusNDVI',   -0.3160936440779195,  -0.03518287810525178)]
+        
+    test_image = _create_adaboost_learning_image(domain, b)
+    total      = ee.Image(0).select(['constant'], ['b1'])
     for c in classifier:
-      total = total.add(test_image.select(c[0]).lte(c[1]).multiply(2).subtract(1).multiply(c[2]))
+        total = total.add(test_image.select(c[0]).lte(c[1]).multiply(2).subtract(1).multiply(c[2]))
     return total.gte(0.0)
 
-def __compute_threshold_ranges(training_domains, training_images, water_masks, bands):
+def _compute_threshold_ranges(training_domains, training_images, water_masks, bands):
+    '''For each band, find lowest and highest fixed percentiles among the training domains.'''
+    LOW_PERCENTILE  = 20
+    HIGH_PERCENTILE = 80
+    EVAL_RESOLUTION = 250
+    
     band_splits = dict()
-    for band_name in bands:
-      split = None
-      print band_name
-      for i in range(len(training_domains)):
-        ret = safe_get_info(training_images[i].select(band_name).mask(water_masks[i]).reduceRegion(ee.Reducer.percentile([20, 80], ['s', 'b']), training_domains[i].bounds, 250))
-        s = [ret[band_name + '_s'], ret[band_name + '_b']]
-        if split == None:
-            split = s
-        else:
-            split[0] = min(split[0], s[0])
-            split[1] = max(split[1], s[1])
-      band_splits[band_name] = [split[0], split[1], split[1] + (split[1] - split[0])]
+    for band_name in bands: # Loop through each band (weak classifier input)
+        split = None
+        print 'Computing threshold ranges for: ' + band_name
+      
+        for i in range(len(training_domains)): # Loop through all input domains
+            # Compute the low and high percentiles for the data in the training image
+            masked_input_band = training_images[i].select(band_name).mask(water_masks[i])
+            ret = safe_get_info(masked_input_band.reduceRegion(ee.Reducer.percentile([LOW_PERCENTILE, HIGH_PERCENTILE], ['s', 'b']), training_domains[i].bounds, EVAL_RESOLUTION))
+            s   = [ret[band_name + '_s'], ret[band_name + '_b']] # Extract the two output values
+            
+            if split == None: # True for the first training domain
+                split = s
+            else: # Track the minimum and maximum percentiles for this band
+                split[0] = min(split[0], s[0])
+                split[1] = max(split[1], s[1])
+            
+        # For this band: [lowest 20th percentile, highest 80th percentile, 80th + the diff between them]
+        band_splits[band_name] = [split[0],  split[1],  split[1] + (split[1] - split[0])] 
     return band_splits
 
 def adaboost_learn(domain, b):
-    training_domains = [domain.unflooded_domain]
-    water_masks = [get_permanent_water_mask()]
-    transformed_masks = [water_mask.multiply(2).subtract(1) for water_mask in water_masks]
-    training_images = [_create_extended_learning_image(d, compute_modis_indices(d)) for d in training_domains]
-    bands = safe_get_info(training_images[0].bandNames())
-    print 'Computing threshold ranges.'
-    band_splits = __compute_threshold_ranges(training_domains, training_images, water_masks, bands)
-    counts = [safe_get_info(training_images[i].select('b1').reduceRegion(ee.Reducer.count(), training_domains[i].bounds, 250))['b1'] for i in range(len(training_domains))]
-    count = sum(counts)
-
-    weights = [ee.Image(1.0 / count) for i in range(len(training_domains))]
-    full_classifier = []
-    # initialize for pre-existing partially trained classifier
-    for (c, t, alpha) in full_classifier:
-      band_splits[c].append(t)
-      band_splits[c] = sorted(band_splits[c])
-      total = 0
-      for i in range(len(training_domains)):
-        weights[i] = weights[i].multiply(apply_classifier(training_images[i], c, t).multiply(transformed_masks[i]).multiply(-alpha).exp())
-        total += safe_get_info(weights[i].reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250))['constant']
-      for i in range(len(training_domains)):
-        weights[i] = weights[i].divide(total)
+    '''Train Adaboost classifier'''
     
-    test_image = _create_extended_learning_image(domain, b)
+    EVAL_RESOLUTION = 250
+    
+    # Load inputs for this domain and preprocess
+    print 'Preprocessing input data...'
+    training_domains  = [domain.unflooded_domain] # The same location at an earlier date with normal water levels.
+    water_masks       = [get_permanent_water_mask()]
+    transformed_masks = [water_mask.multiply(2).subtract(1) for water_mask in water_masks] # Convert from 0/1 to +/-1
+    training_images   = [_create_adaboost_learning_image(d, compute_modis_indices(d)) for d in training_domains]
+    bands             = safe_get_info(training_images[0].bandNames()) # Get list of all available input algorithms
+    training_domains_range = range(len(training_domains)) # Store this for convenience
+    
+    print 'Computing threshold ranges.' # Low and high percentile information for each band
+    band_splits = _compute_threshold_ranges(training_domains, training_images, water_masks, bands)
+    
+    # For each training image compute the number of non-null pixels
+    counts  = [safe_get_info(training_images[i].select('b1').reduceRegion(ee.Reducer.count(), training_domains[i].bounds, EVAL_RESOLUTION))['b1'] for i in training_domains_range]
+    count   = sum(counts) # Sum of non-null pixels over all training images
+    weights = [ee.Image(1.0 / count) for i in training_domains_range] # Each input pixel in the training images has an equal weight
+    
+    # ????
+    # Initialize for pre-existing partially trained classifier
+    full_classifier = []
+    for (c, t, alpha) in full_classifier:
+        band_splits[c].append(t)
+        band_splits[c] = sorted(band_splits[c])
+        total = 0
+        for i in training_domains_range:
+            weights[i] = weights[i].multiply(apply_classifier(training_images[i], c, t).multiply(transformed_masks[i]).multiply(-alpha).exp())
+            total += safe_get_info(weights[i].reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, EVAL_RESOLUTION))['constant']
+        for i in training_domains_range:
+            weights[i] = weights[i].divide(total)
+    
+    # Apply weak classifiers to the input test image
+    test_image = _create_adaboost_learning_image(domain, b)
+    
+    # ????
     while len(full_classifier) < 100:
-      best = None
-      for band_name in bands:
-        (threshold, ind, value) = __find_optimal_threshold(training_domains, training_images, water_masks, band_name, weights, band_splits[band_name])
-        errors = [safe_get_info(weights[i].multiply(training_images[i].select(band_name).lte(threshold).neq(water_masks[i])).reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250))['constant'] for i in range(len(training_domains))]
-        error = sum(errors)
-        print '%s found threshold %g with entropy %g error %g' % (band_name, threshold, value, error)
-        if best == None or abs(0.5 - error) > abs(0.5 - best[0]): # classifiers that are always wrong are also good with negative alpha
-          best = (error, band_name, threshold, ind)
-      band_splits[best[1]].insert(best[3], best[2])
-      print 'Using %s < %g. Error %g.' % (best[1], best[2], best[0])
-      alpha = 0.5 * math.log((1 - best[0]) / best[0])
-      classifier = (best[1], best[2], alpha)
-      full_classifier.append(classifier)
-      weights = [weights[i].multiply(apply_classifier(training_images[i], classifier[0], classifier[1]).multiply(transformed_masks[i]).multiply(-alpha).exp()) for i in range(len(training_domains))]
-      totals = [safe_get_info(weights[i].reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, 250))['constant'] for i in range(len(training_domains))]
-      total = sum(totals)
-      weights = [w.divide(total) for w in weights]
-      print full_classifier
+        best = None
+        for band_name in bands: # For each weak classifier
+            # Find the best threshold that we can choose
+            (threshold, ind, value) = _find_adaboost_optimal_threshold(training_domains, training_images, water_masks, band_name, weights, band_splits[band_name])
+            
+            # Compute the sum of weighted classification errors across all of the training domains using this threshold
+            errors = [safe_get_info(weights[i].multiply(training_images[i].select(band_name).lte(threshold).neq(water_masks[i])).reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, EVAL_RESOLUTION))['constant'] for i in training_domains_range]
+            error  = sum(errors)
+            print '%s found threshold %g with entropy %g error %g' % (band_name, threshold, value, error)
+            
+            # Record the band/threshold combination with the highest abs(error)
+            if (best == None) or (abs(0.5 - error) > abs(0.5 - best[0])): # Classifiers that are always wrong are also good with negative alpha
+                best = (error, band_name, threshold, ind)
+        
+        # ??  
+        band_splits[best[1]].insert(best[3], best[2])
+      
+        print 'Using %s < %g. Error %g.' % (best[1], best[2], best[0])
+        alpha      = 0.5 * math.log((1 - best[0]) / best[0])
+        classifier = (best[1], best[2], alpha)
+        full_classifier.append(classifier)
+        
+        # ???
+        weights = [weights[i].multiply(apply_classifier(training_images[i], classifier[0], classifier[1]).multiply(transformed_masks[i]).multiply(-alpha).exp()) for i in training_domains_range]
+        totals  = [safe_get_info(weights[i].reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, EVAL_RESOLUTION))['constant'] for i in training_domains_range]
+        total   = sum(totals)
+        weights = [w.divide(total) for w in weights]
+        print full_classifier
 
 def experimental(domain, b):
     return adaboost_learn(domain, b)
@@ -1070,90 +1180,9 @@ def experimental(domain, b):
     #        'classifier_name'   : 'Cart'
     #       }
     #classifier = ee.apply("TrainClassifier", args)  # Call the EE classifier
-    #classified = _create_extended_learning_image(domain, b).classify(classifier).select(['classification'], ['b1']); 
+    #classified = _create_adaboost_learning_image(domain, b).classify(classifier).select(['classification'], ['b1']); 
     return classified;
 
-
-def skyboxAssist(domain, b):
-    ''' Combine MODIS and RGBN to detect flood pixels.
-    '''
-    
-    raise Exception('Algorithm is not ready yet!')
-    
-    #lowModisThresh = 300
-    #
-    ## Simple function implements the b2 - b1 difference method
-    ## - Using two methods like this is a hack to get a call from modis_lake_measure.py to work!
-    ##flood_diff_function1 = lambda x : x.select(['sur_refl_b02']).subtract(x.select(['sur_refl_b01']))
-    #flood_diff_function2 = lambda x : x.sur_refl_b02.subtract(x.sur_refl_b01)
-    #
-    #
-    ## Compute the difference statistics inside permanent water mask pixels
-    #MODIS_RESOLUTION = 250 # Meters
-    #water_mask       = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'])
-    #floodDiff        = flood_diff_function2(domain.modis)
-    #diffInWaterMask  = floodDiff.multiply(water_mask)
-    #maskedMean       = diffInWaterMask.reduceRegion(ee.Reducer.mean(),   domain.bounds, MODIS_RESOLUTION)
-    #maskedStdDev     = diffInWaterMask.reduceRegion(ee.Reducer.stdDev(), domain.bounds, MODIS_RESOLUTION)
-    #
-    #print 'Water mean = ' + str(maskedMean.getInfo())
-    #print 'Water STD  = ' + str(maskedStdDev.getInfo())
-    #
-    ## TODO: Get this!
-    #water_thresh = -8.0
-    #land_thresh  =  10.0
-    #
-    ## Use the water mask statistics to compute a difference threshold, then find all pixels below the threshold.
-    #pureWaterThreshold  = maskedMean.getInfo()['sur_refl_b02'] + water_thresh*(maskedStdDev.getInfo()['sur_refl_b02']);
-    #print 'Pure water threshold == ' + str(pureWaterThreshold)
-    #pureWaterPixels     = flood_diff_function2(domain.modis).lte(pureWaterThreshold)
-    #
-    #
-    ##pureLandThreshold  = maskedMean.getInfo()['sur_refl_b02'] + land_thresh*(maskedStdDev.getInfo()['sur_refl_b02']);
-    #pureLandThreshold = pureWaterThreshold + 3000
-    #print 'Pure land threshold == ' + str(pureLandThreshold)
-    #pureLandPixels     = flood_diff_function2(domain.modis).gt(pureLandThreshold)
-    #
-    #
-    #addToMap(pureWaterPixels.mask(pureWaterPixels), {'min': 0, 'max': 1}, 'Pure Water',  False)
-    #addToMap(pureLandPixels.mask(pureLandPixels),   {'min': 0, 'max': 1}, 'Pure Land',   False)
-    #
-    #
-    ##TODO: Train on these pixels!
-    #
-    #
-#    
-#    def _create_learning_image(domain, b):
-#    '''Set up features for the classifier to be trained on: [b2, b2/b1, b2/b1, NDVI, NDWI]'''
-#    diff  = b['b2'].subtract(b['b1'])
-#    ratio = b['b2'].divide(b['b1'])
-#    return b['b1'].addBands(b['b2']).addBands(diff).addBands(ratio).addBands(b['NDVI']).addBands(b['NDWI'])
-#
-#def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
-#    '''Apply EE classifier tool using a ground truth image.'''
-#    training_domain = domain.training_domain
-#    training_image  = _create_learning_image(training_domain, compute_modis_indices(training_domain))
-#    args = {
-#            'image'             : training_image,
-#            'subsampling'       : 0.5,
-#            'training_image'    : training_domain.ground_truth,
-#            'training_band'     : "b1",
-#            'training_region'   : training_domain.bounds,
-#            'max_classification': 2,
-#            'classifier_name'   : classifier_name
-#           }
-#    args.update(extra_args)
-#    classifier = ee.apply("TrainClassifier", args)  # Call the EE classifier
-#    classified = ee.call("ClassifyImage", _create_learning_image(domain, b), classifier).select(['classification'], ['b1']); 
-#    return classified;
-#
-#def cart(domain, b):
-#    '''Classify using CART (Classification And Regression Tree)'''
-#    return earth_engine_classifier(domain, b, 'Cart')
-#    
-    
-    
-    #return b['b2'].subtract(b['b1']).lte(500).select(['sur_refl_b02'], ['b1']) # Rename sur_refl_b02 to b1
 
 
 
@@ -1168,29 +1197,29 @@ def skyboxAssist(domain, b):
 # Set up some information for each algorithm, used by the functions below.
 __ALGORITHMS = {
         # Algorithm,    Display name,   Function name,    Fractional result?,    Display color
-        EVI                : ('EVI',                     evi,            False, 'FF00FF'),
-        XIAO               : ('XIAO',                    xiao,           False, 'FFFF00'),
-        DIFFERENCE         : ('Difference',              modis_diff,     False, '00FFFF'),
-        DIFF_LEARNED       : ('Diff. Learned',           diff_learned,   False, '00FFFF'),
-        DARTMOUTH          : ('Dartmouth',               dartmouth,      False, '33CCFF'),
-        DART_LEARNED       : ('Dartmouth Learned',       dart_learned,   False, '33CCFF'),
-        FAI                : ('Floating Algae',          fai,            False, '3399FF'),
-        FAI_LEARNED        : ('Floating Algae Learned',  fai_learned,    False, '3399FF'),
-        MODNDWI            : ('Mod. NDWI',               mod_ndwi,       False, '00FFFF'),
-        MODNDWI_LEARNED    : ('Mod. NDWI Learned',      mod_ndwi_learned,False, '00FFFF'),
-        CART               : ('CART',                    cart,           False, 'CC6600'),
-        SVM                : ('SVM',                     svm,            False, 'FFAA33'),
-        RANDOM_FORESTS     : ('Random Forests',          random_forests, False, 'CC33FF'),
-        DNNS               : ('DNNS',                    dnns,           True,  '0000FF'),
-        DNNS_DIFF          : ('DNNS Diff.',              dnns_diff,      True,  '0000FF'),
-        DNNS_REVISED       : ('DNNS Revised',            dnns_revised,   False, '00FF00'),
-        DNNS_DEM           : ('DNNS with DEM',           dnns_dem,       False, '9900FF'),
-        DNNS_DIFF_DEM      : ('DNNS Diff with DEM',      dnns_diff_dem,  False, '9900FF'),
-        DIFFERENCE_HISTORY : ('Difference with History', history_diff,   False, '0099FF'),
-        DEM_THRESHOLD      : ('DEM Threshold',           dem_threshold,  False, 'FFCC33'),
-        MARTINIS_TREE      : ('Martinis Tree',           martinis_tree,  False, 'CC0066'),
-        SKYBOX_ASSIST      : ('Skybox Assist',           skyboxAssist,   False, '00CC66'),
-        EXPERIMENTAL       : ('Experimental',            experimental,   False, '00FFFF')
+        EVI                : ('EVI',                     evi,             False, 'FF00FF'),
+        XIAO               : ('XIAO',                    xiao,            False, 'FFFF00'),
+        DIFFERENCE         : ('Difference',              modis_diff,      False, '00FFFF'),
+        DIFF_LEARNED       : ('Diff. Learned',           diff_learned,    False, '00FFFF'),
+        DARTMOUTH          : ('Dartmouth',               dartmouth,       False, '33CCFF'),
+        DART_LEARNED       : ('Dartmouth Learned',       dart_learned,    False, '33CCFF'),
+        FAI                : ('Floating Algae',          fai,             False, '3399FF'),
+        FAI_LEARNED        : ('Floating Algae Learned',  fai_learned,     False, '3399FF'),
+        MODNDWI            : ('Mod. NDWI',               mod_ndwi,        False, '00FFFF'),
+        MODNDWI_LEARNED    : ('Mod. NDWI Learned',       mod_ndwi_learned,False, '00FFFF'),
+        CART               : ('CART',                    cart,            False, 'CC6600'),
+        SVM                : ('SVM',                     svm,             False, 'FFAA33'),
+        RANDOM_FORESTS     : ('Random Forests',          random_forests,  False, 'CC33FF'),
+        DNNS               : ('DNNS',                    dnns,            True,  '0000FF'),
+        DNNS_DIFF          : ('DNNS Diff.',              dnns_diff,       True,  '0000FF'),
+        DNNS_REVISED       : ('DNNS Revised',            dnns_revised,    False, '00FF00'),
+        DNNS_DEM           : ('DNNS with DEM',           dnns_dem,        False, '9900FF'),
+        DNNS_DIFF_DEM      : ('DNNS Diff with DEM',      dnns_diff_dem,   False, '9900FF'),
+        DIFFERENCE_HISTORY : ('Difference with History', history_diff,    False, '0099FF'),
+        DEM_THRESHOLD      : ('DEM Threshold',           dem_threshold,   False, 'FFCC33'),
+        MARTINIS_TREE      : ('Martinis Tree',           martinis_tree,   False, 'CC0066'),
+        SKYBOX_ASSIST      : ('Skybox Assist',           skyboxAssist,    False, '00CC66'),
+        EXPERIMENTAL       : ('Experimental',            experimental,    False, '00FFFF')
 }
 
 
