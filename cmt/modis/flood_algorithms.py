@@ -20,6 +20,7 @@ import math
 
 from cmt.mapclient_qt import addToMap
 from cmt.util.evaluation import safe_get_info
+from cmt.domain import Domain
 
 '''
 Contains implementations of multiple MODIS-based flood detection algorithms.
@@ -49,6 +50,9 @@ FAI_LEARNED        = 20
 EXPERIMENTAL       = 21
 MODNDWI            = 22
 MODNDWI_LEARNED    = 23
+ADABOOST           = 24
+ADABOOST_LEARNED   = 25
+ADABOOST_DEM       = 26
 
 def compute_modis_indices(domain):
     '''Compute several common interpretations of the MODIS bands'''
@@ -59,7 +63,7 @@ def compute_modis_indices(domain):
     # Other bands must be used at lower resolution
     band3 = domain.modis.sur_refl_b03 # pBLUE
     band4 = domain.modis.sur_refl_b04
-    band5 = domain.modis.sur_refl_b05
+    band5 = domain.modis.sur_refl_b05.mask(ee.Image(1))
     band6 = domain.modis.sur_refl_b06 # pSWIR
 
     NDVI = (band2.subtract(band1)).divide(band2.add(band1));
@@ -514,12 +518,14 @@ def dnns_dem(domain, b, use_modis_diff=False):
         flooded or dry.
         '''
     
-    MODIS_PIXEL_SIZE_METERS = 250
-    
     # Call the DNNS function to get the starting point
     water_fraction = dnns(domain, b, use_modis_diff)
+    return apply_dem(domain, water_fraction)
 
-   
+def apply_dem(domain, water_fraction):
+    
+    MODIS_PIXEL_SIZE_METERS = 250
+    
     ## Treating the DEM values contained in the MODIS pixel as a histogram, find the N'th percentile
     ##  where N is the water fraction computed by DNNS.  That should be the height of the flood water.
     #modisPixelKernel = ee.Kernel.square(MODIS_PIXEL_SIZE_METERS, 'meters', False)
@@ -967,8 +973,8 @@ def __find_optimal_threshold(domains, images, truths, band_name, weights, splits
         choices.append((splits[i] + splits[i+1]) / 2)
     best = None
     best_value = None
-    for i in range(len(choices)):
-        c = choices[i]
+    for k in range(len(choices)):
+        c = choices[k]
         flood_and_threshold_sum = sum([safe_get_info(weights[i].mask(images[i].select(band_name).lte(c)).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250))['constant'] for i in range(len(domains))])
         ts = [truths[i].multiply(weights[i]).divide(flood_and_threshold_sum).mask(images[i].select(band_name).lte(c)) for i in range(len(domains))]
         entropies1 = [-safe_get_info(ts[i].multiply(ts[i].log()).reduceRegion(ee.Reducer.sum(), domains[i].bounds, 250))['b1'] for i in range(len(domains))]# H(Y | X <= c)
@@ -981,27 +987,38 @@ def __find_optimal_threshold(domains, images, truths, band_name, weights, splits
         gain = (entropy1 * flood_and_threshold_sum + entropy2 * (1 - flood_and_threshold_sum))
         print c, gain, flood_and_threshold_sum, entropy1, entropy2
         if best == None or gain < best_value:
-            best = i
+            best = k
             best_value = gain
     return (choices[best], best + 1, best_value)
 
 def apply_classifier(image, band, threshold):
     return image.select(band).lte(threshold).multiply(2).subtract(1)
 
-def adaboost(domain, b, classifier = None):
+def get_adaboost_sum(domain, b, classifier = None):
     if classifier == None:
-        classifier = [(u'dartmouth', 0.6746916226821668, 0.9545783139872039), (u'b1', 817.4631578947368, -0.23442294410851128), (u'ratio', 3.4957167876866304, -0.20613698036794326), (u'LSWIminusNDVI', -0.18319560006184613, -0.20191291743554216), (u'EVI', 1.2912227247420454, -0.11175138956289551), (u'dartmouth', 0.7919185558963437, 0.09587432900090082), (u'diff', 971.2916666666666, -0.10554565939141827), (u'LSWIminusEVI', -0.06318265061389294, -0.09533981402236558), (u'LSWI', 0.18809171182282547, 0.07057035145131643), (u'LSWI', 0.29177473609507737, -0.10405606800405826), (u'b1', 639.7947368421053, 0.04609306857534169), (u'b1', 550.9605263157895, 0.08536825945329486), (u'LSWI', 0.23993322395895142, 0.0686895188858698), (u'LSWIminusNDVI', -0.2895140352747048, -0.05149197092271741), (u'b2', 1713.761111111111, -0.05044107229585143), (u'b2', 2147.325, 0.08569272886858223), (u'dartmouth', 0.7333050892892552, -0.0658128496826074), (u'LSWI', 0.21401246789088846, 0.047469648515471446), (u'LSWIminusNDVI', -0.34267325288113415, -0.0402902367049306), (u'ratio', 2.382344524011886, -0.03795571511345347), (u'fai', 611.5782694327731, 0.03742837135530962), (u'ratio', 2.9390306558492583, -0.03454143179044789), (u'fai', 925.5945969012605, 0.05054908824123665), (u'diff', 1336.7708333333333, -0.042539270450854885), (u'LSWIminusNDVI', -0.3160936440779195, -0.03518287810525178)]
+        # learned from everything
+        classifier = [(u'b2', 1066.9529712504814, 1.5025586686710706), (u'NDWI', 0.14661938301755412, -0.21891567708553822), (u'dartmouth', 0.48798681823081197, -0.15726997982017618), (u'dartmouth', 0.6365457444743317, 0.18436960110357703), (u'LSWIminusNDVI', 0.3981981030948878, -0.10116535428832296), (u'fai', 355.7817695891917, -0.11241883192214887), (u'dartmouth', 0.7108252075960915, 0.16267637123701892), (u'diff', 528.9578763019633, -0.08056940174311174), (u'NDWI', -0.2608919987915783, -0.0662560864223818), (u'diff', 945.4263065720343, -0.06468547496541238), (u'LSWI', 0.10099215524728983, 0.06198258456041972), (u'LSWI', 0.4036574931704132, -0.13121098919819557), (u'NDVI', -0.11873600974959503, -0.06877321671018986), (u'dartmouth', 0.6736854760352116, 0.058740830970174365), (u'diff', 737.1920914369988, -0.07784405443757562), (u'fai', 637.5040900767088, 0.06383077739328656), (u'LSWI', 0.2523248242088515, -0.06159092845229366), (u'diff', 841.3091990045166, -0.03543296624866381), (u'NDWI', -0.0571363078870121, -0.033363758883119425), (u'NDWI', -0.1590141533392952, -0.04351253722452526), (u'LSWIminusNDVI', -0.021934005871228984, 0.05405714553564335), (u'LSWIminusNDVI', -0.23200006035428739, -0.05945459980438702), (u'diff', 893.3677527882754, -0.04401238934808345), (u'LSWIminusNDVI', -0.33703308759581657, -0.03270875405530488), (u'LSWIminusEVI', -0.06154292961108998, 0.03531804439403144), (u'LSWIminusEVI', -0.6658933123079813, 0.049495070534741545), (u'LSWIminusNDVI', -0.284516573975052, -0.0652646748372963), (u'LSWI', 0.17665848972807066, 0.035535330348720445), (u'LSWIminusEVI', -0.9680685036564269, 0.03385062752160848), (u'dartmouth', 0.6551156102547716, 0.0255425888326403), (u'diff', 867.338475896396, -0.029608603189018888), (u'dartmouth', 0.6644005431449915, 0.031453944391964694), (u'b2', 1597.1343803620828, -0.032483706321846446), (u'b2', 1862.2250849178836, 0.11634887737020584), (u'diff', 880.3531143423356, -0.0759983094592842), (u'LSWIminusNDVI', -0.2582583171646697, -0.03107758927177279), (u'LSWI', 0.13882532248768026, 0.028397075633745206), (u'fai', 496.64292983295024, -0.033912739368973946), (u'EVI', -0.050627832167768394, 0.01948538465509801), (u'MNDWI', -0.314992942152472, -0.028318432983029183), (u'LSWIminusEVI', -0.8169809079822041, 0.017475858734323002), (u'EVI', 0.393374399578999, 0.02621185146352496), (u'LSWIminusEVI', -0.7414371101450927, 0.024903163093461297), (u'LSWIminusNDVI', -0.27138744556986083, -0.026585292504625754), (u'MNDWI', 0.008416570589500877, -0.020089052435031476), (u'MNDWI', 0.17012132696048732, 0.09013852992730866), (u'MNDWI', 0.2509737051459805, 0.07860221464785291), (u'NDWI', -0.20995307606543676, 0.12420114244297033), (u'MNDWI', 0.2105475160532339, 0.058700913757496295), (u'diff', 873.8457951193658, -0.06536366152935989), (u'MNDWI', 0.2307606105996072, 0.05774578894612022), (u'LSWIminusNDVI', -0.3107748307854343, 0.06324847449109565), (u'MNDWI', 0.24086715787279384, 0.05222308145337588), (u'NDVI', 0.2321600980908248, -0.044636312533643016), (u'b1', 840.9896718836895, -0.04386969870931187), (u'b1', 431.64304441090013, 0.10652512181225056), (u'MNDWI', 0.24592043150938717, 0.04629035855680991)]
+        # learned from everything and floods permanent water mask
+        #classifier = [(u'b2', 1066.9529712504814, 1.5025586686710706), (u'NDWI', 0.14661938301755412, -0.21891567708553822), (u'dartmouth', 0.48798681823081197, -0.15726997982017618), (u'dartmouth', 0.6365457444743317, 0.18436960110357703), (u'LSWIminusNDVI', 0.3981981030948878, -0.10116535428832296), (u'fai', 355.7817695891917, -0.11241883192214887), (u'dartmouth', 0.7108252075960915, 0.16267637123701892), (u'diff', 528.9578763019633, -0.08056940174311174), (u'NDWI', -0.2608919987915783, -0.0662560864223818), (u'diff', 945.4263065720343, -0.06468547496541238), (u'LSWI', 0.10099215524728983, 0.06198258456041972), (u'LSWI', 0.4036574931704132, -0.13121098919819557), (u'NDVI', -0.11873600974959503, -0.06877321671018986), (u'dartmouth', 0.6736854760352116, 0.058740830970174365), (u'diff', 737.1920914369988, -0.07784405443757562), (u'fai', 637.5040900767088, 0.06383077739328656), (u'LSWI', 0.2523248242088515, -0.06159092845229366), (u'diff', 841.3091990045166, -0.03543296624866381), (u'NDWI', -0.0571363078870121, -0.033363758883119425), (u'NDWI', -0.1590141533392952, -0.04351253722452526), (u'LSWIminusNDVI', -0.021934005871228984, 0.05405714553564335), (u'LSWIminusNDVI', -0.23200006035428739, -0.05945459980438702), (u'diff', 893.3677527882754, -0.04401238934808345), (u'LSWIminusNDVI', -0.33703308759581657, -0.03270875405530488), (u'LSWIminusEVI', -0.06154292961108998, 0.03531804439403144), (u'LSWIminusEVI', -0.6658933123079813, 0.049495070534741545), (u'LSWIminusNDVI', -0.284516573975052, -0.0652646748372963), (u'LSWI', 0.17665848972807066, 0.035535330348720445), (u'LSWIminusEVI', -0.9680685036564269, 0.03385062752160848), (u'dartmouth', 0.6551156102547716, 0.0255425888326403), (u'diff', 867.338475896396, -0.029608603189018888), (u'dartmouth', 0.6644005431449915, 0.031453944391964694), (u'b2', 1597.1343803620828, -0.032483706321846446), (u'b2', 1862.2250849178836, 0.11634887737020584), (u'diff', 880.3531143423356, -0.0759983094592842), (u'LSWIminusNDVI', -0.2582583171646697, -0.03107758927177279), (u'LSWI', 0.13882532248768026, 0.028397075633745206), (u'fai', 496.64292983295024, -0.033912739368973946), (u'EVI', -0.050627832167768394, 0.01948538465509801), (u'MNDWI', -0.314992942152472, -0.028318432983029183), (u'LSWIminusEVI', -0.8169809079822041, 0.017475858734323002), (u'EVI', 0.393374399578999, 0.02621185146352496), (u'LSWIminusEVI', -0.7414371101450927, 0.024903163093461297), (u'LSWIminusNDVI', -0.27138744556986083, -0.026585292504625754), (u'MNDWI', 0.008416570589500877, -0.020089052435031476), (u'MNDWI', 0.17012132696048732, 0.09013852992730866), (u'MNDWI', 0.2509737051459805, 0.07860221464785291), (u'NDWI', -0.20995307606543676, 0.12420114244297033), (u'MNDWI', 0.2105475160532339, 0.058700913757496295), (u'diff', 873.8457951193658, -0.06536366152935989), (u'MNDWI', 0.2307606105996072, 0.05774578894612022), (u'LSWIminusNDVI', -0.3107748307854343, 0.06324847449109565), (u'MNDWI', 0.24086715787279384, 0.05222308145337588), (u'NDVI', 0.2321600980908248, -0.044636312533643016), (u'b1', 840.9896718836895, -0.04386969870931187), (u'b1', 431.64304441090013, 0.10652512181225056), (u'MNDWI', 0.24592043150938717, 0.04629035855680991), (u'LSWI', 0.15774190610787547, 0.036843417853100205), (u'dartmouth', 0.6690430095901015, -0.03212513821387442), (u'NDVI', 0.40760815201103473, 0.02804021082285224), (u'NDWI', -0.23542253742850755, 0.03186450807020461), (u'MNDWI', 0.24339379469109051, 0.02862992753172424), (u'NDWI', -0.24815726811004293, 0.02759848052686244), (u'MNDWI', 0.24844706832768382, 0.028767258391409676), (u'NDWI', -0.2545246334508106, 0.023920554168868943), (u'MNDWI', 0.24971038673683216, 0.019530411666440373), (u'diff', 854.3238374504563, -0.017420419212339854), (u'fai', 567.0735099548295, 0.017319660531085516), (u'dartmouth', 0.6667217763675466, -0.01514266152502469), (u'EVI', 0.6153755154523827, 0.015811343455312793), (u'NDWI', -0.2577083161211945, 0.016367445780215994), (u'EVI', 0.5043749575156908, 0.021397992947186542), (u'b1', 636.3163581472949, 0.017679309609453388), (u'b1', 533.9797012790975, 0.052480869491753616), (u'LSWIminusNDVI', -0.2779520097724564, -0.025442696952484856), (u'b2', 1729.6797326399833, -0.02851944225149679), (u'b2', 1663.407056501033, -0.031126464288873154), (u'EVI', 0.4488746785473449, 0.02559032221555967), (u'b1', 585.1480297131961, 0.02206908624237135), (u'diff', 789.2506452207576, -0.016514173533494117), (u'fai', 531.8582198938899, 0.023477946621113858), (u'b1', 610.7321939302456, -0.012825485385474514), (u'diff', 815.2799221126371, -0.01149904087913293), (u'MNDWI', 0.249078727532258, 0.01515097935650566), (u'NDWI', -0.2593001574563864, 0.01083047626473297), (u'LSWIminusNDVI', -0.28123429187375415, -0.012898006552737352), (u'NDWI', -0.2600960781239824, 0.011987178213307102), (u'LSWIminusNDVI', -0.2828754329244031, -0.010878187527895457), (u'NDWI', -0.26049403845778035, 0.010250229825634711), (u'LSWIminusNDVI', -0.2820548623990786, -0.009697140264622033), (u'LSWIminusEVI', -0.703665211226537, 0.00944101306441367), (u'NDVI', 0.3198841250509298, 0.009414806179635152), (u'NDVI', 0.36374613853098225, 0.013660042816894051), (u'NDWI', -0.2606930186246793, 0.01871187931420404), (u'NDVI', 0.3856771452710085, 0.02480484723062163), (u'ratio', 1.9036367764380129, -0.025236576927683663), (u'ratio', 2.8194639395525054, 0.02624098822658558), (u'LSWIminusEVI', -0.6847792617672592, 0.0235627702128661), (u'ratio', 2.361550357995259, 0.017108797919490024), (u'diff', 828.2945605585769, -0.01756108404460174)]
     test_image = _create_extended_learning_image(domain, b)
     total = ee.Image(0).select(['constant'], ['b1'])
     for c in classifier:
       total = total.add(test_image.select(c[0]).lte(c[1]).multiply(2).subtract(1).multiply(c[2]))
+    return total
+
+def adaboost(domain, b, classifier = None):
+    total = get_adaboost_sum(domain, b, classifier)
     return total.gte(0.0)
+
+def adaboost_dem(domain, b, classifier = None):
+    total = get_adaboost_sum(domain, b, classifier)
+    fraction = total.add(ee.Image(2.0)).divide(ee.Image(1.0)).min(1.0).max(0.0)
+    return apply_dem(domain, fraction)
 
 def __compute_threshold_ranges(training_domains, training_images, water_masks, bands):
     band_splits = dict()
     for band_name in bands:
       split = None
-      print band_name
       for i in range(len(training_domains)):
         ret = safe_get_info(training_images[i].select(band_name).mask(water_masks[i]).reduceRegion(ee.Reducer.percentile([20, 80], ['s', 'b']), training_domains[i].bounds, 250))
         s = [ret[band_name + '_s'], ret[band_name + '_b']]
@@ -1014,10 +1031,16 @@ def __compute_threshold_ranges(training_domains, training_images, water_masks, b
     return band_splits
 
 def adaboost_learn(domain, b):
-    training_domains = [domain.unflooded_domain]
-    water_masks = [get_permanent_water_mask()]
+    all_problems = ['kashmore_2010_8.xml', 'mississippi_2011_5.xml', 'mississippi_2011_6.xml', 'new_orleans_2005_9.xml', 'sf_bay_area_2011_4.xml']
+    all_domains = [Domain('config/domains/modis/' + d) for d in all_problems]
+
+    training_domains = [domain.unflooded_domain for domain in all_domains[:-1]] + [all_domains[-1]]
+    water_masks = [get_permanent_water_mask() for d in training_domains]
+    #water_masks.extend([get_permanent_water_mask() for d in training_domains])
     transformed_masks = [water_mask.multiply(2).subtract(1) for water_mask in water_masks]
     training_images = [_create_extended_learning_image(d, compute_modis_indices(d)) for d in training_domains]
+    # add pixels in flood permanent water masks to training
+    #training_images.extend([_create_extended_learning_image(d, compute_modis_indices(d)).mask(get_permanent_water_mask()) for d in all_domains])
     bands = safe_get_info(training_images[0].bandNames())
     print 'Computing threshold ranges.'
     band_splits = __compute_threshold_ranges(training_domains, training_images, water_masks, bands)
@@ -1059,7 +1082,7 @@ def adaboost_learn(domain, b):
       print full_classifier
 
 def experimental(domain, b):
-    return adaboost_learn(domain, b)
+    return adaboost(domain, b)
     #args = {
     #        'training_image'    : water_mask,
     #        'training_band'     : "b1",
@@ -1189,6 +1212,9 @@ __ALGORITHMS = {
         DIFFERENCE_HISTORY : ('Difference with History', history_diff,   False, '0099FF'),
         DEM_THRESHOLD      : ('DEM Threshold',           dem_threshold,  False, 'FFCC33'),
         MARTINIS_TREE      : ('Martinis Tree',           martinis_tree,  False, 'CC0066'),
+        ADABOOST           : ('Adaboost',                adaboost,       False, 'CC0066'),
+        ADABOOST_LEARNED   : ('Adaboost Learned',        adaboost_learn, False, 'CC0066'),
+        ADABOOST_DEM       : ('Adaboost DEM',            adaboost_dem,   False, 'CC0066'),
         SKYBOX_ASSIST      : ('Skybox Assist',           skyboxAssist,   False, '00CC66'),
         EXPERIMENTAL       : ('Experimental',            experimental,   False, '00FFFF')
 }
