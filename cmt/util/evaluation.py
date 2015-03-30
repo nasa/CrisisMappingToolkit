@@ -19,14 +19,17 @@ import ee
 import threading
 import functools
 import time
+#import cmt.mapclient_qt
 
 def safe_get_info(ee_object):
+    '''Keep trying to call getInfo() on an Earth Engine object.'''
     while True:
         try:
             return ee_object.getInfo()
         except Exception as e:
             print 'Earth Engine Error: %s. Waiting 10s and then retrying.' % (e)
             time.sleep(10)
+
 
 class WaitForResult(threading.Thread):
     '''Starts up a thread to run a pair of functions in series'''
@@ -133,32 +136,43 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
     # - This does not include correct non-detections!
     correct = ground_truth.min(result)
     
-    ## Evaluate the results at a large number of random sample points
-    #correct_sum = ee.data.getValue({'image': correct.stats(     30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-    #result_sum  = ee.data.getValue({'image': result.stats(      30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-    #truth_sum   = ee.data.getValue({'image': ground_truth.stats(30000, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-    
     # Keep reducing the evaluation resolution until Earth Engine finishes without timing out
-    MAX_EVAL_RES = 12000
-    eval_res     = 250
+    #MAX_EVAL_RES = 12000
+    #eval_res     = 250
+    MIN_EVAL_RES =  5000
+    eval_res     = 60000
     while True:
         try:
-            correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Correct detections
-            result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Total detections
-            truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Total water
+            #correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Correct detections
+            #result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Total detections
+            #truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Total water
+    
+            # Evaluate the results at a large number of random sample points
+            correct_sum = ee.data.getValue({'image': correct.stats(     eval_res, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+            result_sum  = ee.data.getValue({'image': result.stats(      eval_res, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+            truth_sum   = ee.data.getValue({'image': ground_truth.stats(eval_res, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+            
             break # Quit the loop if the calculations were successful
         except Exception,e: # On failure coursen the resolution and try again
             print str(e)
-            eval_res *= 2
-            if eval_res > MAX_EVAL_RES:
-                raise Exception('Unable to evaluate results at resolution ' + str(eval_res/2))
+            eval_res /= 2
+            if eval_res < MIN_EVAL_RES:
+                raise Exception('Unable to evaluate results at resolution ' + str(eval_res*2))
 
     # Compute ratios, avoiding divide by zero.
     precision   = 1.0 if (result_sum == 0.0) else (correct_sum / result_sum)
     recall      = 1.0 if (truth_sum  == 0.0) else (correct_sum / truth_sum)
     
-    # Test our result evaluation that does not depend on the ground truth!
-    no_truth_result = evaluate_result_quality(result, region)
+    if (precision > 1.0) or (recall > 1.0):
+        print 'EVALUATION_ERROR'
+        print 'correct_sum = ' + str(correct_sum)
+        print 'result_sum  = ' + str(result_sum)
+        print 'truth_sum   = ' + str(truth_sum)
+        #cmt.mapclient_qt.addToMap(correct, {}, 'CORRECT')
+ 
+    ## A test of our result evaluation that does not depend on the ground truth!
+    #no_truth_result = evaluate_result_quality(result, region)
+    no_truth_result = 0 # For now skip calculating this to reduce the computation time
     
     return (precision, recall, eval_res, no_truth_result)
 

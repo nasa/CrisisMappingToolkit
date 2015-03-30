@@ -38,6 +38,8 @@ import os
 import json
 import ee
 import cmt.domain
+import miscUtilities
+import cmt.modis.modis_utilities
 
 try:
     import PyQt4                         # pylint: disable=g-import-not-at-top
@@ -57,9 +59,6 @@ import cmt.modis.flood_algorithms
 LANDSAT_5 = 5
 LANDSAT_7 = 7
 LANDSAT_8 = 8
-
-# Location of the sensor config files
-SENSOR_FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../config/sensors')
 
 #-----------------------------------------------------------------------------------------------
 
@@ -458,19 +457,13 @@ class ProductionGui(QtGui.QMainWindow):
             self.mapWidget.removeFromMap(self.eeFunction)
             self.eeFunction = None
 
-
-    def getSensorNames(self):
-            '''Returns the list of known sensor types'''
-            # Get a list of xml files from the sensor files directory
-            return [f[:-4] for f in os.listdir(SENSOR_FILE_DIR) if f.endswith('.xml')]
-
     class GuestImageDialog(QtGui.QDialog):
         '''Popup window for the user to fill in information about an image loaded in Maps Engine'''
         def __init__(self, parent = None):
             super(ProductionGui.GuestImageDialog, self).__init__(parent)
             
             # Get the list of available sensors
-            self.radioNames = parent.getSensorNames()
+            self.radioNames = miscUtilities.getDefinedSensorNames()
             if not self.radioNames:
                 raise Exception('Could not load any sensors!')
             # Set up sensor selection buttons
@@ -631,18 +624,6 @@ class ProductionGui(QtGui.QMainWindow):
 
         return (ee.Image(geoLimited.toList(255).get(bestDate[1])), bestDate)
 
-
-    def _isInUnitedStates(self):
-        '''Returns true if the current region is inside the US.'''
-        
-        # Extract the geographic boundary of the US.
-        nationList = ee.FeatureCollection('ft:1tdSwUL7MVpOauSgRzqVTOwdfy17KDbw-1d9omPw')
-        nation     = ee.Feature(nationList.filter(ee.Filter.eq('Country', 'United States')).first())
-        nationGeo  = ee.Geometry(nation.geometry())
-        result     = nationGeo.contains(self.detectParams.statisticsRegion)
-
-        return (str(result.getInfo()) == 'True')
-
     def _pickLandsatSat(self, date):
         '''Pick the best landsat satellite to use for the given date'''
         # Try to avoid LANDSAT_7 since it produces ugly images
@@ -669,7 +650,7 @@ class ProductionGui(QtGui.QMainWindow):
 
         # Check if we are inside the US.
         # - Some higher res data is only available within the US.
-        boundsInsideTheUS = self._isInUnitedStates() 
+        boundsInsideTheUS = miscUtilities.regionIsInUnitedStates(self.detectParams.statisticsRegion)
 
         # Set up the search range of dates for each image type
         MODIS_SEARCH_RANGE_DAYS   = 1  # MODIS updates frequently so we can have a narrow range
@@ -713,7 +694,7 @@ class ProductionGui(QtGui.QMainWindow):
         self.compositeModis = self.highResModis.addBands(self.lowResModis.select('sur_refl_b06'))
 
         # Extract the MODIS cloud mask
-        self.modisCloudMask = cmt.modis.flood_algorithms.getModisBadPixelMask(self.lowResModis)
+        self.modisCloudMask = cmt.modis.modis_utilities.getModisBadPixelMask(self.lowResModis)
         self.modisCloudMask = self.modisCloudMask.mask(self.modisCloudMask)
 
         # Load a DEM
@@ -743,7 +724,7 @@ class ProductionGui(QtGui.QMainWindow):
         print '--> Change detection threshold = ' + str(self.detectParams.changeDetectThreshold)
         
         # Generate a new EE function
-        self.eeFunction = cmt.modis.flood_algorithms.history_diff_core(self.highResModis,
+        self.eeFunction = cmt.modis.misc_algorithms.history_diff_core(self.highResModis,
                                         self.floodDate, self.detectParams.waterMaskThreshold,
                                         self.detectParams.changeDetectThreshold, self.detectParams.statisticsRegion)
         self.eeFunction = self.eeFunction.mask(self.eeFunction)

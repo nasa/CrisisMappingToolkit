@@ -43,7 +43,7 @@ from cmt.util.processManyLakes import LakeDataLoggerBase
 import cmt.modis.flood_algorithms
 import cmt.util.evaluation
 from cmt.mapclient_qt import downloadEeImage
-
+import cmt.util.miscUtilities
 
 
 
@@ -205,35 +205,6 @@ class LoggingClass(LakeDataLoggerBase):
 
 
 
-# TODO: Move to a common file!!!!!!!!
-def isRegionInUnitedStates(region):
-    '''Returns true if the current region is inside the US.'''
-    
-    # Extract the geographic boundary of the US.
-    nationList = ee.FeatureCollection('ft:1tdSwUL7MVpOauSgRzqVTOwdfy17KDbw-1d9omPw')
-    nation     = ee.Feature(nationList.filter(ee.Filter.eq('Country', 'United States')).first())
-    nationGeo  = ee.Geometry(nation.geometry())
-    # Check if the input region is entirely within the US
-    result     = nationGeo.contains(region, 1)
-    return (str(result.getInfo()) == 'True')
-
-# TODO: Move to a common file!
-def unComputeRectangle(eeRect):
-    '''"Decomputes" an ee Rectangle object so more functions will work on it'''
-    # This function is to work around some dumb EE behavior
-
-    LON = 0 # Helper constants
-    LAT = 1    
-    rectCoords  = eeRect.getInfo()['coordinates']    # EE object -> dictionary -> string
-    minLon      = rectCoords[0][0][LON]           # Exctract the numbers from the string
-    minLat      = rectCoords[0][0][LAT]
-    maxLon      = rectCoords[0][2][LON]
-    maxLat      = rectCoords[0][2][LAT]
-    bbox        = [minLon, minLat, maxLon, maxLat]   # Pack in order
-    eeRectFixed = apply(ee.Geometry.Rectangle, bbox) # Convert back to EE rectangle object
-    return eeRectFixed
-
-
 class Object(object):
     '''Helper class to let us add attributes to empty objects'''
     pass
@@ -245,7 +216,7 @@ class FakeDomain(Object):
     def add_dem(self, bounds):
         '''Loads the correct DEM'''
         # Get a DEM
-        if isRegionInUnitedStates(bounds):
+        if cmt.util.miscUtilities.regionIsInUnitedStates(bounds):
             self.ned13            = Object()
             self.ned13.image      = ee.Image('ned_13') # US only 10m DEM
             self.ned13.band_names = ['elevation']
@@ -280,7 +251,7 @@ def getAlgorithmList():
     '''Return the list of available algorithms'''
 
     # Code, name, recompute_all_results?
-    algorithmList = [#(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold',  KEEP),
+    algorithmList = [(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold',  KEEP),
                      (cmt.modis.flood_algorithms.EVI                , 'EVI',            KEEP),
                      (cmt.modis.flood_algorithms.XIAO               , 'XIAO',           KEEP),
                      (cmt.modis.flood_algorithms.DIFF_LEARNED       , 'Difference',     KEEP),
@@ -290,11 +261,13 @@ def getAlgorithmList():
                      #(cmt.modis.flood_algorithms.DNNS               , 'DNNS',           KEEP),
                      #(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised',   KEEP),
                      #(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM',  KEEP),
-                     (cmt.modis.flood_algorithms.DNNS_DIFF          , 'DNNS Diff',      KEEP),
-                     (cmt.modis.flood_algorithms.DNNS_DIFF_DEM      , 'DNNS Diff DEM',  KEEP),
+                     (cmt.modis.flood_algorithms.DNNS_DIFF          , 'DNNS Diff',      RECOMPUTE_IF_FALSE),
+                     (cmt.modis.flood_algorithms.DNNS_DIFF_DEM      , 'DNNS Diff DEM',  RECOMPUTE_IF_FALSE),
                      #(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP), # TODO: May need auto-thresholds!
                      (cmt.modis.flood_algorithms.DART_LEARNED       , 'Dartmouth',      KEEP),
-                     (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  KEEP) ]
+                     (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  KEEP),
+                     (cmt.modis.flood_algorithms.MODNDWI_LEARNED    , 'Mod NDWI',       KEEP),
+                     (cmt.modis.flood_algorithms.FAI_LEARNED        , 'Floating Algae Index',  KEEP)]
 
     return algorithmList
 
@@ -336,16 +309,16 @@ def processing_function(bounds, image, image_date, logger):
 
     # Needed to change EE formats for later function calls
     eeDate     = ee.Date(image_date)
-    rectBounds = unComputeRectangle(bounds.bounds()) 
+    rectBounds = cmt.util.miscUtilities.unComputeRectangle(bounds.bounds()) 
 
     # First check the input image for clouds.  If there are too many just raise an exception.
-    cloudPercentage = cmt.modis.flood_algorithms.getCloudPercentage(image, rectBounds)
+    cloudPercentage = cmt.modis.modis_utilities.getCloudPercentage(image, rectBounds)
     if cloudPercentage > MAX_CLOUD_PERCENTAGE:
         cmt.util.processManyLakes.addLakeToBadList(logger.getLakeName(), logger.getOutputDirectory())
         raise Exception('Input image has too many cloud pixels!')
     
     # Get the cloud mask and apply it to the input image
-    cloudMask   = cmt.modis.flood_algorithms.getModisBadPixelMask(image)
+    cloudMask   = cmt.modis.modis_utilities.getModisBadPixelMask(image)
     maskedImage = image.mask(cloudMask.Not()) # TODO: Verify this is having an effect!
 
     # Check if the data is all zero
@@ -370,6 +343,8 @@ def processing_function(bounds, image, image_date, logger):
     fakeDomain.modis.sur_refl_b01 = maskedImage.select('sur_refl_b01')
     fakeDomain.modis.sur_refl_b02 = maskedImage.select('sur_refl_b02')
     fakeDomain.modis.sur_refl_b03 = maskedImage.select('sur_refl_b03')
+    fakeDomain.modis.sur_refl_b04 = maskedImage.select('sur_refl_b04')
+    fakeDomain.modis.sur_refl_b05 = maskedImage.select('sur_refl_b05')
     fakeDomain.modis.sur_refl_b06 = maskedImage.select('sur_refl_b06')
     fakeDomain.modis.image        = maskedImage
     fakeDomain.modis.get_date     = lambda: eeDate # Fake function that just returns this date
@@ -396,7 +371,7 @@ def processing_function(bounds, image, image_date, logger):
     trainingImage = None
     for i in range(len(modisTrainingInfo)):
         thisImage       = ee.Image(modisTrainingList.get(i))
-        cloudPercentage = cmt.modis.flood_algorithms.getCloudPercentage(thisImage, rectBounds)
+        cloudPercentage = cmt.modis.modis_utilities.getCloudPercentage(thisImage, rectBounds)
         if cloudPercentage < MAX_CLOUD_PERCENTAGE:
             trainingImage = thisImage
             break
@@ -409,6 +384,8 @@ def processing_function(bounds, image, image_date, logger):
     trainingDomain.modis.sur_refl_b01 = trainingImage.select('sur_refl_b01')
     trainingDomain.modis.sur_refl_b02 = trainingImage.select('sur_refl_b02')
     trainingDomain.modis.sur_refl_b03 = trainingImage.select('sur_refl_b03')
+    trainingDomain.modis.sur_refl_b04 = trainingImage.select('sur_refl_b04')
+    trainingDomain.modis.sur_refl_b05 = trainingImage.select('sur_refl_b05')
     trainingDomain.modis.sur_refl_b06 = trainingImage.select('sur_refl_b06')
     trainingDomain.modis.image        = trainingImage
     trainingDomain.ground_truth       = waterMask
