@@ -17,7 +17,7 @@
 
 import ee
 import os
-
+import xml.etree.cElementTree as ET
 
 # Location of the sensor config files
 SENSOR_FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../config/sensors')
@@ -72,5 +72,66 @@ def unComputeRectangle(eeRect):
     eeRectFixed = apply(ee.Geometry.Rectangle, bbox) # Convert back to EE rectangle object
     return eeRectFixed
     
+
+def writeModisDomainFile(domainName, bounds, image_ee_date, outputPath, trainingName=None, unfloodedTrainingName=None):
+    '''Generates a MODIS domain file for a location using the permanent water mask'''
+
+    # Get the date one day after the provided date
+    end_ee_date = image_ee_date.advance(1.0, 'day')
+    startDateStr = image_ee_date.format().getInfo()[:10] # Get just the date in string format
+    endDateStr   = end_ee_date.format().getInfo()[:10]
+
+    # Set up the top levels
+    root = ET.Element("domain")
+    ET.SubElement(root, "name").text = domainName
+    sensors = ET.SubElement(root, "sensors")
     
+    # Add the appropriate DEM sensor
+    demSensor = ET.SubElement(sensors, "sensor")
+    if regionIsInUnitedStates(bounds):
+        ET.SubElement(demSensor, "name").text = 'NED13'
+    else:
+        ET.SubElement(demSensor, "name").text = 'SRTM90'
+    
+    # Add the MODIS sensor info
+    modisSensor = ET.SubElement(sensors,     "sensor")
+    bands       = ET.SubElement(modisSensor, "bands")
+    source      = ET.SubElement(bands,       "source")
+    ET.SubElement(modisSensor, "name").text = 'MODIS'
+    ET.SubElement(source,      "start_date").text = startDateStr
+    ET.SubElement(source,      "end_date").text = endDateStr
+    
+    # Fill out the bounding box
+    bbox    = ET.SubElement(root, "bbox")
+    bbox_bl = ET.SubElement(bbox, "bottomleft")
+    bbox_tr = ET.SubElement(bbox, "topright")
+    rectCoords = bounds.bounds().getInfo()['coordinates']
+    ET.SubElement(bbox_bl, "lon").text = str(rectCoords[0][0][0]) # Min lon
+    ET.SubElement(bbox_bl, "lat").text = str(rectCoords[0][0][1]) # Min lat
+    ET.SubElement(bbox_tr, "lon").text = str(rectCoords[0][2][0]) # Max lon
+    ET.SubElement(bbox_tr, "lat").text = str(rectCoords[0][2][1]) # Max lat
+    
+    # Fill out the truth information
+    ET.SubElement(root, "truth").text = 'permanent_water_mask'
+    if trainingName:
+        ET.SubElement(root, "training_domain").text = trainingName
+    if unfloodedTrainingName:
+        ET.SubElement(root, "unflooded_training_domain").text = unfloodedTrainingName
+    
+    tree = ET.ElementTree(root)
+    tree.write(outputPath)
+
+def writeDomainFilePair(domainName, bounds, image_ee_date, training_ee_date, outputFolder):
+    '''Write a test/train pair of domain files for a single domain'''
+    
+    # Set up the names so the two files are associated
+    baseName  = domainName +'_'+ str(image_ee_date.format().getInfo()[:10]) # Append the date string
+    testName  = baseName   + '_test'
+    trainName = baseName   + '_train'
+    testPath  = os.path.join(outputFolder, testName  + '.xml')
+    trainPath = os.path.join(outputFolder, trainName + '.xml')
+    
+    # Write the files with only the unflooded training link
+    writeModisDomainFile(domainName, bounds, image_ee_date,    testPath,  None, trainName)
+    writeModisDomainFile(domainName, bounds, training_ee_date, trainPath, None, None)
     

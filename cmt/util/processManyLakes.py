@@ -95,6 +95,19 @@ def get_image_collection_modis(region, start_date, end_date):
     return collection
 
 
+def get_image_date(image_info):
+    '''Extract the (text format) date from EE image.getInfo() - look for it in several locations'''
+    
+    if 'DATE_ACQUIRED' in image_info['properties']: # Landsat 5
+        this_date = image_info['properties']['DATE_ACQUIRED']
+    else:
+        # MODIS: The date is stored in the 'id' field in this format: 'MOD09GA/MOD09GA_005_2004_08_15'
+        text       = image_info['id']
+        dateStart1 = text.rfind('MOD09GA_') + len('MOD09GA_')
+        dateStart2 = text.find('_', dateStart1) + 1
+        this_date  = text[dateStart2:].replace('_', '-')
+
+    return this_date
 
 #---------------------------------------------------------------------------
 
@@ -109,8 +122,12 @@ class LakeDataLoggerBase(object):
         self.base_directory = logDirectory
         self.lake_name = lake_name
        
-    def getOutputDirectory(self):
+    def getBaseDirectory(self):
+        '''The top level output folder'''
         return self.base_directory
+    
+    def getLakeDirectory(self):
+        raise Exception('Implement me!')
        
     def getLakeName(self):
         return self.lake_name
@@ -134,16 +151,25 @@ def sample_processing_function(bounds, image, image_date, logger):
     return {'water_count' : 1, 'cloud_count': 2}
 
 
-def isLakeInBadList(name, output_directory):
+def isLakeInBadList(name, output_directory, date=None):
     '''Check the blacklist to see if we should skip a lake'''
 
+    # - The blacklist is a CSV file containing:
+    #     lake name, date
+    # - If the date is left blank then applies to all dates.
+    # - If no date is passed in than only a blank date will match.
+
     # Search the entire file for the name
-    list_path   = os.path.join(output_directory, 'badLakeList.txt')
+    list_path = os.path.join(output_directory, 'badLakeList.txt')
     try:
         file_handle = open(list_path, 'r')
         found = False
         for line in file_handle:
-            if name == line.strip():
+            parts = line.strip().split(',')
+            if name != parts[0]: # Name does not match, keep searching
+                continue
+            # Name matches, check the date
+            if (parts[1]=='') or (parts[1] == date):
                 found = True
                 break
         file_handle.close()
@@ -151,12 +177,15 @@ def isLakeInBadList(name, output_directory):
     except: # Fail silently
         return False
 
-def addLakeToBadList(name, output_directory):
+def addLakeToBadList(name, output_directory, date=None):
     '''Create a blacklist of lakes we will skip'''
     # Just add the name to a plain text file
     list_path   = os.path.join(output_directory, 'badLakeList.txt')
     file_handle = open(list_path, 'a')
-    file_handle.write(name + '\n')
+    if date: # Write "name, date"
+        file_handle.write(name +','+ str(date) +'\n')
+    else: # Write "name,"
+        file_handle.write(name + ',\n')
     file_handle.close()
     return True
 
@@ -208,17 +237,13 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
         results = []
         all_image_info = ee_image_list.getInfo()
         for i in range(len(all_image_info)):
+                        
+            # Extract the date for this image
+            this_date = get_image_date(all_image_info[i])
             
-            
-            # Extract the date - look for it in several locations
-            if 'DATE_ACQUIRED' in all_image_info[i]['properties']: # Landsat 5
-                this_date = all_image_info[i]['properties']['DATE_ACQUIRED']
-            else:
-                # MODIS: The date is stored in the 'id' field in this format: 'MOD09GA/MOD09GA_005_2004_08_15'
-                text       = all_image_info[i]['id']
-                dateStart1 = text.rfind('MOD09GA_') + len('MOD09GA_')
-                dateStart2 = text.find('_', dateStart1) + 1
-                this_date  = text[dateStart2:].replace('_', '-')
+            if isLakeInBadList(name, output_directory, this_date):
+                print 'Skipping known bad instance: ' + name +' - '+ this_date
+                continue
             
             print 'Processing date ' + str(this_date)
             

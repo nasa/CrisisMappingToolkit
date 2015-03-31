@@ -600,9 +600,13 @@ class Domain(object):
             self.__dict__[newSensor.sensor_name] = newSensor
 
         # Load a ground truth image if one was specified
-        # - These are always binary and loaded from an asset ID in Maps Engine.
-        truth_ee_id = root.find('truth')
-        if truth_ee_id != None:
-            self.ground_truth = ee.Image(truth_ee_id.text).select(['b1']).clamp(0, 1)
+        # - These are always binary and are either loaded from an asset ID in Maps Engine
+        #   or use the modis permament water mask.
+        truth_section = root.find('truth')
+        if truth_section != None:
+            if (truth_section.text.lower() == 'permanent_water_mask'):
+                self.ground_truth = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1']).clamp(0, 1)
+            else:
+                self.ground_truth = ee.Image(truth_section.text).select(['b1']).clamp(0, 1)
 
 

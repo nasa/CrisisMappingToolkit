@@ -38,12 +38,14 @@ import csv
 import ee
 import numpy
 import traceback
+
 import cmt.util.processManyLakes
-from cmt.util.processManyLakes import LakeDataLoggerBase
 import cmt.modis.flood_algorithms
 import cmt.util.evaluation
-from cmt.mapclient_qt import downloadEeImage
 import cmt.util.miscUtilities
+from   cmt.util.processManyLakes import LakeDataLoggerBase
+from   cmt.mapclient_qt          import downloadEeImage
+
 
 
 
@@ -68,7 +70,10 @@ class LoggingClass(LakeDataLoggerBase):
         '''On destruction write out the file to disk'''
         if self.entryList:
             self.writeAllEntries()
-    
+
+    def getLakeDirectory(self):
+        '''The folder where the log is written'''
+        return self.logFolder
 
     def saveResultsImage(self, classifiedImage, ee_bounds, imageName, cloudMask, waterMask, resolution=30):
         '''Records a diagnostic image to the log directory'''
@@ -251,19 +256,19 @@ def getAlgorithmList():
     '''Return the list of available algorithms'''
 
     # Code, name, recompute_all_results?
-    algorithmList = [(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold',  KEEP),
+    algorithmList = [#(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold',  KEEP),
                      (cmt.modis.flood_algorithms.EVI                , 'EVI',            KEEP),
                      (cmt.modis.flood_algorithms.XIAO               , 'XIAO',           KEEP),
                      (cmt.modis.flood_algorithms.DIFF_LEARNED       , 'Difference',     KEEP),
-                     (cmt.modis.flood_algorithms.CART               , 'CART',           RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.SVM                , 'SVM',            RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', RECOMPUTE_IF_FALSE ),
+                     (cmt.modis.flood_algorithms.CART               , 'CART',           KEEP),
+                     (cmt.modis.flood_algorithms.SVM                , 'SVM',            KEEP),
+                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', KEEP ),
                      #(cmt.modis.flood_algorithms.DNNS               , 'DNNS',           KEEP),
                      #(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised',   KEEP),
                      #(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM',  KEEP),
-                     (cmt.modis.flood_algorithms.DNNS_DIFF          , 'DNNS Diff',      RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.DNNS_DIFF_DEM      , 'DNNS Diff DEM',  RECOMPUTE_IF_FALSE),
-                     #(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP), # TODO: May need auto-thresholds!
+                     (cmt.modis.flood_algorithms.DNNS_DIFF          , 'DNNS Diff',      KEEP),
+                     (cmt.modis.flood_algorithms.DNNS_DIFF_DEM      , 'DNNS Diff DEM',  KEEP),
+                     #(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP),
                      (cmt.modis.flood_algorithms.DART_LEARNED       , 'Dartmouth',      KEEP),
                      (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  KEEP),
                      (cmt.modis.flood_algorithms.MODNDWI_LEARNED    , 'Mod NDWI',       KEEP),
@@ -276,6 +281,10 @@ def needToComputeAlgorithm(currentResults, algInfo):
     algName = algInfo[1]
     return ( (algInfo[2] == RECOMPUTE) or (algName not in currentResults) or
              ((algInfo[2] == RECOMPUTE_IF_FALSE) and (currentResults[algName] == False)) )
+
+# TODO: Load these files after writing and we can remove all the FakeDomain code!
+
+
 
 def processing_function(bounds, image, image_date, logger):
     '''Detect water using multiple MODIS algorithms and compare to the permanent water mask'''
@@ -311,10 +320,12 @@ def processing_function(bounds, image, image_date, logger):
     eeDate     = ee.Date(image_date)
     rectBounds = cmt.util.miscUtilities.unComputeRectangle(bounds.bounds()) 
 
+    # TODO: The bad lake list needs to check by date!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+
     # First check the input image for clouds.  If there are too many just raise an exception.
     cloudPercentage = cmt.modis.modis_utilities.getCloudPercentage(image, rectBounds)
     if cloudPercentage > MAX_CLOUD_PERCENTAGE:
-        cmt.util.processManyLakes.addLakeToBadList(logger.getLakeName(), logger.getOutputDirectory())
+        cmt.util.processManyLakes.addLakeToBadList(logger.getLakeName(), logger.getBaseDirectory(), image_date)
         raise Exception('Input image has too many cloud pixels!')
     
     # Get the cloud mask and apply it to the input image
@@ -325,7 +336,7 @@ def processing_function(bounds, image, image_date, logger):
     onCount = maskedImage.select('sur_refl_b01').reduceRegion(ee.Reducer.sum(), bounds, 4000).getInfo()['sur_refl_b01']
     print 'onCount = ' + str(onCount)
     if onCount < 10:
-        cmt.util.processManyLakes.addLakeToBadList(logger.getLakeName(), logger.getOutputDirectory())
+        cmt.util.processManyLakes.addLakeToBadList(logger.getLakeName(), logger.getBaseDirectory(), image_date)
         raise Exception('Masked image is blank!')
 
     # Save the input image
@@ -396,6 +407,11 @@ def processing_function(bounds, image, image_date, logger):
     fakeDomain.unflooded_domain       = trainingDomain # learn parameters from this
     
     fakeDomain.algorithm_params = {'modis_mask_threshold' : 4.5, 'modis_change_threshold' : -3.0}
+
+    # Generate a pair of train/test domain files for this lake
+    training_date = cmt.util.processManyLakes.get_image_date(trainingImage.getInfo())
+    cmt.util.miscUtilities.writeDomainFilePair(logger.getLakeName(), bounds, ee.Date(image_date), ee.Date(training_date), logger.getLakeDirectory())
+    raise Exception('DEBUG')
 
     # Loop through each algorithm
     for a in algorithmList:
