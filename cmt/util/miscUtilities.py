@@ -121,6 +121,8 @@ def writeModisDomainFile(domainName, bounds, image_ee_date, outputPath, training
     tree = ET.ElementTree(root)
     tree.write(outputPath)
 
+    
+    
 def writeDomainFilePair(domainName, bounds, image_ee_date, training_ee_date, outputFolder):
     '''Write a test/train pair of domain files for a single domain'''
     
@@ -134,4 +136,8 @@ def writeDomainFilePair(domainName, bounds, image_ee_date, training_ee_date, out
     # Write the files with only the unflooded training link
     writeModisDomainFile(domainName, bounds, image_ee_date,    testPath,  None, trainName)
     writeModisDomainFile(domainName, bounds, training_ee_date, trainPath, None, None)
+    
+    return (testPath, trainPath)
+    
+    
     
