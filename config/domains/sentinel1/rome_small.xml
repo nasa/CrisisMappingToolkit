@@ -36,7 +36,7 @@
     <training_domain>lanciano</training_domain>
     
     <algorithm_params>
-      <water_detect_radar_channel>vh</water_detect_radar_channel>
+      <water_detect_radar_channel>vv</water_detect_radar_channel>
     </algorithm_params> 
     
 </domain>

@@ -59,7 +59,7 @@
       
       <fai_threshold>848</fai_threshold>
 
-      <mod_ndwi_threshold>0.324219</mod_ndwi_threshold>
+      <mod_ndwi_threshold>0.184219</mod_ndwi_threshold>
       
       <dem_threshold>27</dem_threshold>
     </algorithm_params>
