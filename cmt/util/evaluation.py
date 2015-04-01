@@ -19,29 +19,8 @@ import ee
 import threading
 import functools
 import time
+import cmt.util.miscUtilities
 #import cmt.mapclient_qt
-
-def safe_get_info(ee_object):
-    '''Keep trying to call getInfo() on an Earth Engine object.'''
-    while True:
-        try:
-            return ee_object.getInfo()
-        except Exception as e:
-            print 'Earth Engine Error: %s. Waiting 10s and then retrying.' % (e)
-            time.sleep(10)
-
-
-class WaitForResult(threading.Thread):
-    '''Starts up a thread to run a pair of functions in series'''
-
-    def __init__(self, function, finished_function = None):
-        threading.Thread.__init__(self)
-        self.function = function # Main function -> Run this!
-        self.finished_function = finished_function # Run this after the main function is finished
-        self.setDaemon(True) # Don't hold up the program on this thread
-        self.start()
-    def run(self):
-        self.finished_function(self.function())
 
 
 def countNumBlobs(classifiedImage, region, maxBlobSize, evalResolution=500): # In pixels?
@@ -179,6 +158,6 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
 
 def evaluate_approach_thread(evaluation_function, result, ground_truth, region, fractional=False):
     '''Computes precision and recall of the given result/ground truth pair, then passes the result to the input function'''
-    WaitForResult(functools.partial(evaluate_approach, result=result, ground_truth=ground_truth,
-        region=region, fractional=fractional), evaluation_function)
+    cmt.util.miscUtilities.waitForEeResult(functools.partial(evaluate_approach, result=result, ground_truth=ground_truth,
+                                           region=region, fractional=fractional), evaluation_function)
 

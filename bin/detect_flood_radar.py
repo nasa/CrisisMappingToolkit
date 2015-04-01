@@ -35,9 +35,9 @@ import functools
 
 import cmt.domain
 from cmt.radar.flood_algorithms import *
-
 from cmt.mapclient_qt    import centerMap, addToMap
 import cmt.util.evaluation
+import cmt.util.gui_util
 
 '''
 Tool for testing radar based flood detection algorithms using a simple GUI.
@@ -47,10 +47,10 @@ Tool for testing radar based flood detection algorithms using a simple GUI.
 # --------------------------------------------------------------
 # Configuration
 
-ALGORITHMS = [MATGEN]
-#ALGORITHMS = [DECISION_TREE, RANDOM_FORESTS, SVM]
-#ALGORITHMS = [ACTIVE_CONTOUR]
-#ALGORITHMS = [RANDOM_FORESTS]
+#ALGORITHMS = [MARTINIS]
+#ALGORITHMS = [DECISION_TREE, RANDOM_FORESTS, SVM, MATGEN, MARTINIS, ACTIVE_CONTOUR]
+ALGORITHMS = [ACTIVE_CONTOUR]
+#ALGORITHMS = [SVM, RANDOM_FORESTS, DECISION_TREE]
 
 # --------------------------------------------------------------
 # Functions
@@ -59,16 +59,6 @@ def evaluation_function(pair, alg):
     '''Pretty print an algorithm and its statistics'''
     (precision, recall, evalRes, noTruth) = pair
     print '%s: (%4g, %4g, %4g)' % (get_algorithm_name(alg), precision, recall, noTruth)
-
-
-# TODO: This could live elsewhere
-def visualizeDomain(domain, show=True):
-    '''Draw all the sensors and ground truth from a domain'''
-    centerMap(domain.center[0], domain.center[1], 11)
-    for s in domain.sensor_list:
-        apply(addToMap, s.visualize(show=show))
-    if domain.ground_truth != None:
-        addToMap(domain.ground_truth.mask(domain.ground_truth), {}, 'Ground Truth', False)
 
 # --------------------------------------------------------------
 # main()
@@ -84,7 +74,7 @@ cmt.ee_authenticate.initialize()
 domain = cmt.domain.Domain(sys.argv[1])
 
 # Display radar and ground truth 
-visualizeDomain(domain)
+cmt.util.gui_util.visualizeDomain(domain)
 
 waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
 addToMap(waterMask.mask(waterMask), {'min': 0, 'max': 1}, 'Permanent Water Mask', False)
@@ -96,6 +86,9 @@ for a in range(len(ALGORITHMS)):
     # Run the algorithm on the data and get the results
     alg    = ALGORITHMS[a]
     result = detect_flood(domain, alg)
+    
+    # Needed for certain images which did not mask properly from maps engine
+    #result = result.mask(domain.get_radar().image.reduce(ee.Reducer.allNonZero()))
     
     # Get a color pre-associated with the algorithm, then draw it on the map
     color  = get_algorithm_color(alg)

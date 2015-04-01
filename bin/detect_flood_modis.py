@@ -35,8 +35,9 @@ import functools
 import cmt.domain
 from cmt.modis.flood_algorithms import *
 
-from cmt.mapclient_qt    import centerMap, addToMap
+from cmt.mapclient_qt import centerMap, addToMap
 import cmt.util.evaluation
+import cmt.util.gui_util
 
 '''
 Tool for testing MODIS based flood detection algorithms using a simple GUI.
@@ -46,7 +47,9 @@ Tool for testing MODIS based flood detection algorithms using a simple GUI.
 # Configuration
 
 # Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
-ALGORITHMS = [DARTMOUTH, DART_LEARNED, DIFFERENCE, DIFF_LEARNED, FAI, FAI_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
+#ALGORITHMS = [DARTMOUTH, DART_LEARNED, DIFFERENCE, DIFF_LEARNED, FAI, FAI_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
+ALGORITHMS = [DART_LEARNED, DIFF_LEARNED, FAI_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
+
 
 # --------------------------------------------------------------
 # Functions
@@ -55,15 +58,6 @@ def evaluation_function(pair, alg):
     '''Pretty print an algorithm and its statistics'''
     (precision, recall, evalRes, noTruth) = pair
     print '%s: (%4g, %4g, %4g)' % (get_algorithm_name(alg), precision, recall, noTruth)
-
-# TODO: This could live elsewhere
-def visualizeDomain(domain, show=True):
-    '''Draw all the sensors and ground truth from a domain'''
-    centerMap(domain.center[0], domain.center[1], 11)
-    for s in domain.sensor_list:
-        apply(addToMap, s.visualize(show=show))
-    if domain.ground_truth != None:
-        addToMap(domain.ground_truth.mask(domain.ground_truth), {}, 'Ground Truth', False)
 
 # --------------------------------------------------------------
 # main()
@@ -79,7 +73,7 @@ cmt.ee_authenticate.initialize()
 domain = cmt.domain.Domain(sys.argv[1])
 
 # Display the Landsat and MODIS data for the data set
-visualizeDomain(domain)
+cmt.util.gui_util.visualizeDomain(domain)
 
 waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
 addToMap(waterMask.mask(waterMask), {'min': 0, 'max': 1}, 'Permanent Water Mask', False)
@@ -90,6 +84,10 @@ for a in range(len(ALGORITHMS)):
     (alg, result) = detect_flood(domain, ALGORITHMS[a])
     if result == None:
         continue
+    
+    # These lines are needed for certain data sets which EE is not properly masking!!!
+    #result = result.mask(domain.skybox_nir.image.reduce(ee.Reducer.allNonZero()))
+    #result = result.mask(domain.skybox.image.reduce(ee.Reducer.allNonZero()))
 
     # Get a color pre-associated with the algorithm, then draw it on the map
     color = get_algorithm_color(ALGORITHMS[a])
