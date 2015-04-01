@@ -26,7 +26,12 @@ Use Earth Engine's classifier tool for water detection.
 '''
 
 def __learning_threshold(domain, algorithm):
-    training_domain = domain.training_domain
+    
+    training_domain = None
+    if domain.training_domain:
+        training_domain = domain.training_domain
+    elif domain.unflooded_domain:
+        training_domain = domain.unflooded_domain
     if not training_domain:
         raise Exception('Cannot use learning algorithms without a training image defined by the domain!')
     classifier = ee.apply('TrainClassifier', {'image': training_domain.get_radar().image,

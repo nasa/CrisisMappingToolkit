@@ -87,10 +87,14 @@ def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
     '''Apply EE classifier tool using a ground truth image.'''
     
     # Training requires a training image plus either ground truth or training features.
-    
-    if not domain.training_domain:
+    training_domain = None
+    if domain.training_domain:
+        training_domain = domain.training_domain
+    elif domain.unflooded_domain:
+        training_domain = domain.unflooded_domain
+    if not training_domain:
         raise Exception('Cannot run classifier algorithm without a training domain!')
-    training_domain = domain.training_domain    
+
     training_image  = _create_learning_image(training_domain, compute_modis_indices(training_domain))
     if training_domain.training_features:
         args = {
