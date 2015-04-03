@@ -51,7 +51,8 @@ except ImportError:
         """
     raise
 
-from cmt.mapclient_qt import MapViewWidget, prettyPrintEE, ABOUT_TEXT
+from cmt.mapclient_qt import MapViewWidget, ABOUT_TEXT
+
 
 import cmt.modis.flood_algorithms
 

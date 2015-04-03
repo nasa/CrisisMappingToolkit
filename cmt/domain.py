@@ -432,8 +432,6 @@ class SensorObservation(object):
 #=========================================================
 
 
-
-
 class Domain(object):
     '''A class representing a problem domain. Loads sensor and location
         information from an xml file. Default information may be specified in a
@@ -465,7 +463,7 @@ class Domain(object):
         for i in self.sensor_list:
             s += '  :  ' + i.sensor_name
         return s
-    
+   
 
     def get_dem(self):
         '''Returns a DEM image object if one is loaded'''

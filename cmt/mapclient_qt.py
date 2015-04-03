@@ -83,6 +83,8 @@ except ImportError:
         """
     raise
 
+import cmt.util.miscUtilities
+
 # The default URL to fetch tiles from.  We could pull this from the EE library,
 # however this doesn't have any other dependencies on that yet, so let's not.
 BASE_URL = 'https://earthengine.googleapis.com'
@@ -115,164 +117,6 @@ Unless required by applicable law or agreed to in writing, software distributed 
 #================================================================================
 # Classes that implement the GUI
 
-def prettyPrintEE(eeObjectInfo):
-    '''Convenient function for printing an EE object with tabbed formatting (pass in result of .getInfo())'''
-    print(json.dumps(eeObjectInfo, sort_keys=True, indent=2))
-
-def which(program):
-    '''Tests if a given command line tool is available, replicating the "which" function'''
-    import os
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
-
-    return None
-
-
-# TODO: Move to a utility file?
-def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
-    '''Downloads an Earth Engine image object to the specified path'''
-
-    # For now we require a GDAL installation in order to save images
-    if not(which('gdalbuildvrt') and which('gdal_translate')):
-        print 'ERROR: Must have GDAL installed in order to save images!'
-        return False
-
-    # Get a list of all the band names in the object
-    band_names = []
-    if vis_params and ('bands' in vis_params): # Band names were specified
-        band_names = vis_params['bands']
-        if ',' in band_names: # If needed, convert from string to list
-            band_names = band_names.replace(' ', '').split(',')
-    else: # Grab the first three band names
-        if len(eeObject.getInfo()['bands']) > 3:
-            print 'Warning: Limiting recorded file to first three band names!'
-        for b in eeObject.getInfo()['bands']:
-            band_names.append(b['id'])
-            if len(band_names) == 3:
-                break
-            
-    if (len(band_names) != 3) and (len(band_names) != 1):
-        raise Exception('Only 1 and 3 channel output images supported!')
-    
-    # Handle selected visualization parameters
-    if vis_params and ('min' in vis_params) and ('max' in vis_params): # User specified scaling
-        download_object = eeObject.visualize(band_names, min=vis_params['min'], max=vis_params['max'])
-    elif vis_params and ('gain' in vis_params):
-        # Extract the floating point gain values
-        gain_text       = vis_params['gain'].replace(' ', '').split(',')
-        gain_vals       = [float(x) for x in gain_text]
-        download_object = eeObject.visualize(band_names, gain_vals)
-    else:
-        download_object = eeObject.visualize(band_names)
-    
-    # Handle input bounds as string or a rect object
-    if isinstance(bbox, basestring): 
-        eeRect = apply(ee.Geometry.Rectangle, bbox)
-    else:
-        eeRect = bbox
-    eeGeom = eeRect.toGeoJSONString()
-    
-    # Retrieve a download URL from Earth Engine
-    dummy_name = 'EE_image'
-    url = download_object.getDownloadUrl({'name' : dummy_name, 'scale': scale, 'crs': 'EPSG:4326', 'region': eeGeom})
-    #print 'Got download URL: ' + url
-    
-    
-   # ee.batch.Export.image - TODO USE THIS!
-    
-    
-    # Generate a temporary path for the packed download file
-    temp_prefix = 'mapclient_temp_download_' + dummy_name
-    zip_name    = temp_prefix + '.zip'
-    zip_path    = os.path.join(TEMP_FILE_DIR, zip_name) 
-    
-    # Download the packed file
-    print 'Downloading image...'
-    data = urllib2.urlopen(url)
-    with open(zip_path, 'wb') as fp:
-        while True:
-            chunk = data.read(16 * 1024)
-            if not chunk:
-                break
-            fp.write(chunk)
-    print 'Download complete!'
-    
-    # Each band get packed seperately in the zip file.
-    z = zipfile.ZipFile(zip_path, 'r')
-    
-    ## All the transforms should be the same so we only read the first one.
-    ## - The transform is the six numbers that make up the CRS matrix (pixel to lat/lon conversion)
-    #transform_file = z.open(dummy_name + '.' + band_names[0] + '.tfw', 'r')
-    #transform = [float(line) for line in transform_file]
-    
-    # Extract each of the band images into a temporary file
-    # - Eventually the download function is supposed to pack everything in to one file!  https://groups.google.com/forum/#!topic/google-earth-engine-developers/PlgCvJz2Zko
-    temp_band_files = []
-    band_files_string = ''
-    #print 'Extracting...'
-    if len(band_names) == 1:
-        color_names = ['vis-gray']
-    else:
-        color_names = ['vis-red', 'vis-green', 'vis-blue']
-    for b in color_names:
-        band_filename  = dummy_name + '.' + b + '.tif'
-        extracted_path = os.path.join(TEMP_FILE_DIR, band_filename)
-        #print band_filename
-        #print extracted_path
-        z.extract(band_filename, TEMP_FILE_DIR)
-        temp_band_files.append(extracted_path)
-        band_files_string += ' ' + extracted_path
-        
-    # Generate an intermediate vrt file
-    vrt_path = os.path.join(TEMP_FILE_DIR, temp_prefix + '.vrt')
-    cmd = 'gdalbuildvrt -separate -resolution highest ' + vrt_path +' '+ band_files_string
-    #print cmd
-    os.system(cmd)
-    if not os.path.exists(vrt_path):
-        raise Exception('Failed to create VRT file!')
-    
-    # Convert to the output file
-    cmd = 'gdal_translate -ot byte '+ vrt_path + ' ' +file_path
-    #print cmd
-    os.system(cmd)
-    
-    ### Clean up vrt file
-    ##os.remove(vrt_path)
-    
-    # Check for output file
-    if not os.path.exists(file_path):
-        raise Exception('Failed to create output image file!')
-        
-    ### Clean up temporary files
-    ##for b in temp_band_files:
-    ##    os.remove(b)
-    ##os.remove(zip_path)
-    
-    print 'Finished saving ' + file_path
-    return True
-    
-
-class WaitForEEResult(threading.Thread):
-    '''Runs a user defined function on an Earth Engine function object and waits for the result.'''
-    def __init__(self, eefunction, function):
-        threading.Thread.__init__(self)
-        self.eefunction = eefunction
-        self.function   = function
-        self.setDaemon(True)
-        self.start()
-    def run(self):
-        self.function(self.eefunction())
 
 
 
@@ -336,7 +180,7 @@ class MapViewOverlayInfoWidget(QtGui.QWidget):
             except: # features throw ee exception, ignore
                 return None
 
-        self.pixel_loader = WaitForEEResult(get_pixel, self.set_pixel_value)
+        self.pixel_loader = cmt.util.miscUtilities.waitForEeResult(get_pixel, self.set_pixel_value)
 
         # Set up all the components in a horizontal box layout
         hbox = QtGui.QHBoxLayout()
@@ -608,7 +452,7 @@ class MapViewWidget(QtGui.QWidget):
         #saveName = overlayToSave.name.replace(' ', '_').replace('/', '-')
         
         #print overlayToSave.eeobject.getInfo()
-        downloadEeImage(overlayToSave.eeobject, current_view_bbox, scale, file_path, overlayToSave.vis_params)
+        cmt.util.miscUtilities.downloadEeImage(overlayToSave.eeobject, current_view_bbox, scale, file_path, overlayToSave.vis_params)
 
     def contextMenuEvent(self, event):
         menu = QtGui.QMenu(self)
@@ -811,7 +655,7 @@ class MapViewWidget(QtGui.QWidget):
             return result
 
         with self.thread_lock:
-            self.executing_threads.append(WaitForEEResult(functools.partial(execute_thread, list(self.executing_threads)),
+            self.executing_threads.append(cmt.util.miscUtilities.waitForEeResult(functools.partial(execute_thread, list(self.executing_threads)),
                         lambda a : self.addOverlay(MakeTileManager(a), eeobject, name, show, vis_params)))
 
 
@@ -1066,6 +910,7 @@ class GenericMapGui(QtGui.QMainWindow):
 #=================================================================================
 # Global objects and functions for interacting with the GUI
 # - These are common operations and every GUI needs to support them.
+# - These interfaces match an old deprecated version of the Earth Engine interface.
 
 # A global GuiThreadWrapper instance for addToMap convenience.
 map_instance = None

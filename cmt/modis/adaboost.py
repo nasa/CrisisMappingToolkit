@@ -19,7 +19,7 @@ import ee
 import math
 
 from cmt.mapclient_qt import addToMap
-from cmt.util.evaluation import safe_get_info
+from cmt.util.miscUtilities import safe_get_info
 
 
 """

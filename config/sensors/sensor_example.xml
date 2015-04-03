@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<sensor>
+    <name>The Sensor Name</name>
+    
+    <bands> <!-- Each band is specified one at a time -->
+
+        <!-- If the source data is pre-loaded in an Earth Image collection the collection name should be specified like this. -->
+        <source><collection>LANDSAT/LC8_L1T_TOA</collection></source>
+
+        <band>
+            <source><name>b1</name></source> <!-- The band name as read in by Earth Engine -->
+            <name>Blue</name> <!-- The name that will be used by the Crisis Mapping Toolkit -->
+        </band>
+        <band>
+            <source><name>b2</name></source>
+            <name>Green</name>
+        </band>
+        <band>
+            <source><name>b3</name></source>
+            <name>Red</name>
+        </band>
+        
+        <band>
+            <source><name>b4</name></source>
+            <name>NIR</name>
+            
+            <!-- Some algorithms can use description of the typical water distribution in a band. -->
+            <distribution name="water">
+                <model>dip</model>
+                <mode><range>
+                    <minimum>3.0</minimum>
+                    <maximum>3.6</maximum>
+                </range></mode>
+                <buckets>512</buckets>
+            </distribution>
+        </band>
+        
+        <!-- Use this field to specify which bands are displayed in the GUI map view. -->
+        <!-- There should be either one or three bands for grayscale or pseudo-RGB display.-->
+        <display_bands>Red, Green, Blue</display_bands>
+    </bands>
+    
+    <!-- Specify the minimum and maximum values of the sensor data. -->
+    <range>
+        <minimum>0</minimum>
+        <maximum>1200</maximum>
+    </range>
+    
+    <!-- If a sensor uses log10 scaling specify that like this.-->
+    <scaling type="log10" />
+</sensor>
+

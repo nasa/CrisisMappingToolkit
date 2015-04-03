@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Sample Domain</name>
+    
+    <sensors> <!-- All sensors are defined in here. -->
+
+      <sensor> <!-- Start a single sensor definition. -->
+          <name>SRTM90</name> <!-- The sensor name, it must match the name of a sensor config file. -->
+          
+          <range> <!-- The numeric range of the sensor, and any othere sensor information, can be overwritten here. -->
+              <minimum>430</minimum>
+              <maximum>600</maximum>
+          </range>
+          
+          <!-- For a "dateless" source like SRTM90, you do not need to specify anything besides the name. -->
+      </sensor>
+
+      <!-- The order that sensors are listed controls the order they are displayed in the GUI map view. -->
+      <sensor> 
+        <name>MODIS</name>
+        <!-- One piece of information that will not be in the sensor file and must be specified here is the start/end date. -->
+        <bands>
+          <source>
+            <start_date>2014-06-19</start_date>
+            <end_date>2014-06-20</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>Sentinel1</name>
+        <bands>
+            <!-- If the image bands are seperately uploaded you must seperately define the source for each band. -->
+            <band>
+                <name>vv</name>
+                <source> <!-- This is the Maps Engine ID for a single channel image. -->
+                    <eeid>18108519531116889794-15658084116283052074</eeid>
+                    <name>b1</name> <!-- The input band name had to be overwritten from what is in the sensor file. -->
+                </source>
+            </band>
+            <!-- Only one of the bands for this sensor is available but that is ok, this one will still load. -->
+            
+            <!-- You can specify another EE ID source for a mask, or set self="true" to mask out zero values. -->
+            <mask self="true"></mask>
+        </bands>
+      </sensor>
+      
+     
+      <sensor>
+        <name>skybox_nir</name>
+        <bands> <!-- This uploaded image contains all of the sensor bands. -->
+                <!-- This image is a Maps Engine layer, not just a single image.  
+                     In order for this to load it needs the mosaic="true" tag.-->
+            <source mosaic="true"><eeid>18108519531116889794-15989983115440808490</eeid></source>
+        </bands>
+      </sensor>      
+      
+      
+    </sensors>
+    
+    <bbox> <!-- Defines the region which algorithms will operate on. -->
+        <bottomleft>
+            <lon>68.6824</lon>
+            <lat>36.19</lat>
+        </bottomleft>
+        <topright>
+            <lon>68.8348</lon>
+            <lat>36.3726</lat>
+        </topright>
+    </bbox>
+    
+    <!-- The Maps Engine ID of a binary image (1=flooded) defining a ground truth for this domain. -->
+    <!-- This field can also be set to permanent_water_mask to use that as the ground truth. -->
+    <truth>18108519531116889794-05246071950673775877</truth>
+    
+    <!-- Defines a training image from the same flood event. -->
+    <!-- This must be the name (minus extension) of another domain file in the same folder. -->
+    <training_domain>baghlan_south_2014_6</training_domain>
+    
+    <!-- The same as training_domain except that it is training data from an older unflooded date. -->
+    <unflooded_training_domain>unflooded_baghlan_2013</unflooded_training_domain>
+   
+   <!-- If you created a training region file in the Production GUI, link to it like this.-->
+   <!-- The training_json tag is usually only found in a training domain, not the test domain. -->
+   <training_json>gloucester_2014_10_training</training_json>
+   
+   <!-- Certain algorithm parameters can be manually specified in this section -->
+    <algorithm_params>
+      <!-- These are all constants for different algorithms -->
+      <modis_diff_threshold>350</modis_diff_threshold>
+      <modis_mask_threshold>4.5</modis_mask_threshold>
+      <modis_change_threshold>-3.0</modis_change_threshold>
+      <dartmouth_threshold>0.75</dartmouth_threshold>     
+      <fai_threshold>250</fai_threshold>
+      <mod_ndwi_threshold>-0.064531</mod_ndwi_threshold>
+      <dem_threshold>480</dem_threshold>
+      
+      <!-- For radar algorithms that operate on a single channel, specify the channel to use with this option. -->
+      <water_detect_radar_channel>hv</water_detect_radar_channel>
+    </algorithm_params>
+    
+</domain>
+
