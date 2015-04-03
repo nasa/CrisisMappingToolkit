@@ -137,10 +137,8 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
     correct = ground_truth.min(result)
     
     # Keep reducing the evaluation resolution until Earth Engine finishes without timing out
-    #MAX_EVAL_RES = 12000
-    #eval_res     = 250
-    MIN_EVAL_RES =  5000
-    eval_res     = 60000
+    MIN_EVAL_POINTS =  5000
+    eval_points     = 60000
     while True:
         try:
             #correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Correct detections
@@ -148,16 +146,16 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
             #truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Total water
     
             # Evaluate the results at a large number of random sample points
-            correct_sum = ee.data.getValue({'image': correct.stats(     eval_res, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-            result_sum  = ee.data.getValue({'image': result.stats(      eval_res, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
-            truth_sum   = ee.data.getValue({'image': ground_truth.stats(eval_res, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+            correct_sum = ee.data.getValue({'image': correct.stats(     eval_points, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+            result_sum  = ee.data.getValue({'image': result.stats(      eval_points, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
+            truth_sum   = ee.data.getValue({'image': ground_truth.stats(eval_points, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
             
             break # Quit the loop if the calculations were successful
         except Exception,e: # On failure coursen the resolution and try again
             print str(e)
-            eval_res /= 2
-            if eval_res < MIN_EVAL_RES:
-                raise Exception('Unable to evaluate results at resolution ' + str(eval_res*2))
+            eval_points /= 2
+            if eval_points < MIN_EVAL_POINTS:
+                raise Exception('Unable to evaluate results at resolution ' + str(eval_points*2))
 
     # Compute ratios, avoiding divide by zero.
     precision   = 1.0 if (result_sum == 0.0) else (correct_sum / result_sum)
@@ -174,7 +172,7 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
     #no_truth_result = evaluate_result_quality(result, region)
     no_truth_result = 0 # For now skip calculating this to reduce the computation time
     
-    return (precision, recall, eval_res, no_truth_result)
+    return (precision, recall, eval_points, no_truth_result)
 
 
 def evaluate_approach_thread(evaluation_function, result, ground_truth, region, fractional=False):
