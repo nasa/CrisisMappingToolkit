@@ -590,9 +590,8 @@ def initialize_active_contour(domain, ee_image, band_statistics, image_is_log_10
     (w, h) = local_image.size()
     
     # Initialize the algorithm with a grid of small loops that cover the region of interest
-    B              = w / 25
-    VERTICAL_CELLS = 20
-    CELL_SIZE      = (w - 2 * B) / VERTICAL_CELLS
+    B              = min(w / 25, h / 25)
+    CELL_SIZE      = 20
     loops = []
     for i in range(B, w - B, CELL_SIZE):
         for j in range(B, h - B, CELL_SIZE):
