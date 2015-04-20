@@ -16,8 +16,8 @@
         <name>MODIS</name>
         <bands>
           <source>
-            <start_date>2013-06-18</start_date>
-            <end_date>2013-06-19</end_date>
+            <start_date>2013-05-15</start_date>
+            <end_date>2013-05-16</end_date>
           </source>
         </bands>
       </sensor>
@@ -26,12 +26,12 @@
     
     <bbox>
         <bottomleft>
-            <lon>68.6824</lon>
-            <lat>36.19</lat>
+            <lon>65.1098</lon>
+            <lat>32.2831</lat>
         </bottomleft>
         <topright>
-            <lon>68.8348</lon>
-            <lat>36.3726</lat>
+            <lon>65.3294</lon>
+            <lat>32.4072</lat>
         </topright>
     </bbox>
     
