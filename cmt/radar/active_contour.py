@@ -36,20 +36,64 @@ Active Contour (snake) water detector based on the paper:
 
 
 def compute_band_statistics(ee_image, classified_image, region):
-    '''Use training data to compute the band statistics needed by the active contour algorithm'''
+    '''Use training data to compute the band statistics needed by the active contour algorithm.
+       - This version uses a single region and a labeled raster image.'''
 
     EVAL_RESOLUTION    = 30  # Meters
     ALLOWED_DEVIATIONS = 2.5 # For now this is a constant
     
     masked_image = ee_image.mask(classified_image)
-    means        = masked_image.reduceRegion(ee.Reducer.mean(),   region, EVAL_RESOLUTION).getInfo()
+    means        = masked_image.reduceRegion(ee.Reducer.mean(),   region, EVAL_RESOLUTION).getInfo() # These result in lists with one entry per band
     stdDevs      = masked_image.reduceRegion(ee.Reducer.stdDev(), region, EVAL_RESOLUTION).getInfo()
     
+    # Pack up the results per-band
     band_statistics = []
     band_names      = []
     for km, ks in zip(means, stdDevs):
         band_statistics.append((means[km], stdDevs[ks], ALLOWED_DEVIATIONS))
         #band_statistics.append((2.7, 0.35, ALLOWED_DEVIATIONS))
+        band_names.append(km)
+
+    print 'Computed band statistics: '
+    for b, s in zip(band_names, band_statistics):
+        print b + ': ' + str(s)
+    
+    return (band_names, band_statistics)
+
+def compute_band_statistics_features(ee_image, regionList):
+    '''Use training data to compute the band statistics needed by the active contour algorithm.
+       This version uses multiple labeled regions.'''
+
+    EVAL_RESOLUTION    = 30  # Meters
+    ALLOWED_DEVIATIONS = 2.5 # For now this is a constant
+    
+    masked_image = ee_image.mask(ee_image)
+    meanSums = {}
+    stdSums  = {}
+    listFormat = regionList.toList(100)
+    numInputs  = listFormat.size().getInfo()
+    for index in range(numInputs):
+        region = listFormat.get(index)
+        # Skip land regions (water is 1)
+        if region.getInfo()['properties']['classification'] != 1:
+            continue
+        
+        # Need to take the border out of EE format and then put it back in!
+        regionBorder = ee.Geometry.LinearRing(region.getInfo()['geometry']['coordinates'])
+        
+        # These result in lists with one entry per band
+        means   = masked_image.reduceRegion(ee.Reducer.mean(),   regionBorder, EVAL_RESOLUTION).getInfo()
+        stdDevs = masked_image.reduceRegion(ee.Reducer.stdDev(), regionBorder, EVAL_RESOLUTION).getInfo()
+        # Accumulate the mean and standard deviation for each band over the regions
+        for km, ks in zip(means, stdDevs):
+            meanSums[km] = (meanSums[km]+means[km]  ) if (km in meanSums) else (means[km]  )
+            stdSums[ks]  = (stdSums[ks] +stdDevs[ks]) if (ks in stdSums ) else (stdDevs[ks])
+    
+    # We just take the mean of the statistics across the input regions.
+    band_statistics = []
+    band_names      = []
+    for km, ks in zip(meanSums, stdSums):
+        band_statistics.append((meanSums[km]/len(meanSums), stdSums[ks]/len(stdSums), ALLOWED_DEVIATIONS))
         band_names.append(km)
 
     print 'Computed band statistics: '
@@ -266,7 +310,7 @@ class Loop(object):
         mean_good  /= num_bands
         #print str(mean_count) + ', ' + str(mean_good)
         
-        return (mean_count, mean_good) # Return (num_points, goodness)
+        return (mean_count, mean_good)
 
     NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
     # shift a single node to neighboring pixel which reduces cost function the most
@@ -590,8 +634,8 @@ def initialize_active_contour(domain, ee_image, band_statistics, image_is_log_10
     (w, h) = local_image.size()
     
     # Initialize the algorithm with a grid of small loops that cover the region of interest
-    B              = min(w / 25, h / 25)
-    CELL_SIZE      = 20
+    B              = min(w / scale_meters, h / scale_meters)
+    CELL_SIZE      = 20 # This is the inital loop size
     loops = []
     for i in range(B, w - B, CELL_SIZE):
         for j in range(B, h - B, CELL_SIZE):
@@ -608,16 +652,18 @@ MAX_STEPS = 10000
 
 def active_contour(domain):
     '''Start up an active contour and process it until it finishes'''
-    
+
+    train_domain   = domain.training_domain   # Since this is radar data, an earlier date is probably not available.
     sensor         = domain.get_radar()
+    train_sensor   = train_domain.get_radar()
     detect_channel = domain.algorithm_params['water_detect_radar_channel']
     ee_image       = sensor.image.select([detect_channel]).toUint16()
+    train_ee_image = train_sensor.image.select([detect_channel]).toUint16()
     if sensor.log_scale:
-        statisics_image = ee_image.log10()
+        statisics_image = train_ee_image.log10()
     else:
-        statisics_image = ee_image
-    print 'WARNING: Training with the domain ground truth --> This will have to change to training data!!!!!!'
-    (band_names, band_statistics) = compute_band_statistics(statisics_image, domain.ground_truth, domain.bounds)
+        statisics_image = train_ee_image
+    (band_names, band_statistics) = compute_band_statistics(statisics_image, train_domain.ground_truth, train_domain.bounds)
     
     (local_image, snake) = initialize_active_contour(domain, ee_image, band_statistics, sensor.log_scale)
     for i in range(MAX_STEPS):
@@ -631,3 +677,39 @@ def active_contour(domain):
             break
     return snake.to_ee_image().clip(domain.bounds)
 
+
+#==========================================================================================
+
+# Specialized version of this call for Skybox data 
+def active_countour_skybox(domain, modis_indices):
+    '''Special Active Contour radar function wrapper to work with Skybox images'''
+    
+    # Currently the modis data is ignored when running this
+    
+    train_domain = domain.training_domain # For skybox data there is probably no earlier image to train off of
+    try: # The Skybox data can be in one of two names
+        sensor      = domain.skybox
+        trainSensor = train_domain.skybox
+    except:
+        sensor      = domain.skybox_nir
+        trainSensor = train_domain.skybox_nir
+    ee_image       = sensor.image.toUint16()  # For Skybox, these are almost certainly the same image.
+    ee_image_train = trainSensor.image.toUint16()
+    
+    if train_domain.training_features: # Train using features
+        (band_names, band_statistics)  = compute_band_statistics_features(ee_image_train, train_domain.training_features)
+    else: # Train using training truth
+        (band_names, band_statistics)  = compute_band_statistics(ee_image_train, train_domain.ground_truth, train_domain.bounds())
+    
+    (local_image, snake) = initialize_active_contour(domain, ee_image, band_statistics, False)
+
+    for i in range(MAX_STEPS):
+        if i % 10 == 0:
+            snake.respace_nodes()
+            snake.shift_nodes() # shift before fixing geometry since reversal of orientation possible
+            snake.fix_geometry()
+        else:
+            snake.shift_nodes()
+        if snake.done:
+            break
+    return snake.to_ee_image().clip(domain.bounds)

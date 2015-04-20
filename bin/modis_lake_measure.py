@@ -45,9 +45,6 @@ import cmt.modis.flood_algorithms
 import cmt.util.evaluation
 import cmt.util.miscUtilities
 from   cmt.util.processManyLakes import LakeDataLoggerBase
-from   cmt.mapclient_qt          import downloadEeImage
-
-
 
 
 
@@ -89,8 +86,8 @@ class LoggingClass(LakeDataLoggerBase):
         vis_params = {'min': 0, 'max': 1} # Binary image data
         
         imagePath          = os.path.join(self.logFolder, imageName + '.tif')
-        return downloadEeImage(mergedImage, ee_bounds, resolution, imagePath, vis_params)
-        #return downloadEeImage(cloudRgb, ee_bounds, resolution, imagePath, vis_params)
+        return cmt.util.miscUtilities.downloadEeImage(mergedImage, ee_bounds, resolution, imagePath, vis_params)
+        #return cmt.util.miscUtilities.downloadEeImage(cloudRgb, ee_bounds, resolution, imagePath, vis_params)
 
     def saveModisImage(self, modisImage, ee_bounds, imageName):
         '''Record the input MODIS image to the log directory'''
@@ -101,7 +98,7 @@ class LoggingClass(LakeDataLoggerBase):
         imagePath  = os.path.join(self.logFolder, imageName)
         vis_params = {'min': 0, 'max': 8000, 'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06']}
         if not os.path.exists(imagePath): # Don't overwrite this image
-            return downloadEeImage(modisImage, ee_bounds, 250, imagePath, vis_params)
+            return cmt.util.miscUtilities.downloadEeImage(modisImage, ee_bounds, 250, imagePath, vis_params)
 
 
     def findRecordByDate(self, date):
@@ -209,42 +206,6 @@ class LoggingClass(LakeDataLoggerBase):
         return True
 
 
-#
-#
-#class Object(object):
-#    '''Helper class to let us add attributes to empty objects'''
-#    pass
-#
-## TODO: Construct an actual domain object!
-#class FakeDomain(Object):
-#    '''Class to assist in faking a Domain class instance.'''
-#
-#    def add_dem(self, bounds):
-#        '''Loads the correct DEM'''
-#        # Get a DEM
-#        if cmt.util.miscUtilities.regionIsInUnitedStates(bounds):
-#            self.ned13            = Object()
-#            self.ned13.image      = ee.Image('ned_13') # US only 10m DEM
-#            self.ned13.band_names = ['elevation']
-#            self.ned13.band_resolutions = {'elevation': 10}
-#        else:
-#            self.srtm90            = Object()
-#            self.srtm90.image      = ee.Image('CGIAR/SRTM90_V4') # The default 90m global DEM
-#            self.srtm90.band_names = ['elevation']
-#            self.srtm90.band_resolutions = {'elevation': 90}
-#       
-#    def get_dem(self):
-#        '''Returns a DEM image object if one is loaded'''
-#        try: # Find out which DEM is loaded
-#            dem = self.ned13
-#        except:
-#            try:
-#                dem = self.srtm90
-#            except:
-#                raise Exception('Domain is missing DEM!')
-#        return dem
-#
-
 #from cmt.mapclient_qt import centerMap, addToMap
 #centerMap(-119, 38, 11)
 
@@ -273,7 +234,10 @@ def getAlgorithmList():
                      (cmt.modis.flood_algorithms.DART_LEARNED       , 'Dartmouth',      RECOMPUTE_IF_FALSE),
                      (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  RECOMPUTE_IF_FALSE),
                      (cmt.modis.flood_algorithms.MODNDWI_LEARNED    , 'Mod NDWI',       RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.FAI_LEARNED        , 'Floating Algae Index',  RECOMPUTE_IF_FALSE)]
+                     (cmt.modis.flood_algorithms.FAI_LEARNED        , 'Floating Algae Index',  RECOMPUTE_IF_FALSE),
+                     #(cmt.modis.flood_algorithms.ADABOOST           , 'Adaboost',       KEEP),
+                     #(cmt.modis.flood_algorithms.ADABOOST_DEM       , 'Adaboost DEM',   KEEP)
+                     ]
 
     return algorithmList
 

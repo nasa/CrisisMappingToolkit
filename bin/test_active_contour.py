@@ -51,9 +51,12 @@ THIS_FILE_FOLDER = os.path.dirname(os.path.realpath(__file__))
 
 # DOMAIN SELECTION IS HERE!
 #domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/uavsar/mississippi.xml')
-#domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/skybox/malawi_2015.xml')
 #domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/sentinel1/malawi_2015_1.xml')
-domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/sentinel1/rome_small.xml')
+#domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/sentinel1/rome_small.xml')
+#domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/skybox/malawi_2015.xml')
+#domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/skybox/gloucester_2014_10.xml')
+#domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/skybox/sumatra_2014_10.xml')
+domain = cmt.domain.Domain(os.path.join(THIS_FILE_FOLDER, '..') + '/config/domains/skybox/new_bedford_2014_10.xml')
 
 #result = active_contour(domain) # Run this to compute the final results!
 
@@ -81,26 +84,26 @@ class ActiveContourWindow(QtGui.QWidget):
         self.setWindowTitle('Active Contour')
         self.domain = domain
         
-        
-        # Fetch image and compute statistics    
-        sensor         = domain.get_radar()
-        detect_channel = domain.algorithm_params['water_detect_radar_channel']
-        ee_image       = sensor.image.select([detect_channel]).toUint16()
-        if sensor.log_scale:
-            statisics_image = ee_image.log10()
-        else:
-            statisics_image = ee_image
-        (band_names, band_statistics) = compute_band_statistics(statisics_image, domain.ground_truth, domain.bounds)
-        
-        (self.local_image, self.snake) = initialize_active_contour(domain, ee_image, band_statistics, sensor.log_scale)
-        
-        # Retrieve the local image bands and merge them into a fake RGB image
-        channels = [self.local_image.get_image(detect_channel), self.local_image.get_image(detect_channel), self.local_image.get_image(detect_channel)]
-        channel_images = [PIL.Image.fromarray(numpy.uint8(c*255/1200)) for c in channels] # Convert from 16 bit to 8 bit
-        self.display_image = PIL.Image.merge('RGB', channel_images)
-        self.step = 1
-        self.show()
-        
+        #
+        ## Fetch image and compute statistics    
+        #sensor         = domain.get_radar()
+        #detect_channel = domain.algorithm_params['water_detect_radar_channel']
+        #ee_image       = sensor.image.select([detect_channel]).toUint16()
+        #if sensor.log_scale:
+        #    statisics_image = ee_image.log10()
+        #else:
+        #    statisics_image = ee_image
+        #(band_names, band_statistics) = compute_band_statistics(statisics_image, domain.ground_truth, domain.bounds)
+        #
+        #(self.local_image, self.snake) = initialize_active_contour(domain, ee_image, band_statistics, sensor.log_scale)
+        #
+        ## Retrieve the local image bands and merge them into a fake RGB image
+        #channels = [self.local_image.get_image(detect_channel), self.local_image.get_image(detect_channel), self.local_image.get_image(detect_channel)]
+        #channel_images = [PIL.Image.fromarray(numpy.uint8(c*255/1200)) for c in channels] # Convert from 16 bit to 8 bit
+        #self.display_image = PIL.Image.merge('RGB', channel_images)
+        #self.step = 1
+        #self.show()
+        #
         
         ## Initialize the contour with the selected sensor band
         #sensor_name = 'uavsar'
@@ -121,23 +124,29 @@ class ActiveContourWindow(QtGui.QWidget):
         #self.step = 1
         #self.show()
 
-        ## Initialize the contour with the selected sensor band
-        #sensor_name = 'skybox_nir'
-        #SKYBOX_SCALE = 1200 / 256
-        #sensor      = getattr(domain, sensor_name)
-        #ee_image = sensor.image.toUint16()
-        #
-        #(band_names, band_statistics) = compute_band_statistics(ee_image, domain.ground_truth, domain.bounds)
-        #
-        #(self.local_image, self.snake) = initialize_active_contour(domain, ee_image, band_statistics, sensor.log_scale)
-        #
-        ## Retrieve the local image bands and merge them into a fake RGB image
-        ##channels = [self.local_image.get_image('Red'), self.local_image.get_image('Red'), self.local_image.get_image('Red')]
-        #channels = [self.local_image.get_image('Red'), self.local_image.get_image('Green'), self.local_image.get_image('Blue')]
-        #channel_images = [PIL.Image.fromarray(numpy.uint8(c / SKYBOX_SCALE)) for c in channels] # Convert from Skybox range to 8 bit
-        #self.display_image = PIL.Image.merge('RGB', channel_images)
-        #self.step = 1
-        #self.show()
+        SKYBOX_SCALE = 1200 / 256
+        train_domain = domain.training_domain # For skybox data there is probably no earlier image to train off of
+        try: # The Skybox data can be in one of two names
+            sensor      = domain.skybox
+            trainSensor = train_domain.skybox
+        except:
+            sensor      = domain.skybox_nir
+            trainSensor = train_domain.skybox_nir
+        ee_image       = sensor.image.toUint16()  # For Skybox, these are almost certainly the same image.
+        ee_image_train = trainSensor.image.toUint16()
+        
+        if train_domain.training_features: # Train using features
+            (band_names, band_statistics)  = compute_band_statistics_features(ee_image_train, train_domain.training_features)
+        else: # Train using training truth
+            (band_names, band_statistics)  = compute_band_statistics(ee_image_train, train_domain.ground_truth, train_domain.bounds)
+        (self.local_image, self.snake) = initialize_active_contour(domain, ee_image, band_statistics, False)
+
+        # Retrieve the local image bands and merge them into a fake RGB image
+        channels = [self.local_image.get_image('Red'), self.local_image.get_image('Green'), self.local_image.get_image('Blue')]
+        channel_images = [PIL.Image.fromarray(numpy.uint8(c / SKYBOX_SCALE)) for c in channels] # Convert from Skybox range to 8 bit
+        self.display_image = PIL.Image.merge('RGB', channel_images)
+        self.step = 1
+        self.show()
 
 
     def paintEvent(self, event):

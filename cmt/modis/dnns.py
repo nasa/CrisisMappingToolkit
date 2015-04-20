@@ -20,7 +20,7 @@ import math
 
 from cmt.mapclient_qt import addToMap
 from cmt.util.miscUtilities import safe_get_info, get_permanent_water_mask
-from modis_utilities import *
+import modis_utilities
 import ee_classifiers
 import simple_modis_algorithms
 
@@ -71,9 +71,9 @@ def dnns(domain, b, use_modis_diff=False):
     # Use CART classifier to divide pixels up into water, land, and mixed.
     # - Mixed pixels are just low probability water/land pixels.
     if use_modis_diff:
-        unflooded_b = compute_modis_indices(domain.unflooded_domain)
+        unflooded_b = modis_utilities.compute_modis_indices(domain.unflooded_domain)
         water_mask = get_permanent_water_mask()
-        thresholds = compute_binary_threshold(simple_modis_algorithms.get_diff(unflooded_b), water_mask, domain.bounds, True)
+        thresholds = modis_utilities.compute_binary_threshold(simple_modis_algorithms.get_diff(unflooded_b), water_mask, domain.bounds, True)
 
         pureWater  = simple_modis_algorithms.modis_diff(domain, b, thresholds[0])
         pureLand   = simple_modis_algorithms.modis_diff(domain, b, thresholds[1]).Not()
@@ -169,7 +169,7 @@ def dnns_dem(domain, b, use_modis_diff=False):
     
     # Call the DNNS function to get the starting point
     water_fraction = dnns(domain, b, use_modis_diff)
-    return apply_dem(domain, water_fraction)
+    return modis_utilities.apply_dem(domain, water_fraction)
    
 #=====================================================================================
 

@@ -58,7 +58,6 @@ import urllib2
 import json
 import ee
 import os
-import tempfile
 import zipfile
 
 # check if the Python imaging libraries used by the mapclient module are installed
@@ -91,8 +90,6 @@ BASE_URL = 'https://earthengine.googleapis.com'
 
 # Default directory to save images to
 DEFAULT_SAVE_DIR = os.path.abspath(__file__)
-
-TEMP_FILE_DIR = tempfile.gettempdir()
 
 # This is a URL pattern for creating an overlay from the google maps base map.
 # The z, x and y arguments at the end correspond to level, x, y here.

@@ -20,6 +20,7 @@ import math
 
 from cmt.mapclient_qt import addToMap
 from cmt.util.miscUtilities import safe_get_info
+from cmt.modis.simple_modis_algorithms import *
 from modis_utilities import *
 
 '''
@@ -31,11 +32,11 @@ Contains algorithms and tools for using the built-in Earth Engine classifiers.
 
 
 def _create_learning_image(domain, b):
-    '''Set up features for the classifier to be trained on: [b2, b2/b1, b2/b1, NDVI, NDWI]'''
-    diff        = b['b2'].subtract(b['b1'])
-    ratio       = b['b2'].divide(b['b1'])
-    modisBands  = b['b1'].addBands(b['b2']).addBands(diff).addBands(ratio).addBands(b['NDVI']).addBands(b['NDWI'])
-    outputBands = modisBands
+    '''Set up features for the classifier to be trained on'''
+
+    outputBands = _get_modis_learning_bands(domain, b) # Get the standard set of MODIS learning bands
+    #outputBands = _get_extensive_modis_learning_bands(domain, b) # Get the standard set of MODIS learning bands
+    
     
     # Try to add a DEM
     try:
@@ -83,15 +84,43 @@ def _create_learning_image(domain, b):
     
     return outputBands
 
+
+def _get_modis_learning_bands(domain, b):
+    '''Set up features for the classifier to be trained on: [b2, b2/b1, b2/b1, NDVI, NDWI]'''
+    diff        = b['b2'].subtract(b['b1'])
+    ratio       = b['b2'].divide(b['b1'])
+    modisBands  = b['b1'].addBands(b['b2']).addBands(diff).addBands(ratio).addBands(b['NDVI']).addBands(b['NDWI'])
+    return modisBands
+
+
+def _get_extensive_modis_learning_bands(domain, b):
+    '''Like _get_modis_learning_bands but adding a lot of simple classifiers'''
+    
+    #a = get_diff(b).select(['b1'], ['b1'])
+    a = b['b1'].select(['sur_refl_b01'],                                                 ['b1'           ])
+    a = a.addBands(b['b2'].select(['sur_refl_b02'],                                      ['b2'           ]))
+    a = a.addBands(b['b2'].divide(b['b1']).select(['sur_refl_b02'],                      ['ratio'        ]))
+    a = a.addBands(b['LSWI'].subtract(b['NDVI']).subtract(0.05).select(['sur_refl_b02'], ['LSWIminusNDVI']))
+    a = a.addBands(b['LSWI'].subtract(b['EVI']).subtract(0.05).select(['sur_refl_b02'],  ['LSWIminusEVI' ]))
+    a = a.addBands(b['EVI'].subtract(0.3).select(['sur_refl_b02'],                       ['EVI'          ]))
+    a = a.addBands(b['LSWI'].select(['sur_refl_b02'],                                    ['LSWI'         ]))
+    a = a.addBands(b['NDVI'].select(['sur_refl_b02'],                                    ['NDVI'         ]))
+    a = a.addBands(b['NDWI'].select(['sur_refl_b01'],                                    ['NDWI'         ]))
+    a = a.addBands(get_diff(b).select(['b1'],                                            ['diff'         ]))
+    a = a.addBands(get_fai(b).select(['b1'],                                             ['fai'          ]))
+    a = a.addBands(get_dartmouth(b).select(['b1'],                                       ['dartmouth'    ]))
+    a = a.addBands(get_mod_ndwi(b).select(['b1'],                                        ['MNDWI'        ]))
+    return a
+
 def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
     '''Apply EE classifier tool using a ground truth image.'''
     
     # Training requires a training image plus either ground truth or training features.
     training_domain = None
-    if domain.training_domain:
-        training_domain = domain.training_domain
-    elif domain.unflooded_domain:
-        training_domain = domain.unflooded_domain
+    #if domain.training_domain:
+    training_domain = domain.training_domain
+    #elif domain.unflooded_domain:
+    #training_domain = domain.unflooded_domain
     if not training_domain:
         raise Exception('Cannot run classifier algorithm without a training domain!')
 
@@ -111,8 +140,12 @@ def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
                 'training_band'     : "b1",
                 'training_region'   : training_domain.bounds
                }
-    else:
-        raise Exception('Cannot run classifier algorithm without a training features or a ground truth!')
+    else: # Use the permanent water mask
+        args = {
+                'training_image'    : get_permanent_water_mask(),
+                'training_band'     : "b1",
+                'training_region'   : training_domain.bounds
+               }
     common_args = {
                    'image'             : training_image,
                    'subsampling'       : 0.2, # TODO: Reduce this on failure?

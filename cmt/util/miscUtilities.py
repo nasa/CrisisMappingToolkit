@@ -21,9 +21,14 @@ import json
 import threading
 import time
 import xml.etree.cElementTree as ET
+import tempfile
+import zipfile
+import urllib2
 
 # Location of the sensor config files
 SENSOR_FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../config/sensors')
+
+TEMP_FILE_DIR = tempfile.gettempdir()
 
 def safe_get_info(ee_object, max_num_attempts=None):
     '''Keep trying to call getInfo() on an Earth Engine object until it succeeds.'''
@@ -220,7 +225,7 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
         download_object = eeObject.visualize(band_names)
     
     # Handle input bounds as string or a rect object
-    if isinstance(bbox, basestring): 
+    if isinstance(bbox, basestring) or isinstance(bbox, list): 
         eeRect = apply(ee.Geometry.Rectangle, bbox)
     else:
         eeRect = bbox

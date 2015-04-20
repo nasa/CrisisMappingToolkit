@@ -20,7 +20,7 @@ import math
 
 from cmt.mapclient_qt import addToMap
 from cmt.util.miscUtilities import safe_get_info
-from modis_utilities import *
+import modis_utilities
 
 '''
 Contains implementations of several simple MODIS-based flood detection algorithms.
@@ -68,10 +68,10 @@ def diff_learned(domain, b):
     if domain.unflooded_domain == None:
         print 'No unflooded training domain provided.'
         return None
-    unflooded_b = compute_modis_indices(domain.unflooded_domain)
-    water_mask  = get_permanent_water_mask()
+    unflooded_b = modis_utilities.compute_modis_indices(domain.unflooded_domain)
+    water_mask  = modis_utilities.get_permanent_water_mask()
     
-    threshold = compute_binary_threshold(get_diff(unflooded_b), water_mask, domain.bounds)
+    threshold = modis_utilities.compute_binary_threshold(get_diff(unflooded_b), water_mask, domain.bounds)
     return modis_diff(domain, b, threshold)
 
 def modis_diff(domain, b, threshold=None):
@@ -95,9 +95,9 @@ def dart_learned(domain, b):
     if domain.unflooded_domain == None:
         print 'No unflooded training domain provided.'
         return None
-    unflooded_b = compute_modis_indices(domain.unflooded_domain)
-    water_mask = get_permanent_water_mask()
-    threshold = compute_binary_threshold(get_dartmouth(unflooded_b), water_mask, domain.bounds)
+    unflooded_b = modis_utilities.compute_modis_indices(domain.unflooded_domain)
+    water_mask = modis_utilities.get_permanent_water_mask()
+    threshold = modis_utilities.compute_binary_threshold(get_dartmouth(unflooded_b), water_mask, domain.bounds)
     return dartmouth(domain, b, threshold)
 
 def dartmouth(domain, b, threshold=None):
@@ -118,9 +118,9 @@ def mod_ndwi_learned(domain, b):
     if domain.unflooded_domain == None:
         print 'No unflooded training domain provided.'
         return None
-    unflooded_b = compute_modis_indices(domain.unflooded_domain)
-    water_mask = get_permanent_water_mask()
-    threshold = compute_binary_threshold(get_mod_ndwi(unflooded_b), water_mask, domain.bounds)
+    unflooded_b = modis_utilities.compute_modis_indices(domain.unflooded_domain)
+    water_mask = modis_utilities.get_permanent_water_mask()
+    threshold = modis_utilities.compute_binary_threshold(get_mod_ndwi(unflooded_b), water_mask, domain.bounds)
     return mod_ndwi(domain, b, threshold)
 
 def mod_ndwi(domain, b, threshold=None):
@@ -138,10 +138,10 @@ def fai_learned(domain, b):
     if domain.unflooded_domain == None:
         print 'No unflooded training domain provided.'
         return None
-    unflooded_b = compute_modis_indices(domain.unflooded_domain)
-    water_mask = get_permanent_water_mask()
+    unflooded_b = modis_utilities.compute_modis_indices(domain.unflooded_domain)
+    water_mask = modis_utilities.get_permanent_water_mask()
     
-    threshold = compute_binary_threshold(get_fai(unflooded_b), water_mask, domain.bounds)
+    threshold = modis_utilities.compute_binary_threshold(get_fai(unflooded_b), water_mask, domain.bounds)
     return fai(domain, b, threshold)
 
 def fai(domain, b, threshold=None):

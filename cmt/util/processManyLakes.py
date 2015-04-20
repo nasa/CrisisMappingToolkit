@@ -191,7 +191,7 @@ def addLakeToBadList(name, output_directory, date=None):
 
 # The maximum lake size Earth Engine can handle in square kilometers
 MAX_LAKE_SIZE = 5000
-MAX_LATITUDE = 55 # SRTM90 is not available beyond 60 latitude
+MAX_LATITUDE  = 55 # SRTM90 is not available beyond 60 latitude
 
 def process_lake(lake, ee_lake, start_date, end_date, output_directory,
                  processing_function, logging_class, image_fetching_function):

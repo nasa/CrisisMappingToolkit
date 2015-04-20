@@ -190,7 +190,7 @@ def applyCutlerLinearLogScale(grayImage, roi):
     
     return scaledImage
 
-def sar_martinis(domain, cr_method=True):
+def sar_martinis(domain, cr_method=False):
     '''Compute a global threshold via histogram splitting on selected subregions'''
     
     sensor     = domain.get_radar()
@@ -224,7 +224,7 @@ def sar_martinis(domain, cr_method=True):
     # Rescale the input data so the statistics are not dominated by very bright pixels
     GRAY_MAX  = 255
     grayLayer = applyCutlerLinearLogScale(radarImage.select([channelName]), domain.bounds)
-    addToMap(grayLayer, {'min': 0, 'max': GRAY_MAX,  'opacity': 1.0, 'palette': GRAY_PALETTE}, 'grayLayer',   False)
+    #addToMap(grayLayer, {'min': 0, 'max': GRAY_MAX,  'opacity': 1.0, 'palette': GRAY_PALETTE}, 'grayLayer',   False)
     
     
     # Compute the global mean, then make a constant image out of it.
@@ -245,8 +245,8 @@ def sar_martinis(domain, cr_method=True):
     # Debug plots
     #addToMap(meanImage, {'min': 3000, 'max': 70000,  'opacity': 1.0, 'palette': GRAY_PALETTE}, 'Mean',   False)
     #addToMap(stdImage,  {'min': 3000, 'max': 200000, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'StdDev', False)
-    addToMap(meanImage, {'min': 0, 'max': GRAY_MAX, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'Mean',   False)
-    addToMap(stdImage,  {'min': 0, 'max': 40,       'opacity': 1.0, 'palette': GRAY_PALETTE}, 'StdDev', False)
+    #addToMap(meanImage, {'min': 0, 'max': GRAY_MAX, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'Mean',   False)
+    #addToMap(stdImage,  {'min': 0, 'max': 40,       'opacity': 1.0, 'palette': GRAY_PALETTE}, 'StdDev', False)
         
     # Compute these two statistics across the entire image
     CV = meanImage.divide(stdImage).reproject(       "EPSG:4326", None, metersPerPixel)
@@ -258,7 +258,7 @@ def sar_martinis(domain, cr_method=True):
     # Parameters which control which sub-regions will have their histograms analyzed
     # - These are strongly influenced by the smoothing kernel size!!!
     MIN_CV = 0.7
-    MAX_CV = 1.0
+    MAX_CV = 1.3
     MAX_R  = 1.1
     MIN_R  = 0.5
     
@@ -275,7 +275,7 @@ def sar_martinis(domain, cr_method=True):
         grayRange = imageMax - imageMin
         CR = stdImage.divide(grayRange)
     
-        addToMap(CR, {'min': 0, 'max': 0.3, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'CR', False)
+        #addToMap(CR, {'min': 0, 'max': 0.3, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'CR', False)
     
     
     # Filter out pixels based on computed statistics

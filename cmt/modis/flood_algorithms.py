@@ -23,6 +23,8 @@ from ee_classifiers import *
 from misc_algorithms import *
 from modis_utilities import *
 from simple_modis_algorithms import *
+import cmt.radar.active_contour
+
 
 '''
 Contains implementations of multiple MODIS-based flood detection algorithms.
@@ -53,6 +55,9 @@ MODNDWI_LEARNED    = 21
 ADABOOST           = 22
 ADABOOST_LEARNED   = 23
 ADABOOST_DEM       = 24
+ACTIVE_CONTOUR     = 25
+
+
 
 # Set up some information for each algorithm, used by the functions below.
 _ALGORITHMS = {
@@ -78,9 +83,11 @@ _ALGORITHMS = {
         DIFFERENCE_HISTORY : ('Difference with History', history_diff,   False, '0099FF'),
         DEM_THRESHOLD      : ('DEM Threshold',           dem_threshold,  False, 'FFCC33'),
         MARTINIS_TREE      : ('Martinis Tree',           martinis_tree,  False, 'CC0066'),
-        ADABOOST           : ('Adaboost',                adaboost,       False, 'CC0066'),
-        ADABOOST_LEARNED   : ('Adaboost Learned',        adaboost_learn, False, 'CC0066'),
-        ADABOOST_DEM       : ('Adaboost DEM',            adaboost_dem,   False, 'CC0066'),
+        ADABOOST           : ('Adaboost',                adaboost,       False, '9933FF'),
+        ADABOOST_LEARNED   : ('Adaboost Learned',        adaboost_learn, False, 'FF3399'),
+        ADABOOST_DEM       : ('Adaboost DEM',            adaboost_dem,   False, '6600CC'),
+        ACTIVE_CONTOUR     : ('Active Countour',
+                              cmt.radar.active_contour.active_countour_skybox,  False, '0066CC'),
 }
 
 

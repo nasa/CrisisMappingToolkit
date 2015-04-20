@@ -43,12 +43,17 @@ import cmt.util.gui_util
 Tool for testing MODIS based flood detection algorithms using a simple GUI.
 '''
 
+
 # --------------------------------------------------------------
 # Configuration
 
 # Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
 #ALGORITHMS = [DARTMOUTH, DART_LEARNED, DIFFERENCE, DIFF_LEARNED, FAI, FAI_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
-ALGORITHMS = [DART_LEARNED, DIFF_LEARNED, FAI_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
+#ALGORITHMS = [DART_LEARNED, DIFF_LEARNED, FAI_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
+#ALGORITHMS = [SVM, RANDOM_FORESTS, CART]
+#ALGORITHMS = [ADABOOST, ADABOOST_DEM]
+ALGORITHMS = [ACTIVE_CONTOUR]
+#ALGORITHMS = [MARTINIS_TREE]
 
 
 # --------------------------------------------------------------
