@@ -264,6 +264,7 @@ class ProductionGui(QtGui.QMainWindow):
         self.landsatPrior   = None # First Landsat image < date.
         self.landsatPost    = None # First Landsat image >= the date.
         self.demImage       = None # DEM image
+        self.permWaterMask  = None # The permanent water mask, never changes.
         self.guestImage     = None # A manually loaded image
         self.eeFunction     = None # Flood detection results TODO: Rename variable!
         self.landsatType    = None # One of the types at the top of the file
@@ -557,6 +558,14 @@ class ProductionGui(QtGui.QMainWindow):
             self.mapWidget.addToMap(self.compositeModis, vis_params, 'MODIS Channels 1/2/6', False)
         else:
             print 'Failed to find MODIS image!'
+            
+        # This one works a little differently since it never changes
+        # - We just add this once and never remove it.
+        if not self.permWaterMask:
+            self.permWaterMask = cmt.modis.modis_utilities.get_permanent_water_mask()
+            self.mapWidget.addToMap(self.permWaterMask.mask(self.permWaterMask),
+                                    {'min': 0 , 'max': 1, 'palette': '000000, 0000FF'}, 'Permanent Water Mask', False)
+            
         if self.modisCloudMask:
             vis_params = {'min': 0, 'max': 1, 'palette': '000000, FF0000'}
             self.mapWidget.addToMap(self.modisCloudMask, vis_params, '1km Bad MODIS pixels', False)
@@ -568,10 +577,7 @@ class ProductionGui(QtGui.QMainWindow):
             self.mapWidget.addToMap(self.demImage, vis_params, 'Digital Elevation Map', False)
         else:
             print 'Failed to find DEM!'
-            
-        if self.guestImage:
-            raise Exception('TODO!')
-            
+
 
     def _selectLandsatBands(self, eeLandsatFunc):
         '''Given a raw landsat image, pick which bands to view'''
