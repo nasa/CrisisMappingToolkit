@@ -174,9 +174,12 @@ def adaboost_learn(domain, b):
     EVAL_RESOLUTION = 250
 
     # Load inputs for this domain and preprocess
-    all_problems      = ['kashmore_2010_8.xml', 'mississippi_2011_5.xml', 'mississippi_2011_6.xml', 'new_orleans_2005_9.xml', 'sf_bay_area_2011_4.xml']
+    #all_problems      = ['kashmore_2010_8.xml', 'mississippi_2011_5.xml', 'mississippi_2011_6.xml', 'new_orleans_2005_9.xml', 'sf_bay_area_2011_4.xml']
+    #all_domains       = [Domain('config/domains/modis/' + d) for d in all_problems]
+    #training_domains  = [domain.unflooded_domain for domain in all_domains[:-1]] + [all_domains[-1]] # SF is unflooded
+    all_problems      = ['unflooded_mississippi_2010.xml', 'unflooded_new_orleans_2004.xml', 'sf_bay_area_2011_4.xml']
     all_domains       = [Domain('config/domains/modis/' + d) for d in all_problems]
-    training_domains  = [domain.unflooded_domain for domain in all_domains[:-1]] + [all_domains[-1]] # SF is unflooded
+    training_domains  = all_domains
     water_masks       = [get_permanent_water_mask() for d in training_domains]
     training_images   = [_create_adaboost_learning_image(d, compute_modis_indices(d)) for d in training_domains]
     

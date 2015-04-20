@@ -16,8 +16,8 @@
         <name>MODIS</name>
         <bands>
           <source>
-            <start_date>2011-05-26</start_date>
-            <end_date>2011-05-27</end_date>
+            <start_date>2010-05-26</start_date>
+            <end_date>2010-05-27</end_date>
           </source>
         </bands>
       </sensor>
