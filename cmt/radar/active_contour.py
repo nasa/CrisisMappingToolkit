@@ -312,7 +312,9 @@ class Loop(object):
         
         return (mean_count, mean_good)
 
-    NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    NEIGHBORS = [(-1, -1), (-1, 0), (-1, 1),
+                 ( 0, -1),          ( 0, 1),
+                 ( 1, -1), ( 1, 0), ( 1, 1)]
     # shift a single node to neighboring pixel which reduces cost function the most
     def _shift_node(self, i):
         n2 = self.nodes[i]

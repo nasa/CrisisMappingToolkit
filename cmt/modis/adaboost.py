@@ -126,10 +126,12 @@ def adaboost_dem(domain, b, classifier = None):
     addToMap(total, {'min': -10, 'max': 10}, 'raw ADA', False)
     
     # Convert this range of values into a zero to one probability scale
-    # - These bounds represent where the probability plateaus.  Thes plateaus are
-    #    usually not at 0% or 100% !!
-    MIN_SUM = -6.0
-    MAX_SUM =  2.0
+    #MIN_SUM = -3.5 # These numbers are a pretty good probability conversion, but it turns out
+    #MAX_SUM =  1.0 #  that probability does not make a good input to apply_dem().
+    
+    MIN_SUM = -2.0 # These numbers are tuned to get better results
+    MAX_SUM =  1.0
+    
     val_range = MAX_SUM - MIN_SUM
     
     fraction = total.subtract(ee.Image(MIN_SUM)).divide(ee.Image(val_range)).clamp(0.0, 1.0)
@@ -172,6 +174,7 @@ def adaboost_learn(domain, b):
     EVAL_RESOLUTION = 250
 
     # Load inputs for this domain and preprocess
+    # - Kashmore does not have a good unflooded comparison location so it is left out of the training.
     #all_problems      = ['kashmore_2010_8.xml', 'mississippi_2011_5.xml', 'mississippi_2011_6.xml', 'new_orleans_2005_9.xml', 'sf_bay_area_2011_4.xml']
     #all_domains       = [Domain('config/domains/modis/' + d) for d in all_problems]
     #training_domains  = [domain.unflooded_domain for domain in all_domains[:-1]] + [all_domains[-1]] # SF is unflooded
@@ -241,58 +244,88 @@ def adaboost_learn(domain, b):
         weights = [w.divide(total) for w in weights]
         print full_classifier
 
-
-# The results from this don't look great!
 #
 #import modis_utilities
+#import pickle
 #def adaboost_dem_learn(classifier = None):
 #    '''Train Adaboost classifier'''
 #    
 #    EVAL_RESOLUTION = 250
 #
 #    # Load inputs for this domain and preprocess
-#    all_problems      = ['kashmore_2010_8.xml', 'mississippi_2011_5.xml', 'mississippi_2011_6.xml', 'new_orleans_2005_9.xml', 'sf_bay_area_2011_4.xml']
+#    #all_problems      = ['kashmore_2010_8.xml', 'mississippi_2011_5.xml', 'mississippi_2011_6.xml', 'new_orleans_2005_9.xml', 'sf_bay_area_2011_4.xml']
+#    all_problems      = ['mississippi_2011_6.xml', 'new_orleans_2005_9.xml', 'sf_bay_area_2011_4.xml']
 #    all_domains       = [Domain('config/domains/modis/' + d) for d in all_problems]
 #    training_domains  = [domain.unflooded_domain for domain in all_domains[:-1]] + [all_domains[-1]] # SF is unflooded
-#    water_masks       = [get_permanent_water_mask() for d in training_domains]
+#    water_masks       = [modis_utilities.get_permanent_water_mask() for d in training_domains]
 #    
-#    THRESHOLD_INTERVAL = 1
-#    TARGET_PERCENTAGE  = 0.95
+#    THRESHOLD_INTERVAL =  0.5
+#    MIN_THRESHOLD      = -5.0
+#    MAX_THRESHOLD      =  2.0
 #    
 #    print 'Computing thresholds'
 #    
+#    results = []
+#        
 #    # Loop through each of the raw result images
 #    for (truth_image, train_domain, name) in zip(water_masks, training_domains, all_problems):
+#
+#        truth_image = truth_image.mask(ee.Image(1))
 #
 #        # Apply the Adaboost computation to each training image and get the raw results
 #        b = modis_utilities.compute_modis_indices(train_domain)
 #        sum_image = get_adaboost_sum(train_domain, b, classifier)
 #        #addToMap(sum_image, {'min': -10, 'max': 10}, 'raw ADA', False)
+#        #addToMap(truth_image, {'min': 0, 'max': 1}, 'truth', False)
 #        print '================================'
 #        print name
 #
+#        #pickle.dump( truth_image, open( "truth.pickle", "wb" ) )
+#        
+#        results_list = []
+#        
 #        # For each threshold level above zero, how likely is the pixel to be actually flooded?
-#        curr_threshold = -5.0
+#        curr_threshold = MIN_THRESHOLD
 #        percentage = 0
 #        #while percentage < TARGET_PERCENTAGE:
-#        while curr_threshold < 5.0:
+#        while curr_threshold <= MAX_THRESHOLD:
 #            
 #            curr_results = sum_image.gte(curr_threshold)
+#            
+#            curr_results = curr_results.mask(ee.Image(1))
+#            
 #            #addToMap(curr_results, {'min': 0, 'max': 1}, str(curr_threshold), False)
-#            #addToMap(truth_image, {'min': 0, 'max': 1}, 'truth', False)
-#            sum_correct  = safe_get_info(curr_results.multiply(truth_image).reduceRegion(ee.Reducer.sum(), train_domain.bounds, EVAL_RESOLUTION))['b1']
-#            sum_total    = safe_get_info(curr_results.reduceRegion(ee.Reducer.sum(), train_domain.bounds, EVAL_RESOLUTION))['b1']
+#            
+#            #addToMap(curr_results.multiply(truth_image), {'min': 0, 'max': 1}, 'mult', False)
+#            
+#            sum_correct  = safe_get_info(curr_results.multiply(truth_image).reduceRegion(ee.Reducer.sum(), train_domain.bounds, EVAL_RESOLUTION, 'EPSG:4326'))['b1']
+#            sum_total    = safe_get_info(curr_results.reduceRegion(ee.Reducer.sum(), train_domain.bounds, EVAL_RESOLUTION, 'EPSG:4326'))['b1']
 #            #print sum_correct
 #            if sum_total > 0:
 #                percentage   = sum_correct / sum_total
 #                print str(curr_threshold) +': '+ str(sum_total) + ' --> '+ str(percentage)
-#            else:
+#                results_list.append(percentage)
+#                #pickle.dump( curr_results, open( "detect.pickle", "wb" ) )
+#            else: # Time to break out of the loop
+#                results.append(results_list)
 #                break
 #            curr_threshold += THRESHOLD_INTERVAL
+#        else:
+#            results.append(results_list)
 #        
-#    raise Exception('DEBUG')
+#    logFile = open('adaboostProbabilityLog.txt', 'w')
+#    logFile.write('Threshold, Miss_5, Miss_6, NO, SF\n')
+#    for r in range(15):
+#        logFile.write(str(r*THRESHOLD_INTERVAL + MIN_THRESHOLD))
+#        for i in range(3):
+#            logFile.write(str(results[i][r]) + ', ')
+#        logFile.write(str(results[3][r]) + '\n')
+#    logFile.close()
+#        
+#        
+#        #raise Exception('DEBUG')
 #
-#        # For each threshold level below zero, how likely is the pixel to be actually dry?
+##        # For each threshold level below zero, how likely is the pixel to be actually dry?
         
 
 

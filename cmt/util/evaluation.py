@@ -120,9 +120,10 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
     eval_points     = 60000
     while True:
         try:
-            #correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Correct detections
-            #result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Total detections
-            #truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, eval_res ).getInfo()['b1'] # Total water
+            # This probably works now
+            #correct_sum = correct.reduceRegion(     ee.Reducer.sum(), region, eval_res, 'EPSG:4326' ).getInfo()['b1'] # Correct detections
+            #result_sum  = result.reduceRegion(      ee.Reducer.sum(), region, eval_res, 'EPSG:4326' ).getInfo()['b1'] # Total detections
+            #truth_sum   = ground_truth.reduceRegion(ee.Reducer.sum(), region, eval_res, 'EPSG:4326' ).getInfo()['b1'] # Total water
     
             # Evaluate the results at a large number of random sample points
             correct_sum = ee.data.getValue({'image': correct.stats(     eval_points, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
