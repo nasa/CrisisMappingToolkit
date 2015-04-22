@@ -47,6 +47,11 @@
       <modis_change_threshold>-3.5</modis_change_threshold>
       
       <dartmouth_threshold>0.50</dartmouth_threshold>
+      
+      <fai_threshold>450</fai_threshold>
+      
+      <mod_ndwi_threshold>0.05</mod_ndwi_threshold>
+      
     </algorithm_params>    
     
     
