@@ -264,8 +264,10 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
             result['date'] = this_date
             logger.addDataRecord(result)
 
-    except Exception:
+    except Exception as e:
         print 'Caught exception processing the lake!'
+        print str(e)
+        traceback.print_exc(file=sys.stdout)
 
     print 'Finished processing lake: ' + name
 
