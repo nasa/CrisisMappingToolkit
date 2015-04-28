@@ -107,7 +107,6 @@ def get_adaboost_sum(domain, b, classifier = None):
         # learned from everything
         classifier = [(u'dartmouth', 0.30887438055782945, 1.4558371112080295), (u'b2', 2020.1975382568198, 0.9880130793929531), (u'MNDWI', 0.3677501330908955, 0.5140443440746121), (u'b2', 1430.1463073852296, 0.15367606716883875), (u'b1', 1108.5241042345276, 0.13193086117959033), (u'dartmouth', 0.7819758531686796, -0.13210548296374583), (u'dartmouth', 0.604427824270283, 0.12627962195951867), (u'b2', 1725.1719228210247, -0.07293616881105353), (u'b2', 1872.6847305389224, -0.09329031467870501), (u'b2', 1577.659115103127, 0.1182474134065663), (u'b2', 1946.441134397871, -0.13595282841411163), (u'b2', 2610.24876912841, 0.10010381165310277), (u'b2', 1983.3193363273454, -0.0934455057392682), (u'b2', 1503.9027112441784, 0.13483194249576771), (u'b2', 2001.7584372920826, -0.10099203054937314), (u'b2', 2905.2743845642053, 0.1135686859467779), (u'dartmouth', 0.5156538098210846, 0.07527677772747364), (u'b2', 2010.9779877744513, -0.09535260187161688), (u'b2', 1798.9283266799735, 0.07889358547222977), (u'dartmouth', 0.36787708796485785, -0.07370319016383906), (u'MNDWI', -0.6422574132273133, 0.06922934793487515), (u'dartmouth', 0.33837573426134365, -0.10266747186797487), (u'dartmouth', 0.4712668025964854, 0.09612545197834421), (u'dartmouth', 0.3236250574095866, -0.10754218805531587), (u'MNDWI', -0.48248013602276113, 0.111365639029263), (u'dartmouth', 0.316249718983708, -0.10620217821842894), (u'dartmouth', 0.4490732989841858, 0.09743861137429623), (u'dartmouth', 0.31256204977076874, -0.08121162639185005), (u'MNDWI', -0.5623687746250372, 0.10344420165347998), (u'dartmouth', 0.3107182151642991, -0.08899821447581886), (u'LSWI', -0.29661326544921773, 0.08652882218688322), (u'dartmouth', 0.3097962978610643, -0.07503568257204306), (u'MNDWI', 0.022523637136343283, 0.08765150582301148), (u'b2', 2015.5877630156356, -0.06978548014829108), (u'b2', 3052.7871922821028, 0.08567389991115743), (u'LSWI', -0.19275063787434812, 0.08357667312445341), (u'dartmouth', 0.3093353392094469, -0.08053950648462435), (u'LSWI', -0.14081932408691333, 0.07186342090261867), (u'dartmouth', 0.30910485988363817, -0.05720223719278896), (u'MNDWI', 0.19513688511361937, 0.07282637257701345), (u'NDWI', -0.361068160450533, 0.06565995208358431), (u'NDWI', -0.2074005503754442, -0.0522715989389411), (u'b1', 775.4361563517915, 0.05066415016422507), (u'b2', 2017.8926506362277, -0.0596357907686033), (u'b2', 1762.050124750499, 0.06600172638129476), (u'b2', 2019.0450944465238, -0.05498763067596745), (u'b1', 941.9801302931596, 0.06500771792028737), (u'dartmouth', 0.24987167315080105, 0.06409775979747406), (u'b2', 2979.0307884231543, 0.06178896578945445), (u'dartmouth', 0.22037031944728686, 0.04708770942378687), (u'dartmouth', 0.30898962022073384, -0.06357932266591948), (u'EVI', -0.13991172174597732, 0.061167901067941045), (u'dartmouth', 0.30893200038928165, -0.047538992866687814), (u'dartmouth', 0.23512099629904396, 0.055800430467148325), (u'dartmouth', 0.3089031904735555, -0.04993911823852714), (u'dartmouth', 0.22774565787316542, 0.045917043382747345), (u'b1', 232.32231270358304, -0.04624672841408699), (u'LSWIminusEVI', -1.3902019910129537, 0.044122210356250594), (u'fai', 914.8719936250361, 0.04696283008449494), (u'b2', 2019.6213163516718, -0.051114386132496435), (u'b2', 2315.2231536926147, 0.048898662215419296), (u'fai', 1434.706585047812, -0.05352547959475242), (u'diff', -544.4250000000001, -0.04459039609050114), (u'dartmouth', 0.39737844166837205, 0.045452678171318414), (u'dartmouth', 0.3088887855156925, -0.03891014191130265), (u'dartmouth', 0.22405798866022614, 0.042128457713671935), (u'diff', -777.2958333333333, -0.03902784979889064), (u'dartmouth', 0.2222141540537565, 0.03788131334473313), (u'dartmouth', 0.30888158303676094, -0.037208213701295255), (u'dartmouth', 0.3531264111131007, 0.0375648736301961), (u'dartmouth', 0.3088779817972952, -0.03427856593613819), (u'LSWI', -0.16678498098063071, 0.03430983541990538), (u'fai', -425.5957838307736, -0.03348006551810443), (u'NDWI', -0.13056674533789978, -0.03552899660957818), (u'b2', 2019.3332053990978, -0.0344936369203531), (u'b2', 1835.806528609448, 0.03856210900250611), (u'b2', 1467.0245093147041, -0.0345449746977328), (u'fai', 395.0374022022602, 0.031130251540884356), (u'fai', 654.9546979136481, 0.04214466417320743), (u'b2', 1448.5854083499669, -0.05667775728680656), (u'fai', 135.12010649087222, 0.03948338203848539), (u'dartmouth', 0.493460306208785, -0.045802615250103394), (u'fai', 784.9133457693422, 0.03128133499873274), (u'fai', 1174.7892893364242, -0.04413487095880613), (u'b2', 3015.9089903526283, 0.04133685218791008), (u'fai', 1304.7479371921181, -0.04107557606064173), (u'b2', 2462.7359614105126, 0.03777625735990945), (u'fai', 1369.727261119965, -0.03524600268462714), (u'b2', 2997.4698893878913, 0.03864830537283341), (u'dartmouth', 0.22313607135699132, 0.0348041704038284), (u'fai', -575.9950811359025, -0.036345846940478974), (u'fai', 1402.2169230838886, -0.03481517966048645), (u'fai', 719.9340218414952, 0.032833655233338276), (u'b2', 2019.1891499228109, -0.03272953788499046), (u'b2', 2388.9795575515636, 0.03713369823962704), (u'b2', 2019.1171221846673, -0.027949075715791222), (u'b2', 1743.611023785762, 0.03310357200312585), (u'LSWIminusNDVI', -0.3990346417915731, 0.029045726328998267), (u'NDWI', -0.16898364785667197, -0.025735337614573982), (u'dartmouth', 0.3088761811775623, -0.02973898070330325)]
 
-        
     test_image = _create_adaboost_learning_image(domain, b)
     total = ee.Image(0).select(['constant'], ['b1'])
     for c in classifier:
@@ -123,20 +122,110 @@ def adaboost_dem(domain, b, classifier = None):
     
     # Get raw adaboost output
     total = get_adaboost_sum(domain, b, classifier)
-    addToMap(total, {'min': -10, 'max': 10}, 'raw ADA', False)
+    #addToMap(total, {'min': -10, 'max': 10}, 'raw ADA', False)
     
     # Convert this range of values into a zero to one probability scale
     #MIN_SUM = -3.5 # These numbers are a pretty good probability conversion, but it turns out
     #MAX_SUM =  1.0 #  that probability does not make a good input to apply_dem().
     
-    MIN_SUM = -2.0 # These numbers are tuned to get better results
-    MAX_SUM =  1.0
+    MIN_SUM =-1.0 # These numbers are tuned to get better results
+    MAX_SUM = 0.0
     
     val_range = MAX_SUM - MIN_SUM
     
-    fraction = total.subtract(ee.Image(MIN_SUM)).divide(ee.Image(val_range)).clamp(0.0, 1.0)
+    fraction = total.subtract(ee.Image(MIN_SUM)).divide(ee.Image(val_range))#.clamp(0.0, 1.0)
     addToMap(fraction, {'min': 0, 'max': 1}, 'fraction', False)
-    return cmt.modis.modis_utilities.apply_dem(domain, fraction)
+    return apply_adaboost_dem(domain, fraction)
+
+#def apply_adaboost_dem_approach1(domain, water_fraction):
+#    MODIS_PIXEL_SIZE_METERS = 250
+#    dem = domain.get_dem().image
+#    
+#    # Get min and max DEM height within each water containing pixel
+#    # - If a DEM pixel contains any water then the water level must be at least that high.    
+#    dem_min = dem.focal_min(MODIS_PIXEL_SIZE_METERS, 'square', 'meters')
+#    dem_max = dem.focal_max(MODIS_PIXEL_SIZE_METERS, 'square', 'meters')
+#
+#    # filter points not near any pure water pixels
+#    #water_fraction = water_fraction.multiply(water_fraction.eq(1.0).focal_max(2000, 'circle', 'meters'))
+#    addToMap(water_fraction)
+#    
+#    # Approximation, linearize each tile's fraction point
+#    # - The water percentage is used as a percentage between the two elevations
+#    # - Don't include full or empty pixels, they don't give us clues to their height.
+#    water_high = dem_min.add(dem_max.subtract(dem_min).multiply(water_fraction))
+#    water_high = water_high.multiply(water_fraction.lt(1.0)).multiply(water_fraction.gt(0.0)) 
+#    addToMap(water_high)
+#    
+#    ## Smooth out the water elevations with a broad kernel; nearby pixels probably have the same elevation!
+#    water_dem_kernel        = ee.Kernel.circle(2000, 'meters', False)
+#    num_nearby_water_pixels = water_high.gt(0.0).convolve(water_dem_kernel)
+#    average_high            = water_high.convolve(water_dem_kernel).divide(num_nearby_water_pixels)
+#    
+#    # Classify DEM pixels as flooded based on being under the local water elevation or being completely flooded.
+#    #return dem.lte(average_high).Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
+#    #average_high = dem_min.multiply(water_fraction.gte(1.0)).focal_max(2000, 'circle', 'meters')
+#    addToMap(dem.lte(average_high), {'min': -5, 'max': 5}, 'fraction', False)
+#    dem_water = dem.lte(average_high).And(water_fraction.gt(0.0)) # Mask prevents pixels with 0% water from being labeled as water
+#    #result = dem_water.Or(water_fraction.gte(1.0)).select(['elevation'], ['b1'])
+#    result = dem_water.select(['elevation'], ['b1'])
+#    #return result
+#    
+#    # do region growing from DEM
+#    REGION_GROWTH_RANGE = 20
+#    neighborhood_kernel = ee.Kernel.square(1, 'pixels', False)
+#    loose_thresholded   = dem.lte(average_high)
+#    for i in range(REGION_GROWTH_RANGE):
+#        result = result.convolve(neighborhood_kernel).And(loose_thresholded)
+#    return result.Or(water_fraction.eq(1.0))
+
+def apply_adaboost_dem(domain, water_fraction):
+    MEAN_KERNEL_SIZE = 2000 # region in meters water height is averaged over
+    MODIS_PIXEL_SIZE_METERS = 250
+    REGION_GROWTH_RANGE = 10
+    dem = domain.get_dem().image
+    
+    # Get min and max DEM height within each water containing pixel
+    # - If a DEM pixel contains any water then the water level must be at least that high.    
+    dem_min = dem.focal_min(MODIS_PIXEL_SIZE_METERS, 'square', 'meters')
+    dem_median = dem.focal_median(MODIS_PIXEL_SIZE_METERS, 'square', 'meters')
+    dem_max = dem.focal_max(MODIS_PIXEL_SIZE_METERS, 'square', 'meters')
+    
+    # find border of pure land region
+    neighbors_outer = water_fraction.lte(0.0).reduceNeighborhood(ee.Reducer.sum(), ee.Kernel.square(1, 'pixels', False))
+    border_outer = dem_median.multiply(water_fraction.lte(0.0).And(neighbors_outer.lt(8).And(neighbors_outer.gt(0))))
+    # find border of pure water region, inside pure land region
+    neighbors_inner = water_fraction.gte(1.0).reduceNeighborhood(ee.Reducer.sum(), ee.Kernel.square(1, 'pixels', False))
+    border_inner = dem_median.multiply(water_fraction.gte(1.0).And(neighbors_inner.lt(8).And(neighbors_inner.gt(0))))
+    #addToMap(border_outer.mask(border_outer), {'min' : 20, 'max' : 40}, 'border_outer', False)
+    #addToMap(border_inner.mask(border_inner), {'min' : 20, 'max' : 40}, 'border_inner', False)
+
+    # find mean elevation of both borders
+    mean_kernel        = ee.Kernel.circle(MEAN_KERNEL_SIZE, 'meters', False)
+    water_count_upper = border_outer.gt(0.0).convolve(mean_kernel)
+    water_mean_upper_bound = border_outer.convolve(mean_kernel).divide(water_count_upper)
+    water_count_lower = border_inner.gt(0.0).convolve(mean_kernel)
+    water_mean_lower_bound = border_inner.convolve(mean_kernel).divide(water_count_lower)
+    #addToMap(water_mean_lower_bound, {'min' : 0, 'max': 50}, 'Lower', False)
+    #addToMap(water_mean_upper_bound, {'min' : 0, 'max': 50}, 'Upper', False)
+    # average the two water level estimates
+    water_mean = water_mean_upper_bound.add(water_mean_lower_bound).divide(2.0).multiply(water_mean_upper_bound.And(water_mean_lower_bound))
+    # exclude pixels without enough supporting measurements
+    #water_mean = water_mean.multiply(water_count_upper.gte(50).And(water_count_lower.gte(50)))
+    #addToMap(dem.subtract(water_mean), {'min' : -0.5, 'max' : 0.5}, 'Difference', False)
+    
+    # seed region growing from DEM of pure water regions
+    dem_water = dem.lte(water_mean).And(water_fraction.gte(-1.0)) # Mask prevents pixels with 0% water from being labeled as water
+    result = dem_water.select(['elevation'], ['b1'])
+    
+    # do region growing from DEM
+    #neighborhood_kernel = ee.Kernel.square(1, 'pixels', False)
+    #loose_thresholded   = dem.lte(water_mean)
+    #for i in range(REGION_GROWTH_RANGE):
+    #    result = result.convolve(neighborhood_kernel).And(loose_thresholded)
+    # water_mean is 0 if outer and inner borders are not present, e.g., interior regions of pure water that are all partial water
+    pure_water = water_fraction.gte(1.0).Or(water_fraction.gt(0.0).And(water_mean.lte(0.0)))
+    return result.Or(pure_water)
 
 def __compute_threshold_ranges(training_domains, training_images, water_masks, bands):
     '''For each band, find lowest and highest fixed percentiles among the training domains.'''
