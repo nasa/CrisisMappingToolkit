@@ -485,9 +485,15 @@ class Domain(object):
         for s in self.sensor_list:
             if s.sensor_name.lower() in radar_list:
                 return s
-        print 'Available sensors:'
-        print self.sensor_list
         raise LookupError('Unable to find a radar image in domain!')
+
+    def get_landsat(self):
+        '''Returns a LANDSAT image if one is loaded'''
+        landsat_list = ['landsat8', 'landsat7', 'landsat5']
+        for s in self.sensor_list:
+            if s.sensor_name.lower() in landsat_list:
+                return s
+        raise LookupError('Unable to find a landsat image in domain!')
 
     def _load_bbox(self, root):
         '''read a bbox, <bbox>'''
@@ -508,7 +514,7 @@ class Domain(object):
         '''Load in a JSON file containing training features for an EE classifier'''
         
         # Load the input file
-        json_file_path       = os.path.join(sensor_domain_folder, json_file_name.text + '.json')
+        json_file_path = os.path.join(sensor_domain_folder, json_file_name.text + '.json')
         print 'Loading JSON training data: ' + json_file_path
         with open(json_file_path, 'r') as f:
             feature_dict = json.load(f)
@@ -524,7 +530,8 @@ class Domain(object):
             terrain_code = 0
             if 'water' in key.lower():
                 terrain_code = 1
-            this_geometry = ee.Geometry.LinearRing(feature_dict[key])
+            #this_geometry = ee.Geometry.LinearRing(feature_dict[key])
+            this_geometry = ee.Geometry.Polygon(feature_dict[key])
             this_feature  = ee.Feature(this_geometry, {'classification': terrain_code})
             feature_list.append(this_feature)
         

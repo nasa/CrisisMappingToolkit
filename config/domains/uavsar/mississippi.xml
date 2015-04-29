@@ -1,14 +1,33 @@
 <?xml version="1.0"?>
 <domain>
     <name>Mississippi 2011 Flood</name>
+    
     <sensors>
+    
+      <sensor>
+        <name>NED13</name>
+      </sensor>
+
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2011-06-07</start_date>
+            <end_date>2011-06-08</end_date>
+          </source>
+        </bands>
+      </sensor>
+    
       <sensor>
         <name>UAVSAR</name>
         <bands>
             <source><eeid>18108519531116889794-12113912950916481117</eeid></source>
         </bands>
       </sensor>
+      
     </sensors>
+    
+    
     <bbox>
         <bottomleft>
             <lon>-91.23</lon>
