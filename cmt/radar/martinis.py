@@ -190,6 +190,10 @@ def applyCutlerLinearLogScale(grayImage, roi):
     
     return scaledImage
 
+def sar_martinis_cr(domain):
+    '''Just calls sar_martinis with the CR option instead of the default CV option'''
+    return sar_martinis(domain, True)
+
 def sar_martinis(domain, cr_method=False):
     '''Compute a global threshold via histogram splitting on selected subregions'''
     
@@ -294,6 +298,8 @@ def sar_martinis(domain, cr_method=False):
     
     # Further pruning happens here but for now we are skipping it and using
     #  everything that got by the filter.  This would speed local computation.
+    # - This is equivalent to using a large number for N'' in the original paper
+    #    (which does not suggest a value for N'')
     X_doublePrime = X_prime
     
     

@@ -2,6 +2,21 @@
 <domain>
     <name>Rome</name>
     <sensors>
+    
+      <sensor>
+        <name>SRTM90</name>
+      </sensor>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2014-08-05</start_date>
+            <end_date>2014-08-06</end_date>
+          </source>
+        </bands>
+      </sensor>
+    
       <sensor>
         <name>Sentinel1</name>
         <bands>
@@ -20,7 +35,8 @@
                 </source>
             </band>
         </bands>
-      </sensor>
+      </sensor>      
+      
     </sensors>
     
     <bbox>

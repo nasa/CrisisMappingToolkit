@@ -135,9 +135,9 @@ class LoggingClass(LakeDataLoggerBase):
     def lineToDict(line):
         '''Extract the information from a single line in the log file in to a dictionary object'''
 
-        MAX_ALGS               = 13
-        NUM_HEADER_VALS        = 2 # Date, MODIS 
-        ELEMENTS_PER_ALGORITHM = 4 # (alg name, precision, recall, eval_res)
+        MAX_ALGS               = 15 # Used for sanity check
+        NUM_HEADER_VALS        = 2  # Date, MODIS 
+        ELEMENTS_PER_ALGORITHM = 4  # (alg name, precision, recall, eval_res)
         thisDict = dict()
         
         parts    = line.split(',')
@@ -219,24 +219,24 @@ def getAlgorithmList():
 
     # Code, name, recompute_all_results?
     algorithmList = [#(cmt.modis.flood_algorithms.DEM_THRESHOLD      , 'DEM Threshold',  KEEP),
-                     (cmt.modis.flood_algorithms.EVI                , 'EVI',            RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.XIAO               , 'XIAO',           RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.DIFF_LEARNED       , 'Difference',     RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.CART               , 'CART',           RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.SVM                , 'SVM',            RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', RECOMPUTE_IF_FALSE ),
+                     (cmt.modis.flood_algorithms.EVI                , 'EVI',            KEEP),
+                     (cmt.modis.flood_algorithms.XIAO               , 'XIAO',           KEEP),
+                     (cmt.modis.flood_algorithms.DIFF_LEARNED       , 'Difference',     KEEP),
+                     (cmt.modis.flood_algorithms.CART               , 'CART',           KEEP),
+                     (cmt.modis.flood_algorithms.SVM                , 'SVM',            KEEP),
+                     (cmt.modis.flood_algorithms.RANDOM_FORESTS     , 'Random Forests', KEEP ),
                      #(cmt.modis.flood_algorithms.DNNS               , 'DNNS',           KEEP),
                      #(cmt.modis.flood_algorithms.DNNS_REVISED       , 'DNNS Revised',   KEEP),
                      #(cmt.modis.flood_algorithms.DNNS_DEM           , 'DNNS with DEM',  KEEP),
-                     (cmt.modis.flood_algorithms.DNNS_DIFF          , 'DNNS Diff',      RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.DNNS_DIFF_DEM      , 'DNNS Diff DEM',  RECOMPUTE_IF_FALSE),
+                     (cmt.modis.flood_algorithms.DNNS_DIFF          , 'DNNS Diff',      KEEP),
+                     (cmt.modis.flood_algorithms.DNNS_DIFF_DEM      , 'DNNS Diff DEM',  KEEP),
                      #(cmt.modis.flood_algorithms.DIFFERENCE_HISTORY , 'Difference with History', KEEP),
-                     (cmt.modis.flood_algorithms.DART_LEARNED       , 'Dartmouth',      RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.MODNDWI_LEARNED    , 'Mod NDWI',       RECOMPUTE_IF_FALSE),
-                     (cmt.modis.flood_algorithms.FAI_LEARNED        , 'Floating Algae Index',  RECOMPUTE_IF_FALSE),
-                     #(cmt.modis.flood_algorithms.ADABOOST           , 'Adaboost',       KEEP),
-                     #(cmt.modis.flood_algorithms.ADABOOST_DEM       , 'Adaboost DEM',   KEEP)
+                     (cmt.modis.flood_algorithms.DART_LEARNED       , 'Dartmouth',      KEEP),
+                     (cmt.modis.flood_algorithms.MARTINIS_TREE      , 'Martinis Tree',  KEEP),
+                     (cmt.modis.flood_algorithms.MODNDWI_LEARNED    , 'Mod NDWI',       KEEP),
+                     (cmt.modis.flood_algorithms.FAI_LEARNED        , 'Floating Algae Index',  KEEP),
+                     (cmt.modis.flood_algorithms.ADABOOST           , 'Adaboost',       KEEP),
+                     (cmt.modis.flood_algorithms.ADABOOST_DEM       , 'Adaboost DEM',   KEEP)
                      ]
 
     return algorithmList

@@ -19,6 +19,7 @@ import matgen
 import learning
 import martinis
 import active_contour
+import cmt.modis.adaboost
 
 '''
 This file contains a summary and selectors for all the supported radar algorithms.
@@ -30,8 +31,10 @@ MATGEN         = 1
 RANDOM_FORESTS = 2
 DECISION_TREE  = 3
 SVM            = 4
-MARTINIS       = 5
-ACTIVE_CONTOUR = 6
+MARTINIS_CV    = 5
+MARTINIS_CR    = 6
+ACTIVE_CONTOUR = 7
+ADABOOST      = 8
 
 # For each algorithm specify the name, function, and color.
 __ALGORITHMS = {
@@ -39,8 +42,10 @@ __ALGORITHMS = {
     RANDOM_FORESTS : ('Random Forests',   learning.random_forests,       'FFFF00'),
     DECISION_TREE  : ('Decision Tree',    learning.decision_tree,        'FF00FF'),
     SVM            : ('SVM',              learning.svm,                  '00AAFF'),
-    MARTINIS       : ('Martinis',         martinis.sar_martinis,         'FF00FF'),
-    ACTIVE_CONTOUR : ('Active Contour',   active_contour.active_contour, 'FF00FF')
+    MARTINIS_CV    : ('Martinis CV',      martinis.sar_martinis,         'AAFF00'),
+    MARTINIS_CR    : ('Martinis CR',      martinis.sar_martinis_cr,      'AA00FF'),
+    ACTIVE_CONTOUR : ('Active Contour',   active_contour.active_contour, 'FF00AA'),
+    ADABOOST       : ('Adaboost',         cmt.modis.adaboost.adaboost_radar, '00FFFF')
 }
 
 # These functions just redirect the call to the correct algorithm

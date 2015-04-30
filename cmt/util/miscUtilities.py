@@ -30,7 +30,7 @@ SENSOR_FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../
 
 TEMP_FILE_DIR = tempfile.gettempdir()
 
-def safe_get_info(ee_object, max_num_attempts=None):
+def safe_get_info(ee_object, max_num_attempts=5):
     '''Keep trying to call getInfo() on an Earth Engine object until it succeeds.'''
     num_attempts = 0
     while True:

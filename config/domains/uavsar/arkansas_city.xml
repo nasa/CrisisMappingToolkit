@@ -1,7 +1,24 @@
 <?xml version="1.0"?>
 <domain>
     <name>Mississippi 2011 Flood - Arkansas City</name>
+    
     <sensors>
+    
+      <sensor>
+        <name>NED13</name>
+      </sensor>
+
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2011-06-07</start_date>
+            <end_date>2011-06-08</end_date>
+          </source>
+        </bands>
+      </sensor>
+    
+    
       <sensor>
         <name>UAVSAR</name>
         <bands>
@@ -9,6 +26,8 @@
         </bands>
       </sensor>
     </sensors>
+    
+    
     <bbox>
         <bottomleft>
             <lon>-91.32</lon>

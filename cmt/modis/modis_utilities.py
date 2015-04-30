@@ -185,7 +185,10 @@ def compute_dem_slope_degrees(dem, resolution):
     slopeAngle = slope.atan().multiply(RAD2DEG);
     return slopeAngle
 
-def apply_dem(domain, water_fraction):
+
+def apply_dem(domain, water_fraction, speckleFilter=False):
+    '''Convert a low resolution water fraction map into a higher resolution DEM-based flooded pixel map'''
+    
     MODIS_PIXEL_SIZE_METERS = 250
     ## Treating the DEM values contained in the MODIS pixel as a histogram, find the N'th percentile
     ##  where N is the water fraction computed by DNNS.  That should be the height of the flood water.
@@ -195,6 +198,12 @@ def apply_dem(domain, water_fraction):
     
     # Get whichever DEM is loaded in the domain
     dem = domain.get_dem().image
+    
+    water_present = water_fraction.gt(0.0)#.mask(water_high)
+    
+    if speckleFilter: # Filter out isolated pixels
+        water_present_despeckle = water_present.focal_min(500, 'circle', 'meters').focal_max(500, 'circle', 'meters')
+        water_fraction = water_fraction.multiply(water_present_despeckle)
     
     # Get min and max DEM height within each water containing pixel
     # - If a DEM pixel contains any water then the water level must be at least that high.    
@@ -206,6 +215,7 @@ def apply_dem(domain, water_fraction):
     # - Don't include full or empty pixels, they don't give us clues to their height.
     water_high = dem_min.add(dem_max.subtract(dem_min).multiply(water_fraction))
     water_high = water_high.multiply(water_fraction.lt(1.0)).multiply(water_fraction.gt(0.0)) 
+    
     
     # Problem: Averaging process spreads water way out to pixels where it was not detected!!
     #          Reducing the averaging is a simple way to deal with this and probably does not hurt results at all
@@ -219,18 +229,16 @@ def apply_dem(domain, water_fraction):
     average_high            = water_high.convolve(water_dem_kernel).divide(num_nearby_water_pixels)
     
     # Alternate smoothing method using available tool EE
-    water_present   = water_fraction.gt(0.0)#.mask(water_high)
     #connected_water = ee.Algorithms.ConnectedComponentLabeler(water_present, water_dem_kernel, 256) # Perform blob labeling
     #addToMap(water_present,   {'min': 0, 'max':   1}, 'water present', False);
     #addToMap(connected_water, {'min': 0, 'max': 256}, 'labeled blobs', False);
-    
+
+    #addToMap(water_high, {'min': 0, 'max': 100}, 'water_high', False);    
     #addToMap(water_fraction, {'min': 0, 'max':   1}, 'Water Fraction', False);
-    #addToMap(average_high, {min:25, max:40}, 'Water Level', false);
     #addToMap(dem.subtract(average_high), {min : -0, max : 10}, 'Water Difference', false);
     #addToMap(dem.lte(average_high).and(domain.groundTruth.not()));
     
     #addToMap(allowed_water_mask, {'min': 0, 'max': 1}, 'allowed_water', False);
-    #addToMap(water_high, {'min': 0, 'max': 100}, 'water_high', False);
     #addToMap(average_high, {'min': 0, 'max': 100}, 'average_high', False);
     #addToMap(dem, {'min': 0, 'max': 100}, 'DEM', False);
     
