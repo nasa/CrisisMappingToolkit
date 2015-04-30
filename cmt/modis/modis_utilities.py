@@ -236,6 +236,6 @@ def apply_dem(domain, water_fraction):
     
     # Classify DEM pixels as flooded based on being under the local water elevation or being completely flooded.
     #return dem.lte(average_high).Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
-    dem_water = dem.lte(average_high).mask(water_fraction) # Mask prevents pixels with 0% water from being labeled as water
+    dem_water = dem.lte(average_high).mask(ee.Image(1))#multiply(water_fraction.gt(0.0)).#.mask(water_fraction) # Mask prevents pixels with 0% water from being labeled as water
     return dem_water.Or(water_fraction.eq(1.0)).select(['elevation'], ['b1'])
 
