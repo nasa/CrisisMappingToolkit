@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <sensor>
-    <name>LANDSAT_7</name>
+    <name>LANDSAT7</name>
     <bands>
         <source><collection>LE7_L1T</collection></source>
         <band>

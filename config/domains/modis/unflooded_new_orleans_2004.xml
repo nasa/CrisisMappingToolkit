@@ -22,6 +22,16 @@
         </bands>
       </sensor>
       
+      <sensor>
+        <name>Landsat5</name>
+        <bands>
+          <source>
+            <start_date>2003-10-03</start_date>
+            <end_date>2003-10-05</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
     </sensors>
     
     <bbox>

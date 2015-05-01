@@ -18,6 +18,16 @@
         </bands>
       </sensor>
       
+      <sensor>
+        <name>Landsat8</name>
+        <bands>
+          <source>
+            <start_date>2013-08-08</start_date>
+            <end_date>2013-08-10</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
     </sensors>
     
     <bbox>

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <sensor>
-    <name>LANDSAT_5</name>
+    <name>LANDSAT5</name>
     <bands>
         <source><collection>LT5_L1T</collection></source>
         <band>
