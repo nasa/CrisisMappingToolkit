@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Mississippi Border No Flood</name>
+    
+    <sensors>
+
+      <sensor>
+        <name>NED13</name>
+        <range>
+          <minimum>20</minimum>
+          <maximum>70</maximum>
+        </range>
+      </sensor>
+
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2010-05-26</start_date>
+            <end_date>2010-05-27</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>Landsat5</name>
+        <bands>
+          <source>
+            <start_date>2010-05-06</start_date>
+            <end_date>2010-05-08</end_date>
+          </source>
+        </bands>
+      </sensor>
+
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>-91.23</lon>
+            <lat>32.88</lat>
+        </bottomleft>
+        <topright>
+            <lon>-91.02</lon>
+            <lat>33.166</lat>
+        </topright>
+    </bbox>
+    
+</domain>
+
