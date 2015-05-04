@@ -239,7 +239,7 @@ def adaboost_learn(ignored=None, ignored2=None):
     # This is a cleaned up set where all the permanent water masks are known to be decent.
     all_problems      = ['unflooded_mississippi_2010.xml', 'unflooded_new_orleans_2004.xml', 'sf_bay_area_2011_4.xml', 'unflooded_bosnia_2013.xml']
     #all_problems.extend(['arkansas_city_2011_5.xml', 'baghlan_south_2014_6.xml', 
-                         'bosnia_west_2014_5.xml', 'kashmore_north_2010_8.xml', 'slidell_2005_9.xml'])
+    #                     'bosnia_west_2014_5.xml', 'kashmore_north_2010_8.xml', 'slidell_2005_9.xml'])
     #all_problems      = ['unflooded_mississippi_2010_5.xml']
     all_domains       = [Domain('config/domains/modis/' + d) for d in all_problems]
     
