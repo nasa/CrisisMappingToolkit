@@ -38,6 +38,10 @@ def _create_adaboost_learning_image(domain, b):
     # A large set of MODIS band configurations, each is assigned a unique band name for reference.
     a = b['b1'].select(['sur_refl_b01'],                                                 ['b1'           ])
     a = a.addBands(b['b2'].select(['sur_refl_b02'],                                      ['b2'           ]))
+    #a = a.addBands(b['b3'].select(['sur_refl_b03'],                                      ['b3'           ]))
+    #a = a.addBands(b['b4'].select(['sur_refl_b04'],                                      ['b4'           ]))
+    #a = a.addBands(b['b5'].select(['sur_refl_b05'],                                      ['b5'           ]))
+    #a = a.addBands(b['b6'].select(['sur_refl_b06'],                                      ['b6'           ]))
     a = a.addBands(b['b2'].divide(b['b1']).select(['sur_refl_b02'],                      ['ratio'        ]))
     a = a.addBands(b['LSWI'].subtract(b['NDVI']).subtract(0.05).select(['sur_refl_b02'], ['LSWIminusNDVI']))
     a = a.addBands(b['LSWI'].subtract(b['EVI']).subtract(0.05).select(['sur_refl_b02'],  ['LSWIminusEVI' ]))
@@ -151,7 +155,7 @@ def apply_classifier(image, band, threshold):
 
 def get_adaboost_sum(domain, b, classifier = None):
     if classifier == None:
-        classifier = learned_adaboost.modis_classifiers['mississippi']
+        classifier = learned_adaboost.modis_classifiers['default']
         
     test_image = _create_adaboost_learning_image(domain, b)
     total = ee.Image(0).select(['constant'], ['b1'])
@@ -311,7 +315,7 @@ def adaboost_learn(ignored=None, ignored2=None):
     bands             = safe_get_info(training_images[0].bandNames())
     print 'Computing threshold ranges.'
     band_splits = __compute_threshold_ranges(training_domains, training_images, water_masks, bands)
-    counts = [safe_get_info(training_images[i].select('diff').reduceRegion(ee.Reducer.count(), training_domains[i].bounds, 250))['diff'] for i in range(len(training_images))]
+    counts = [safe_get_info(training_images[i].select('b1').reduceRegion(ee.Reducer.count(), training_domains[i].bounds, 250))['b1'] for i in range(len(training_images))]
     count = sum(counts)
     weights = [ee.Image(1.0 / count) for i in training_images] # Each input pixel in the training images has an equal weight
     
