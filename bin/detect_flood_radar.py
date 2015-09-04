@@ -47,10 +47,10 @@ Tool for testing radar based flood detection algorithms using a simple GUI.
 # --------------------------------------------------------------
 # Configuration
 
-#ALGORITHMS = [MARTINIS]
-#ALGORITHMS = [DECISION_TREE, RANDOM_FORESTS, SVM, MATGEN, MARTINIS, ACTIVE_CONTOUR]
-ALGORITHMS = [ACTIVE_CONTOUR]
-#ALGORITHMS = [SVM, RANDOM_FORESTS, DECISION_TREE]
+#ALGORITHMS = [DECISION_TREE, RANDOM_FORESTS, SVM, MATGEN, MARTINIS_CV, MARTINIS_CR, ACTIVE_CONTOUR]
+ALGORITHMS = [SVM, RANDOM_FORESTS, DECISION_TREE]
+#ALGORITHMS = [ADABOOST, ADABOOST_DEM]
+#ALGORITHMS = [MARTINIS_CV]#, MARTINIS_CR]
 
 # --------------------------------------------------------------
 # Functions
@@ -83,19 +83,22 @@ addToMap(waterMask.mask(waterMask), {'min': 0, 'max': 1}, 'Permanent Water Mask'
 
 # For each of the algorithms
 for a in range(len(ALGORITHMS)):
-    # Run the algorithm on the data and get the results
-    alg    = ALGORITHMS[a]
-    result = detect_flood(domain, alg)
-    
-    # Needed for certain images which did not mask properly from maps engine
-    #result = result.mask(domain.get_radar().image.reduce(ee.Reducer.allNonZero()))
-    
-    # Get a color pre-associated with the algorithm, then draw it on the map
-    color  = get_algorithm_color(alg)
-    addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color}, get_algorithm_name(alg), False)
-    
-    # Compare the algorithm output to the ground truth and print the results
-    if domain.ground_truth != None:
-        cmt.util.evaluation.evaluate_approach_thread(functools.partial(
-            evaluation_function, alg=alg), result, domain.ground_truth, domain.bounds)
-
+    try:
+        # Run the algorithm on the data and get the results
+        alg    = ALGORITHMS[a]
+        result = detect_flood(domain, alg)
+        
+        # Needed for certain images which did not mask properly from maps engine
+        #result = result.mask(domain.get_radar().image.reduce(ee.Reducer.allNonZero()))
+        
+        # Get a color pre-associated with the algorithm, then draw it on the map
+        color  = get_algorithm_color(alg)
+        addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color}, get_algorithm_name(alg), False)
+        
+        # Compare the algorithm output to the ground truth and print the results
+        if domain.ground_truth != None:
+            cmt.util.evaluation.evaluate_approach_thread(functools.partial(
+                evaluation_function, alg=alg), result, domain.ground_truth, domain.bounds)
+    except Exception, e:
+        print('Caught exception running algorithm: ' + get_algorithm_name(ALGORITHMS[a]) + '\n' + 
+                     str(e) + '\n')
