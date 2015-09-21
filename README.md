@@ -27,6 +27,7 @@ Please contact Brian Coltin (brian.j.coltin at nasa dot gov) with any questions.
 
 ## Installation
 
+- Follow the instructions for installing [Google Earth Engine for Python](https://developers.google.com/earth-engine/python_install).
 - Download the CMT source code from [Github](https://github.com/bcoltin/CrisisMappingToolkit).
 - Install PyQt4.
 - Install the CMT with 
@@ -43,10 +44,6 @@ ee.Initialize, or by using the cmt ee\_authenticate package:
 from cmt import ee_authenticate
 ee_authenticate.initialize()
 ```
-
-To use this authentication method, store your google EE API email address in the
-file ~/.local/google_service_account.txt, and your private key in the file
-~/.local/google_service_api_private_key.pem.
 
 ### Using the CMT UI
 
