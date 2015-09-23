@@ -17,9 +17,9 @@
 
 '''
     Setup script for the "production" flood detection tool.
-    
+
     Instructions for using this tool:
-    
+
     1 - Run this script.  The GUI should appear.
     2 - Select the date of the flood you are interested in using
         the button with the date in the top left corner.
@@ -50,9 +50,6 @@ except:
     import cmt.ee_authenticate
 cmt.ee_authenticate.initialize()
 
-
-
-
 # The GUI type for the project must be set like this!
 import cmt.mapclient_qt
 import cmt.util.production_gui
@@ -61,21 +58,8 @@ cmt.mapclient_qt.gui_type = cmt.util.production_gui.ProductionGui
 # --------------------------------------------------------------
 # Configuration
 
-
-
 # --------------------------------------------------------------
 # main()
 
 # util/production_gui.py does all the work!
 cmt.mapclient_qt.addEmptyGui()
-
-
-
-
-
-
-
-
-
-
-

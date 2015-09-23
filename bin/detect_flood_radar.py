@@ -26,7 +26,7 @@ except:
     import cmt.ee_authenticate
 
 import matplotlib
-#matplotlib.use('tkagg') # Needed to display a histogram
+# matplotlib.use('tkagg') # Needed to display a histogram
 
 import os
 import sys
@@ -34,10 +34,11 @@ import ee
 import functools
 
 import cmt.domain
-from cmt.radar.flood_algorithms import *
-from cmt.mapclient_qt    import centerMap, addToMap
 import cmt.util.evaluation
 import cmt.util.gui_util
+
+from cmt.radar.flood_algorithms import *
+from cmt.mapclient_qt import centerMap, addToMap
 
 '''
 Tool for testing radar based flood detection algorithms using a simple GUI.
@@ -47,13 +48,14 @@ Tool for testing radar based flood detection algorithms using a simple GUI.
 # --------------------------------------------------------------
 # Configuration
 
-#ALGORITHMS = [DECISION_TREE, RANDOM_FORESTS, SVM, MATGEN, MARTINIS_CV, MARTINIS_CR, ACTIVE_CONTOUR]
+# ALGORITHMS = [DECISION_TREE, RANDOM_FORESTS, SVM, MATGEN, MARTINIS_CV, MARTINIS_CR, ACTIVE_CONTOUR]
 ALGORITHMS = [SVM, RANDOM_FORESTS, DECISION_TREE]
-#ALGORITHMS = [ADABOOST, ADABOOST_DEM]
-#ALGORITHMS = [MARTINIS_CV]#, MARTINIS_CR]
+# ALGORITHMS = [ADABOOST, ADABOOST_DEM]
+# ALGORITHMS = [MARTINIS_CV]#, MARTINIS_CR]
 
 # --------------------------------------------------------------
 # Functions
+
 
 def evaluation_function(pair, alg):
     '''Pretty print an algorithm and its statistics'''
@@ -73,32 +75,33 @@ cmt.ee_authenticate.initialize()
 # Fetch data set information
 domain = cmt.domain.Domain(sys.argv[1])
 
-# Display radar and ground truth 
+# Display radar and ground truth
 cmt.util.gui_util.visualizeDomain(domain)
 
 waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
 addToMap(waterMask.mask(waterMask), {'min': 0, 'max': 1}, 'Permanent Water Mask', False)
 
-#print im.image.getDownloadUrl({'name' : 'sar', 'region':ee.Geometry.Rectangle(-91.23, 32.88, -91.02, 33.166).toGeoJSONString(), 'scale': 6.174})
+# print im.image.getDownloadUrl({'name' : 'sar', 'region':ee.Geometry.Rectangle(-91.23, 32.88, -91.02, 33.166).toGeoJSONString(), 'scale': 6.174})
 
 # For each of the algorithms
 for a in range(len(ALGORITHMS)):
     try:
         # Run the algorithm on the data and get the results
-        alg    = ALGORITHMS[a]
+        alg = ALGORITHMS[a]
         result = detect_flood(domain, alg)
-        
+
         # Needed for certain images which did not mask properly from maps engine
-        #result = result.mask(domain.get_radar().image.reduce(ee.Reducer.allNonZero()))
-        
+        # result = result.mask(domain.get_radar().image.reduce(ee.Reducer.allNonZero()))
+
         # Get a color pre-associated with the algorithm, then draw it on the map
-        color  = get_algorithm_color(alg)
-        addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color}, get_algorithm_name(alg), False)
-        
+        color = get_algorithm_color(alg)
+        addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color},
+                 get_algorithm_name(alg), False)
+
         # Compare the algorithm output to the ground truth and print the results
-        if domain.ground_truth != None:
+        if domain.ground_truth is not None:
             cmt.util.evaluation.evaluate_approach_thread(functools.partial(
                 evaluation_function, alg=alg), result, domain.ground_truth, domain.bounds)
     except Exception, e:
-        print('Caught exception running algorithm: ' + get_algorithm_name(ALGORITHMS[a]) + '\n' + 
-                     str(e) + '\n')
+        print('Caught exception running algorithm: ' + get_algorithm_name(ALGORITHMS[a]) + '\n' +
+              str(e) + '\n')
