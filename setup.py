@@ -16,25 +16,26 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 # -----------------------------------------------------------------------------
-
-try:
-  # if setuptools is available, use it to take advantage of its dependency
-  # handling
-  from setuptools import setup                          # pylint: disable=g-import-not-at-top
-except ImportError:
-  # if setuptools is not available, use distutils (standard library). Users
-  # will receive errors for missing packages
-  from distutils.core import setup                      # pylint: disable=g-import-not-at-top
-
-try:
-  import PyQt4
-except ImportError:
-  print """
-    WARNING: PyQt4 is required to use the Crisis Mapping Toolkit.
-    Please install PyQt4 on your system.
-    """
-
 import os
+
+try:
+    # if setuptools is available, use it to take advantage of its dependency
+    # handling
+    from setuptools import setup                          # pylint: disable=g-import-not-at-top
+except ImportError:
+    # if setuptools is not available, use distutils (standard library). Users
+    # will receive errors for missing packages
+    from distutils.core import setup                      # pylint: disable=g-import-not-at-top
+
+try:
+    import PyQt4
+except ImportError:
+    print """
+            WARNING: PyQt4 is required to use the Crisis Mapping Toolkit.
+            Please install PyQt4 on your system.
+          """
+
+
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 

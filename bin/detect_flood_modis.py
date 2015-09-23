@@ -24,8 +24,9 @@ except:
     import os.path
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
     import cmt.ee_authenticate
+
 import matplotlib
-#matplotlib.use('tkagg')
+# matplotlib.use('tkagg')
 
 import sys
 import os
@@ -43,24 +44,22 @@ import cmt.util.gui_util
 Tool for testing MODIS based flood detection algorithms using a simple GUI.
 '''
 
-
-
-
-# --------------------------------------------------------------
+#  --------------------------------------------------------------
 # Configuration
 
 # Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
-#ALGORITHMS = [DARTMOUTH, DART_LEARNED, DIFFERENCE, DIFF_LEARNED, FAI, FAI_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
-#ALGORITHMS = [DART_LEARNED, DIFF_LEARNED, FAI_LEARNED, MODNDWI_LEARNED, EVI, XIAO, MARTINIS_TREE, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM, ADABOOST, ADABOOST_DEM]
-#ALGORITHMS = [DNNS, DNNS_DEM]
-#ALGORITHMS = [SVM, RANDOM_FORESTS, CART]
-#ALGORITHMS = [ADABOOST, ADABOOST_DEM]
-#ALGORITHMS = [ACTIVE_CONTOUR]
+# ALGORITHMS = [DARTMOUTH, DART_LEARNED, DIFFERENCE, DIFF_LEARNED, FAI, FAI_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
+# ALGORITHMS = [DART_LEARNED, DIFF_LEARNED, FAI_LEARNED, MODNDWI_LEARNED, EVI, XIAO, MARTINIS_TREE, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM, ADABOOST, ADABOOST_DEM]
+# ALGORITHMS = [DNNS, DNNS_DEM]
+# ALGORITHMS = [SVM, RANDOM_FORESTS, CART]
+# ALGORITHMS = [ADABOOST, ADABOOST_DEM]
+# ALGORITHMS = [ACTIVE_CONTOUR]
 
 ALGORITHMS = [DART_LEARNED, EVI, XIAO, MARTINIS_TREE, CART, ADABOOST, ADABOOST_DEM]
 
 # --------------------------------------------------------------
 # Functions
+
 
 def evaluation_function(pair, alg):
     '''Pretty print an algorithm and its statistics'''
@@ -85,12 +84,10 @@ domain = cmt.domain.Domain(sys.argv[1])
 cmt.util.gui_util.visualizeDomain(domain)
 
 #
-#import cmt.modis.adaboost
-#cmt.modis.adaboost.adaboost_learn()         # Adaboost training
-##cmt.modis.adaboost.adaboost_dem_learn(None) # Adaboost DEM stats collection
-#raise Exception('DEBUG')
-
-
+# import cmt.modis.adaboost
+# cmt.modis.adaboost.adaboost_learn()         # Adaboost training
+# #cmt.modis.adaboost.adaboost_dem_learn(None) # Adaboost DEM stats collection
+# raise Exception('DEBUG')
 
 waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
 addToMap(waterMask.mask(waterMask), {'min': 0, 'max': 1}, 'Permanent Water Mask', False)
@@ -100,24 +97,23 @@ for a in range(len(ALGORITHMS)):
     # Run the algorithm on the data and get the results
     try:
         (alg, result) = detect_flood(domain, ALGORITHMS[a])
-        if result == None:
+        if result is None:
             continue
-        
+
         # These lines are needed for certain data sets which EE is not properly masking!!!
-        #result = result.mask(domain.skybox_nir.image.reduce(ee.Reducer.allNonZero()))
-        #result = result.mask(domain.skybox.image.reduce(ee.Reducer.allNonZero()))
-    
+        # result = result.mask(domain.skybox_nir.image.reduce(ee.Reducer.allNonZero()))
+        # result = result.mask(domain.skybox.image.reduce(ee.Reducer.allNonZero()))
+
         # Get a color pre-associated with the algorithm, then draw it on the map
         color = get_algorithm_color(ALGORITHMS[a])
-        addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color}, alg, False)
-    
+        addToMap(result.mask(result), {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': '000000, ' + color},
+                 alg, False)
+
         # Compare the algorithm output to the ground truth and print the results
         if domain.ground_truth:
             cmt.util.evaluation.evaluate_approach_thread(functools.partial(
-                evaluation_function, alg=ALGORITHMS[a]), result, domain.ground_truth, domain.bounds, is_algorithm_fractional(ALGORITHMS[a]))
+                evaluation_function, alg=ALGORITHMS[a]), result, domain.ground_truth, domain.bounds,
+                is_algorithm_fractional(ALGORITHMS[a]))
     except Exception, e:
-        print('Caught exception running algorithm: ' + get_algorithm_name(ALGORITHMS[a]) + '\n' + 
-                     str(e) + '\n')
-
-
-
+        print('Caught exception running algorithm: ' + get_algorithm_name(ALGORITHMS[a]) + '\n' +
+              str(e) + '\n')
