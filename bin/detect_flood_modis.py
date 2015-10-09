@@ -24,8 +24,9 @@ except:
     import os.path
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
     import cmt.ee_authenticate
+
 import matplotlib
-#matplotlib.use('tkagg')
+# matplotlib.use('tkagg')
 
 import sys
 import os
@@ -44,24 +45,22 @@ import cmt.util.gui_util
 Tool for testing MODIS based flood detection algorithms using a simple GUI.
 '''
 
-
-
-
-# --------------------------------------------------------------
+#  --------------------------------------------------------------
 # Configuration
 
 # Specify each algorithm to be concurrently run on the data set - see /modis/flood_algorithms.py
-#ALGORITHMS = [DARTMOUTH, DART_LEARNED, DIFFERENCE, DIFF_LEARNED, FAI, FAI_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
-#ALGORITHMS = [DART_LEARNED, DIFF_LEARNED, FAI_LEARNED, MODNDWI_LEARNED, EVI, XIAO, MARTINIS_TREE, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM, ADABOOST, ADABOOST_DEM]
-#ALGORITHMS = [DNNS, DNNS_DEM]
-#ALGORITHMS = [SVM, RANDOM_FORESTS, CART]
-#ALGORITHMS = [ADABOOST, ADABOOST_DEM]
-#ALGORITHMS = [ACTIVE_CONTOUR]
+# ALGORITHMS = [DARTMOUTH, DART_LEARNED, DIFFERENCE, DIFF_LEARNED, FAI, FAI_LEARNED, EVI, XIAO, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM]
+# ALGORITHMS = [DART_LEARNED, DIFF_LEARNED, FAI_LEARNED, MODNDWI_LEARNED, EVI, XIAO, MARTINIS_TREE, SVM, RANDOM_FORESTS, CART, DNNS, DNNS_DEM, ADABOOST, ADABOOST_DEM]
+# ALGORITHMS = [DNNS, DNNS_DEM]
+# ALGORITHMS = [SVM, RANDOM_FORESTS, CART]
+# ALGORITHMS = [ADABOOST, ADABOOST_DEM]
+# ALGORITHMS = [ACTIVE_CONTOUR]
 
 ALGORITHMS = [DART_LEARNED, EVI, XIAO, MARTINIS_TREE, CART, ADABOOST, ADABOOST_DEM]
 
 # --------------------------------------------------------------
 # Functions
+
 
 def evaluation_function(pair, alg):
     '''Pretty print an algorithm and its statistics'''

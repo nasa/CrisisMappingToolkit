@@ -75,18 +75,19 @@ else:
 
 for link in links:
     latlon = link.find('{%s}Region' % namespace).find('{%s}LatLonAltBox' % namespace)
-    name   = link.find('{%s}Link' % namespace).find('{%s}href' % namespace).text[:-4]
-    north  = latlon.find('{%s}north' % namespace).text
-    south  = latlon.find('{%s}south' % namespace).text
-    east   = latlon.find('{%s}east' % namespace).text
-    west   = latlon.find('{%s}west' % namespace).text
+    name = link.find('{%s}Link' % namespace).find('{%s}href' % namespace).text[:-4]
+    north = latlon.find('{%s}north' % namespace).text
+    south = latlon.find('{%s}south' % namespace).text
+    east = latlon.find('{%s}east' % namespace).text
+    west = latlon.find('{%s}west' % namespace).text
 
     output_name = tempdir + os.sep + name + '.tiff'
     z.extract('images/%s.png' % (name), tempdir)
     imagefile = tempdir + os.sep + ('images/%s.png' % (name))
 
     try:
-        out = subprocess.check_output('identify -verbose %s | grep "standard deviation"' % (imagefile), shell=True)
+        out = subprocess.check_output('identify -verbose %s | grep "standard deviation"' % (imagefile),
+                                      shell=True)
         blank = False
         if float(out.split('\n')[0].strip().split()[2]) == 0.0:
             blank = True
@@ -150,4 +151,3 @@ os.rmdir(tempdir)
 
 if failure:
     sys.exit(1)
-
