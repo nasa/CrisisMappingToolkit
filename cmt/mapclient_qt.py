@@ -816,13 +816,16 @@ class QtGuiThreadWrapper(threading.Thread):
         
         The class is initalized with the TYPE of GUI class it will wrap.'''
         
-    def __init__(self, guiClass):
+    def __init__(self, guiClass, create_new_thread=True):
         '''Initialize the class with the type of QT GUI to run'''
         threading.Thread.__init__(self)
         self.guiClass = guiClass # Record the class type
         self.gui      = None     # The GUI is not initialized yet
         self.ready    = False
-        self.start()
+        if create_new_thread:
+            self.start()
+        else:
+            self.run()
 
     def run(self):
         app        = QtGui.QApplication(sys.argv) # Do required QT init
@@ -924,6 +927,14 @@ def addEmptyGui():
     if not map_instance:
         map_instance = QtGuiThreadWrapper(gui_type)
 
+def initializeGUI():
+    global map_instance
+    if not map_instance:
+        map_instance = QtGuiThreadWrapper(gui_type, False)
+
+def runGUI():
+    global map_instance
+    map_instance.run()
 
 def addToMap(eeobject, vis_params=None, name="", show=True):
     """Adds a layer to the default map instance.
