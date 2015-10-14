@@ -50,6 +50,7 @@ import collections
 import cStringIO
 import functools
 import math
+import random
 import Queue
 import sys
 import time
@@ -681,9 +682,15 @@ class TileManager(object):
     def __init__(self, url):
         """Initialize the TileManager."""
         self.url = url
+        workers = 10
+        self.delay = False
+        # Google's map tile server thinks we are automating queries and blocks us, so we forcibly slow down
+        if self.url == DEFAULT_MAP_URL_PATTERN:
+            workers = 1
+            self.delay = True
         # Make 10 workers, each an instance of the TileFetcher helper class.
         self.queue    = Queue.Queue()
-        self.fetchers = [TileManager.TileFetcher(self) for unused_x in range(10)]
+        self.fetchers = [TileManager.TileFetcher(self) for unused_x in range(workers)]
         self.constant = None
 
     def getTile(self, key, callback):       # pylint: disable=g-bad-name
@@ -787,6 +794,9 @@ class TileManager(object):
             """Pull URLs off the TileManager's queue and call the callback when done."""
             while True:
                 (key, callback) = self.manager.queue.get()
+                # Google tile manager thinks we are automating queries and blocks us, so slow down
+                if self.manager.delay and not self.manager.GetCachedTile(key):
+                    time.sleep(0.1 + (random.random() * 0.4))
                 # Check one more time that we don't have this yet.
                 if not self.manager.GetCachedTile(key):
                     (level, x, y) = key
