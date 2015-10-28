@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Parana River Flood, Corrientes Argentina</name>
+    
+    <sensors>
+
+      <sensor>
+        <name>SRTM90</name>
+        <range>
+          <minimum>-10</minimum>
+          <maximum>50</maximum>
+        </range>   
+      </sensor>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2013-07-10</start_date>
+            <end_date>2013-07-11</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>-59.06</lon>
+            <lat>-27.843</lat>
+        </bottomleft>
+        <topright>
+            <lon>-58.66</lon>
+            <lat>-27.409</lat>
+        </topright>
+    </bbox>
+
+</domain>
+

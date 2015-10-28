@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Malawi 2015 Flood</name>
+    <sensors>
+    
+      <sensor>
+        <name>SRTM90</name>
+      </sensor>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2015-01-21</start_date>
+            <end_date>2015-01-22</end_date>
+          </source>
+        </bands>
+      </sensor>
+    
+      <sensor>
+        <name>Skybox</name>
+        <bands>
+            <source mosaic="true"><eeid>18108519531116889794-15989983115440808490</eeid></source>
+        </bands>
+      </sensor>
+      
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>35.18</lon>
+            <lat>-17.09</lat>
+        </bottomleft>
+        <topright>
+            <lon>35.32</lon>
+            <lat>-16.87</lat>
+        </topright>
+    </bbox>
+    
+    <truth>18108519531116889794-01868982135388955423</truth>
+    <training_domain>malawi_2015_training</training_domain>
+    
+    <algorithm_params>
+      <modis_diff_threshold>500</modis_diff_threshold>
+      
+      <modis_mask_threshold>3.5</modis_mask_threshold>
+      <modis_change_threshold>-3.5</modis_change_threshold>
+      
+      <dartmouth_threshold>0.50</dartmouth_threshold>
+    </algorithm_params>    
+    
+    
+    
+</domain>
+

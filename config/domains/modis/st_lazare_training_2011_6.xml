@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<domain>
+    <name>St Lazane, Canada</name>
+    
+    <sensors>
+
+      <sensor>
+        <name>SRTM90</name>
+      </sensor>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2011-06-01</start_date>
+            <end_date>2011-06-02</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>Landsat5</name>
+        <bands>
+          <source>
+            <start_date>2011-06-01</start_date>
+            <end_date>2011-06-02</end_date>
+          </source>
+        </bands>
+      </sensor>
+
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>-101.04</lon>
+            <lat>49.78</lat>
+        </bottomleft>
+        <topright>
+            <lon>-100.63</lon>
+            <lat>50.09</lat>
+        </topright>
+    </bbox>
+    
+    <truth>users/bcoltin/groundtruths/st_lazare_training</truth>
+    <training_domain>st_lazare_2011_6</training_domain>
+    
+    <algorithm_params>
+      <modis_diff_threshold>1200</modis_diff_threshold>
+      
+      <modis_mask_threshold>4.5</modis_mask_threshold>
+      <modis_change_threshold>-3.0</modis_change_threshold>
+      
+      <dartmouth_threshold>0.75</dartmouth_threshold>
+      
+      <fai_threshold>720</fai_threshold>
+      
+      <mod_ndwi_threshold>0.452812</mod_ndwi_threshold>
+
+      <dem_threshold>1</dem_threshold>
+    </algorithm_params>
+    
+</domain>
+

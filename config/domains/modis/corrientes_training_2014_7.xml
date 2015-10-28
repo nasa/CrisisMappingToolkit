@@ -1,0 +1,66 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Parana River Flood, Corrientes Argentina</name>
+    
+    <sensors>
+
+      <sensor>
+        <name>SRTM90</name>
+        <range>
+          <minimum>-10</minimum>
+          <maximum>50</maximum>
+        </range>   
+      </sensor>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2014-07-19</start_date>
+            <end_date>2014-07-20</end_date>
+          </source>
+        </bands>
+      </sensor>
+      
+      <sensor>
+        <name>Landsat8</name>
+        <bands>
+          <source>
+            <start_date>2014-07-19</start_date>
+            <end_date>2014-07-20</end_date>
+          </source>
+        </bands>
+      </sensor>
+
+    </sensors>
+    <bbox>
+        <bottomleft>
+            <lon>-57.80</lon>
+            <lat>-27.52</lat>
+        </bottomleft>
+        <topright>
+            <lon>-57.70</lon>
+            <lat>-27.25</lat>
+        </topright>
+    </bbox>
+    
+    <truth>users/bcoltin/groundtruths/corrientes_training</truth>
+    <training_domain>corrientes_2014_7</training_domain>
+    
+    <algorithm_params>
+      <modis_diff_threshold>1200</modis_diff_threshold>
+      
+      <modis_mask_threshold>4.5</modis_mask_threshold>
+      <modis_change_threshold>-3.0</modis_change_threshold>
+      
+      <dartmouth_threshold>0.75</dartmouth_threshold>
+      
+      <fai_threshold>720</fai_threshold>
+      
+      <mod_ndwi_threshold>0.452812</mod_ndwi_threshold>
+
+      <dem_threshold>1</dem_threshold>
+    </algorithm_params>
+    
+</domain>
+
