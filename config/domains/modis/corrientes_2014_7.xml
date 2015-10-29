@@ -36,12 +36,12 @@
     
     <bbox>
         <bottomleft>
-            <lon>-59.060</lon>
-            <lat>-27.843</lat>
+            <lon>-58.950</lon>
+            <lat>-27.750</lat>
         </bottomleft>
         <topright>
-            <lon>-58.660</lon>
-            <lat>-27.409</lat>
+            <lon>-58.750</lon>
+            <lat>-27.500</lat>
         </topright>
     </bbox>
 
