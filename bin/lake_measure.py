@@ -28,6 +28,7 @@ cmt.ee_authenticate.initialize()
 import matplotlib
 matplotlib.use('tkagg')
 
+from datetime import datetime as dt
 import sys
 import argparse
 import functools
@@ -36,61 +37,157 @@ import threading
 import os
 import os.path
 from pprint import pprint
+import ctypes
 
 import ee
+ee.Initialize()
 
+cloudThresh = 0.35
+#snowThresh  = 0.05
+collection_dict = {'L8': 'LANDSAT/LC8_L1T_TOA',
+                   'L7': 'LANDSAT/LE7_L1T_TOA',
+                   'L5': 'LANDSAT/LT5_L1T_TOA'
+                   }
+
+sensor_band_dict = ee.Dictionary({'L8': ee.List([1, 2, 3, 4, 5, 9, 6]),
+                                  'L7': ee.List([0, 1, 2, 3, 4, 5, 7]),
+                                  'L5': ee.List([0, 1, 2, 3, 4, 5, 6]),
+                                  })
+
+spacecraft_dict = {'Landsat5': 'L5', 'Landsat7': 'L7', 'LANDSAT_8': 'L8'}
+spacecraft_strdict = {'Landsat5': 'Landsat 5', 'Landsat7': 'Landsat 7', 'LANDSAT_8': 'Landsat 8'}
+
+bandNames = ee.List(['blue','green','red','nir','swir1','temp','swir2'])
+bandNumbers = [0,1,2,3,4,5,6]
+possibleSensors = ee.List(['L5','L7','L8'])
+
+def getCollection(sensor,bounds,startDate,endDate):
+    global collection_dict, sensor_band_dict, bandNames
+    ee_bounds = bounds
+    collectionName = collection_dict.get(sensor)
+    # Start with an un-date-confined collection of images
+    WOD = ee.ImageCollection(collectionName).filterBounds(ee_bounds)
+    # Filter by the dates
+    ls = WOD.filterDate(startDate,endDate)
+    ls = ls.select(sensor_band_dict.get(sensor),bandNames)
+    return ls
 
 def get_image_collection(bounds, start_date, end_date):
     '''Retrieve Landsat 5 imagery for the selected location and dates'''
     # ee_bounds = apply(ee.Geometry.Rectangle, bounds)
     # ee_points = map(ee.Geometry.Point, [(bounds[0], bounds[1]), (bounds[0], bounds[3]),
     #                 (bounds[2], bounds[1]), (bounds[2], bounds[3])])
-    ee_bounds  = bounds
-    ee_points = ee.List(bounds.bounds().coordinates().get(0))
-    points = ee_points.getInfo()
-    points = map(functools.partial(apply, ee.Geometry.Point), points)
-    collection = ee.ImageCollection('LT5_L1T').filterDate(start_date, end_date).filterBounds(points[0]).filterBounds(points[1]).filterBounds(points[2]).filterBounds(points[3])
-    return collection
+    global possibleSensors
+    l5s = ee.ImageCollection(ee.Algorithms.If(possibleSensors.contains('L5'),getCollection('L5',bounds,start_date, end_date),getCollection('L5',bounds,ee.Date('1000-01-01'),ee.Date('1001-01-01'))))
+    #l7s = ee.ImageCollection(ee.Algorithms.If(possibleSensors.contains('L7'),getCollection('L7',bounds,start_date, end_date),getCollection('L7',bounds,ee.Date('1000-01-01'),ee.Date('1001-01-01'))))
+    l8s = ee.ImageCollection(ee.Algorithms.If(possibleSensors.contains('L8'),getCollection('L8',bounds,start_date, end_date),getCollection('L8',bounds,ee.Date('1000-01-01'),ee.Date('1001-01-01'))))
+    ls = ee.ImageCollection(l5s.merge(l8s))
+    #Clips image to rectangle around buffer. Thought this would free-up memory by reducing image size, but it doesn't
+    # seem too :(
+    #rect = bounds.bounds().getInfo()
+    #ls = ls.map(lambda img: img.clip(rect))
+    return ls
 
 
-def detect_clouds(im):
-    '''Cloud detection algorithm for Landsat 5 data'''
-    cloud_mask = im.select(['B3']).gte(35).select(['B3'], ['cloud']).And(im.select(['B6']).lte(120))
-    NDSI = (im.select(['B2']).subtract(im.select(['B5']))).divide(im.select(['B2']).add(im.select(['B5'])))
-    # originally 0.4, but this supposedly misses some clouds, used 0.7 in paper
-    # be conservative
-    # cloud_mask = cloud_mask.And(NDSI.lte(0.7))
-    # should be 300K temperature, what is this in pixel values?
-    return cloud_mask
+# def detect_clouds(im):
+#     '''Cloud detection algorithm for Landsat 5 data'''
+#     cloudThresh = 20 #Lower means more clouds excluded.
+#     cloud_mask = ee.Algorithms.Landsat.simpleCloudScore(im).select(['cloud']).gt(cloudThresh)
+#     cloud_mask = cloud_mask.Or(im.select(['red']).eq(0))# Check for scan lines in LS7.
+#     # originally 0.4, but this supposedly misses some clouds, used 0.7 in paper
+#     # be conservative
+#     # cloud_mask = cloud_mask.And(NDSI.lte(0.7))
+#     # should be 300K temperature, what is this in pixel values?
+#     return cloud_mask
 
-def detect_water(image, clouds):
-    '''Water detection algorithm for Landsat 5 data'''
-    # from "Water Body Detection and Delineation with Landsat TM Data" by Frazier and Page
-    water = image.select(['B1']).lte(100).And(image.select(['B2']).lte(55)).And(image.select(['B3']).lte(71))
-    water = water.select(['B1'], ['water'])
-    # originally B7 <= 13
-    water = water.And(image.select(['B4']).lte(66)).And(image.select(['B5']).lte(47)).And(image.select(['B7']).lte(20))
-    # original was B1 57, 23, 21, 14
-    water = water.And(image.select(['B1']).gte(30))#.And(image.select(['B2']).gte(10)).And(image.select(['B3']).gte(8))
-    #water = water.And(image.select(['B4']).gte(5)).And(image.select(['B5']).gte(2)).And(image.select(['B7']).gte(1))
-    water = water.And(clouds.Not())
-    return water
+def rescale(img, exp, thresholds):
+    return img.expression(exp, {'img': img}).subtract(thresholds[0]).divide(thresholds[1] - thresholds[0])
 
-def count_water_and_clouds(bounds, image):
+def detect_clouds(img):
+  # Compute several indicators of cloudyness and take the minimum of them.
+  score = ee.Image(1.0)
+  # Clouds are reasonably bright in the blue band.
+  score = score.min(rescale(img, 'img.blue', [0.1, 0.3]))
+
+  # Clouds are reasonably bright in all visible bands.
+  score = score.min(rescale(img, 'img.red + img.green + img.blue', [0.2, 0.8]))
+
+  # Clouds are reasonably bright in all infrared bands.
+  score = score.min(
+      rescale(img, 'img.nir + img.swir1 + img.swir2', [0.3, 0.8]))
+
+  # Clouds are reasonably cool in temperature.
+  score = score.min(rescale(img, 'img.temp', [300, 290]))
+
+  # However, clouds are not snow.
+  ndsi = img.normalizedDifference(['green', 'swir1'])
+  return score.min(rescale(ndsi, 'img', [0.8, 0.6]))
+
+
+def detect_water(image):
+    global collection_dict, sensor_band_dict, spacecraft_dict
+    shadowSumBands = ee.List(['nir','swir1','swir2'])# Bands for shadow masking
+    # Compute several indicators of water and take the minimum of them.
+    score = ee.Image(1.0)
+
+    # Set up some params
+    darkBands = ['green','red','nir','swir2','swir1']# ,'nir','swir1','swir2']
+    brightBand = 'blue'
+
+    # Water tends to be dark
+    sum = image.select(shadowSumBands).reduce(ee.Reducer.sum())
+    sum = rescale(sum,'img',[0.35,0.2]).clamp(0,1)
+    score = score.min(sum)
+
+    # It also tends to be relatively bright in the blue band
+    mean = image.select(darkBands).reduce(ee.Reducer.mean())
+    std = image.select(darkBands).reduce(ee.Reducer.stdDev())
+    z = (image.select([brightBand]).subtract(std)).divide(mean)
+    z = rescale(z,'img',[0,1]).clamp(0,1)
+    score = score.min(z)
+
+    # Water is at or above freezing
+
+    score = score.min(rescale(image, 'img.temp', [273, 275]))
+
+    # Water is nigh in ndsi (aka mndwi)
+    ndsi = image.normalizedDifference(['green', 'swir1'])
+    ndsi = rescale(ndsi, 'img', [0.3, 0.8])
+
+    score = score.min(ndsi)
+    return score.clamp(0,1)
+
+def count_water_and_clouds(ee_bounds, image, sun_elevation):
     '''Calls the water and cloud detection algorithms on an image and packages the results'''
-    clouds  = detect_clouds(image)
-    water  = detect_water(image, clouds)
-    cloud_count = clouds.mask(clouds).reduceRegion(ee.Reducer.count(), bounds, 30)
-    water_count = water.mask(water).reduceRegion(ee.Reducer.count(), bounds, 30)
+    image = ee.Image(image)
+    clouds  = detect_clouds(image).gt(cloudThresh)
+    #snow = detect_snow(image).gt(snowThresh)
+    #Function to scale water detection sensitivity based on time of year.
+    def scale_waterThresh(sun_angle):
+        waterThresh = ((.45/41)*(62-sun_angle))+.05
+        return waterThresh
+    waterThresh = scale_waterThresh(sun_elevation)
+
+    water  = detect_water(image).gt(waterThresh).And(clouds.Not())#.And(snow.Not())
+    cloud_count = clouds.mask(clouds).reduceRegion(
+        reducer = ee.Reducer.count(),
+        geometry = ee_bounds,
+        scale = 30,
+        maxPixels = 1000000,
+        bestEffort = True
+    )
+    water_count = water.mask(water).reduceRegion(
+        reducer = ee.Reducer.count(),
+        geometry = ee_bounds,
+        scale = 30,
+        maxPixels = 1000000,
+        bestEffort = True
+    )
     # addToMap(ee.Algorithms.ConnectedComponentLabeler(water, ee.Kernel.square(1), 256))
     return ee.Feature(None, {'date': image.get('DATE_ACQUIRED'),
-                             'water_count': water_count.get('water'),
-                             'cloud_count': cloud_count.get('cloud')})
-
-
-def measure_clouds(image):
-    return ee.Feature(None, {'value': 5.0})
-
+                             'spacecraft': image.get('SPACECRAFT_ID'),
+                             'water': water_count.get('constant'),
+                             'cloud': cloud_count.get('constant')})
 
 def parse_lake_data(filename):
     '''Read in an output file generated by this program'''
@@ -162,28 +259,30 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory):
     # Iterate through all the images we retrieved
     results = []
     all_images = v.getInfo()
+    #print all_images
     for i in range(len(all_images)):
 
         # If we already loaded data that contained results for this image, don't re-process it!
-        if ((data is not None) and ('Landsat 5' in data.keys()) and
-            (all_images[i]['properties']['DATE_ACQUIRED'] in data['Landsat 5'])):
+        if ((data is not None) and (all_images[i]['properties']['SPACECRAFT_ID'] in data.keys()) and
+            (all_images[i]['properties']['DATE_ACQUIRED'] in data[all_images[i]['properties']['SPACECRAFT_ID']])):
             continue
 
         # Retrieve the image data and fetch the sun elevation (suggests the amount of light present)
-        im = ee.Image(v.get(i))
+        #print v.get(i)
+        im = v.get(i)
         sun_elevation = all_images[i]['properties']['SUN_ELEVATION']
 
         # Call processing algorithms on the lake with second try in case EE chokes.
+        r = count_water_and_clouds(ee_bounds, im, sun_elevation).getInfo()['properties']
         try:
-            r = count_water_and_clouds(ee_bounds, im).getInfo()['properties']
+            r = count_water_and_clouds(ee_bounds, im, sun_elevation).getInfo()['properties']
         except Exception as e:
             print >> sys.stderr, 'Failure counting water...trying again. ' + str(e)
             time.sleep(5)
-            r = count_water_and_clouds(ee_bounds, im).getInfo()['properties']
+            r = count_water_and_clouds(ee_bounds, im, sun_elevation).getInfo()['properties']
 
         # Write the processing results to a new line in the file
-        output = '%s, %10s, %10d, %10d, %.5g' % (r['date'], 'Landsat 5', r['cloud_count'], r['water_count'],
-                                                 sun_elevation)
+        output = '%s, %10s, %10d, %10d, %.5g'% (r['date'], r['spacecraft'], r['cloud'], r['water'], sun_elevation)
         print '%15s %s' % (name, output)
         f.write(output + '\n')
         results.append(r)
@@ -214,6 +313,7 @@ class LakeThread(threading.Thread):
     def run(self):
         # Wait for an open thread spot, then begin processing.
         global_semaphore.acquire()
+        apply(process_lake, self.args)
         try:
             apply(process_lake, self.args)
         except Exception as e:
@@ -230,76 +330,107 @@ class LakeThread(threading.Thread):
 # ======================================================================================================
 # main()
 
-parser = argparse.ArgumentParser(description='Measure lake water levels.')
-parser.add_argument('--date',        dest='date',        action='store', required=False, default=None)
-parser.add_argument('--lake',        dest='lake',        action='store', required=False, default=None)
-parser.add_argument('--results_dir', dest='results_dir', action='store', required=False, default='results')
-args = parser.parse_args()
+def Lake_Level_Run(lake, date = None, enddate = None, results_dir = None):
 
-if args.date is None:
-    start_date = ee.Date('1984-01-01')
-    end_date = ee.Date('2030-01-01')
-else:
-    start_date = ee.Date(args.date)
-    end_date = start_date.advance(1.0, 'month')
+    if date is None:
+        start_date = ee.Date('1984-01-01')
+        end_date   = ee.Date('2030-01-01')
+    elif enddate != None and date != None:
+        start_date = ee.Date(date)
+        end_date   = ee.Date(enddate)
+        if dt.strptime(date,'%Y-%m-%d') > dt.strptime(enddate,'%Y-%m-%d'):
+            ctypes.windll.user32.MessageBoxA(0, "Date range invalid: Start date is after end date. Please adjust date range and retry."
+                                             , "Invalid Date Range", 1)
+            return
+        elif dt.strptime(date,'%Y-%m-%d') == dt.strptime(enddate,'%Y-%m-%d'):
+            ctypes.windll.user32.MessageBoxA(0, "Date range invalid: Start date is same as end date. Please adjust date range and retry."
+                                             , "Invalid Date Range", 1)
+            return
+    else:
+        start_date = ee.Date(date)
+        end_date = start_date.advance(1.0, 'month')
 
-# start_date = ee.Date('2011-06-01') # lake high
-# start_date = ee.Date('1993-07-01') # lake low
-# start_date = ee.Date('1993-06-01') # lake low but some jet streams
+    # start_date = ee.Date('2011-06-01') # lake high
+    # start_date = ee.Date('1993-07-01') # lake low
+    # start_date = ee.Date('1993-06-01') # lake low but some jet streams
 
-# --- This is the database containing all the lake locations!
-# all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").toList(1000000)
+    # --- This is the database containing all the lake locations!
+    # all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").toList(1000000)
 
-if args.lake is not None:
-    all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").filterMetadata(u'LAKE_NAME', u'equals', args.lake).toList(1000000)
-else:
-    # bounds = ee.Geometry.Rectangle(-125.29, 32.55, -114.04, 42.02)
-    # all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").filterBounds(bounds).toList(1000000)
-    all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").toList(1000000)
-    # .filterMetadata(u'AREA_SKM', u'less_than', 300.0).toList(100000)#.filterMetadata(
-    # u'LAT_DEG', u'less_than',   42.02).filterMetadata( u'LAT_DEG', u'greater_than', 32.55).filterMetadata(
-    # u'LONG_DEG', u'less_than', -114.04).filterMetadata(u'LONG_DEG', u'greater_than', -125.29).toList(1000000)
-    # pprint(ee.Feature(all_lakes.get(0)).getInfo())
+    if lake is not None:
+        all_lakes = ee.FeatureCollection('ft:1igNpJRGtsq2RtJuieuV0DwMg5b7nU8ZHGgLbC7iq', "geometry").filterMetadata(u'LAKE_NAME', u'equals', lake).toList(1000000)
+        if all_lakes.size() == 0:
+            print 'Lake not found in database. Ending process...'
+    else:
+        # bounds = ee.Geometry.Rectangle(-125.29, 32.55, -114.04, 42.02)
+        # all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").filterBounds(bounds).toList(1000000)
+        all_lakes = ee.FeatureCollection('ft:1igNpJRGtsq2RtJuieuV0DwMg5b7nU8ZHGgLbC7iq', "geometry").toList(1000000)
+        # .filterMetadata(u'AREA_SKM', u'less_than', 300.0).toList(100000)#.filterMetadata(
+        # u'LAT_DEG', u'less_than',   42.02).filterMetadata( u'LAT_DEG', u'greater_than', 32.55).filterMetadata(
+        # u'LONG_DEG', u'less_than', -114.04).filterMetadata(u'LONG_DEG', u'greater_than', -125.29).toList(1000000)
+        # pprint(ee.Feature(all_lakes.get(0)).getInfo())
 
-# display individual image from a date
-if args.date:
-    from cmt.mapclient_qt import centerMap, addToMap
-    lake = all_lakes.get(0).getInfo()
-    ee_lake = ee.Feature(all_lakes.get(0))
-    ee_boun = ee_lake.geometry().buffer(1000)
-    collection = get_image_collection(ee_bounds, start_date, end_date)
-    landsat = ee.Image(collection.first())
-    # pprint(landsat.getInfo())
-    center = ee_bounds.centroid().getInfo()['coordinates']
-    centerMap(center[0], center[1], 11)
-    addToMap(landsat, {'bands': ['B3', 'B2', 'B1']}, 'Landsat 3,2,1 RGB')
-    addToMap(landsat, {'bands': ['B7', 'B5', 'B4']}, 'Landsat 7,5,4 RGB', False)
-    addToMap(landsat, {'bands': ['B6']}, 'Landsat 6',         False)
-    clouds = detect_clouds(landsat)
-    water = detect_water(landsat, clouds)
-    addToMap(clouds.mask(clouds), {'opacity': 0.5}, 'Cloud Mask')
-    addToMap(water.mask(water), {'opacity': 0.5, 'palette': '00FFFF'}, 'Water Mask')
-    addToMap(ee.Feature(ee_bounds))
-    # print count_water_and_clouds(ee_bounds, landsat).getInfo()
+    # display individual image from a date
+    if enddate != None and date != None:
+        # Create output directory
+        if not os.path.exists(results_dir):
+            os.makedirs(results_dir)
 
-# compute water levels in all images of area
-else:
-    # Create output directory
-    if not os.path.exists(args.results_dir):
-        os.makedirs(args.results_dir)
+        # Fetch ee information for all of the lakes we loaded from the database
+        all_lakes_local = all_lakes.getInfo()
+        for i in range(len(all_lakes_local)): # For each lake...
+            ee_lake = ee.Feature(all_lakes.get(i)) # Get this one lake
+            # Spawn a processing thread for this lake
+            LakeThread((all_lakes_local[i], ee_lake, start_date, end_date, results_dir))
 
-    # Fetch ee information for all of the lakes we loaded from the database
-    all_lakes_local = all_lakes.getInfo()
-    for i in range(len(all_lakes_local)):  # For each lake...
-        ee_lake = ee.Feature(all_lakes.get(i))  # Get this one lake
-        # Spawn a processing thread for this lake
-        LakeThread((all_lakes_local[i], ee_lake, start_date, end_date, args.results_dir))
-
-    # Wait in this loop until all of the LakeThreads have stopped
-    while True:
-        thread_lock.acquire()
-        if total_threads == 0:
+        # Wait in this loop until all of the LakeThreads have stopped
+        while True:
+            thread_lock.acquire()
+            if total_threads == 0:
+                thread_lock.release()
+                break
             thread_lock.release()
-            break
-        thread_lock.release()
-        time.sleep(0.1)
+            time.sleep(0.1)
+    elif date:
+        from cmt.mapclient_qt import centerMap, addToMap
+        lake       = all_lakes.get(0).getInfo()
+        ee_lake    = ee.Feature(all_lakes.get(0))
+        ee_bounds  = ee_lake.geometry().buffer(1000)
+        collection = get_image_collection(ee_bounds, start_date, end_date)
+        landsat    = ee.Image(collection.first())
+        #pprint(landsat.getInfo())
+        center = ee_bounds.centroid().getInfo()['coordinates']
+        centerMap(center[0], center[1], 11)
+        addToMap(landsat, {'bands': ['B3', 'B2', 'B1']}, 'Landsat 3,2,1 RGB')
+        addToMap(landsat, {'bands': ['B7', 'B5', 'B4']}, 'Landsat 7,5,4 RGB', False)
+        addToMap(landsat, {'bands': ['B6'            ]}, 'Landsat 6',         False)
+        clouds = detect_clouds(landsat)
+        water = detect_water(landsat, clouds)
+        addToMap(clouds.mask(clouds), {'opacity' : 0.5}, 'Cloud Mask')
+        addToMap(water.mask(water), {'opacity' : 0.5, 'palette' : '00FFFF'}, 'Water Mask')
+        addToMap(ee.Feature(ee_bounds))
+        #print count_water_and_clouds(ee_bounds, landsat).getInfo()
+
+    # compute water levels in all images of area
+    else:
+        # Create output directory
+        if not os.path.exists(results_dir):
+            os.makedirs(results_dir)
+
+        # Fetch ee information for all of the lakes we loaded from the database
+        all_lakes_local = all_lakes.getInfo()
+        for i in range(len(all_lakes_local)): # For each lake...
+            ee_lake = ee.Feature(all_lakes.get(i)) # Get this one lake
+            # Spawn a processing thread for this lake
+            LakeThread((all_lakes_local[i], ee_lake, start_date, end_date, results_dir))
+
+        # Wait in this loop until all of the LakeThreads have stopped
+        while True:
+            thread_lock.acquire()
+            if total_threads == 0:
+                thread_lock.release()
+                break
+            thread_lock.release()
+            time.sleep(0.1)
+    print 'Done.'
+#Lake_Level_Run('Fallen Leaf', date = '2014-3-01', enddate = '2014-4-01', results_dir = 'C:\\Projects\\Fall 2015 - Lake Tahoe Water Resources\\Data\\Python Scripts\\UI_Script\\results')
