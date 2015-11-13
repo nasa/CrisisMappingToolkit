@@ -17,9 +17,65 @@
 
 from PyQt4 import QtGui, QtCore
 import sys
+from threading import Thread
 from LLAMA import Ui_Lake_Level_UI
 from plot_water_levelui import *
-from lake_measure_1_19_UIVersion import *
+from lake_measure import *
+
+class ProgressPopup(QtGui.QWidget):
+    update_signal = QtCore.pyqtSignal(int, int, str, str, int, int)
+    def __init__(self, cancel_function):
+        QtGui.QWidget.__init__(self)
+        
+        self.update_signal.connect(self.apply_update, QtCore.Qt.QueuedConnection)
+        self.cancel_function = cancel_function
+
+        self.lake_totals = None
+        self.lake_counts = None
+
+        self.progressBar = QtGui.QProgressBar(self)
+        self.progressBar.setMinimumSize(500, 50)
+        self.progressBar.setMaximumSize(500, 50)
+        self.progressBar.setRange(0, 100)
+        self.progressBar.setValue(0)
+
+        self.status = QtGui.QLabel(self)
+        self.status.setText("")
+        
+        self.cancelButton = QtGui.QPushButton('Cancel', self)
+        self.cancelButton.setMinimumSize(50, 30) 
+        self.cancelButton.setMaximumSize(100, 50)
+        self.cancelButton.clicked[bool].connect(self._cancel)
+
+        vbox = QtGui.QVBoxLayout(self)
+        vbox.addWidget(self.progressBar)
+        vbox.addWidget(self.status)
+        vbox.addWidget(self.cancelButton)
+        vbox.addStretch(1)
+        
+        self.setLayout(vbox)
+
+    def update_function(self, lakes_number, lakes_total, lake_name, lake_date, lake_image, lake_image_total):
+        self.update_signal.emit(lakes_number, lakes_total, lake_name, lake_date, lake_image, lake_image_total)
+    
+    def apply_update(self, lakes_number, lakes_total, lake_name, lake_date, lake_image, lake_image_total):
+        if self.lake_totals == None:
+            self.lake_totals = [10] * lakes_total
+            self.lake_counts = [0] * lakes_total
+        self.lake_totals[lakes_number] = lake_image_total
+        self.lake_counts[lakes_number] = lake_image
+        total = sum(self.lake_totals)
+        progress = sum(self.lake_counts)
+        self.status.setText('Completed processing %s on %s.' % (lake_name, lake_date))
+        self.progressBar.setValue(float(progress) / total * 100)
+
+    def closeEvent(self, event):
+        if self.cancel_function != None:
+            self.cancel_function()
+        event.accept()
+
+    def _cancel(self):
+        self.close()
 
 class Lake_Level_App(QtGui.QMainWindow, Ui_Lake_Level_UI):
     def __init__(self):
@@ -119,10 +175,11 @@ class Lake_Level_App(QtGui.QMainWindow, Ui_Lake_Level_UI):
 
         if self.lake_areaCheckbox.isChecked():
 
-            print 'Start date is:'+ self.start_date
-            print 'End date is:' + self.end_date
-            Lake_Level_Run(self.selected_lake, date = self.start_date, enddate = self.end_date,
-                           results_dir = 'C:\\Projects\\Fall 2015 - Lake Tahoe Water Resources\\Data\\Python Scripts\\UI_Script\\results')
+            self.popup = ProgressPopup(Lake_Level_Cancel)
+            self.lake_thread = Thread(target=Lake_Level_Run, args=(self.selected_lake, self.start_date, self.end_date, \
+                           'results', self.popup.update_function, self.popup.close))
+            self.popup.show()
+            self.lake_thread.start()
         # if self.tableState == True:
         #     water_level_table(self.selected_lake)
         #
