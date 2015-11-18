@@ -213,8 +213,14 @@ def parse_lake_data(filename):
     f.close()
     return results
 
+# --- Global variables that govern the parallel threads ---
+NUM_SIMULTANEOUS_THREADS = 8
+global_semaphore = threading.Semaphore(NUM_SIMULTANEOUS_THREADS)
+thread_lock = threading.Lock()
+total_threads = 0
+all_threads = dict()
 
-def process_lake(lake, ee_lake, start_date, end_date, output_directory):
+def process_lake(thread, lake, ee_lake, start_date, end_date, output_directory, update_function):
     '''Computes lake statistics over a date range and writes them to a log file'''
 
     # Extract the lake name (required!)
@@ -261,6 +267,8 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory):
     all_images = v.getInfo()
     #print all_images
     for i in range(len(all_images)):
+        if thread.aborted:
+            break
 
         # If we already loaded data that contained results for this image, don't re-process it!
         if ((data is not None) and (all_images[i]['properties']['SPACECRAFT_ID'] in data.keys()) and
@@ -286,52 +294,57 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory):
         print '%15s %s' % (name, output)
         f.write(output + '\n')
         results.append(r)
+        update_function(name, r['date'], i, len(all_images))
 
     f.close()  # Finished processing images, close up the file.
 
-# --- Global variables that govern the parallel threads ---
-NUM_SIMULTANEOUS_THREADS = 8
-global_semaphore = threading.Semaphore(NUM_SIMULTANEOUS_THREADS)
-thread_lock = threading.Lock()
-total_threads = 0
-
-
 class LakeThread(threading.Thread):
     '''Helper class to manage the number of active lake processing threads'''
-    def __init__(self, args):
+    def __init__(self, args, update_function=None):
         threading.Thread.__init__(self)
+        self.aborted = False
         self.setDaemon(True)
         self.args = args
         # Increase the global thread count by one
         thread_lock.acquire()
         global total_threads
         total_threads += 1
-        thread_lock.release()
         # Start processing
         self.start()
+        all_threads[self] = True
+        thread_lock.release()
+
+    def cancel(self):
+        self.aborted = True
 
     def run(self):
         # Wait for an open thread spot, then begin processing.
         global_semaphore.acquire()
-        apply(process_lake, self.args)
-        try:
-            apply(process_lake, self.args)
-        except Exception as e:
-            print >> sys.stderr, e
+        if not self.aborted:
+            try:
+                apply(process_lake, (self,) + self.args)
+            except Exception as e:
+                print >> sys.stderr, e
         global_semaphore.release()
 
         # Finished processing, decrement the global thread count.
         thread_lock.acquire()
         global total_threads
         total_threads -= 1
+        del all_threads[self]
         thread_lock.release()
 
 
 # ======================================================================================================
 # main()
 
-def Lake_Level_Run(lake, date = None, enddate = None, results_dir = None):
+def Lake_Level_Cancel():
+    thread_lock.acquire()
+    for thread in all_threads:
+        thread.cancel()
+    thread_lock.release()
 
+def Lake_Level_Run(lake, date = None, enddate = None, results_dir = None, update_function = None, complete_function = None):
     if date is None:
         start_date = ee.Date('1984-01-01')
         end_date   = ee.Date('2030-01-01')
@@ -381,7 +394,8 @@ def Lake_Level_Run(lake, date = None, enddate = None, results_dir = None):
         for i in range(len(all_lakes_local)): # For each lake...
             ee_lake = ee.Feature(all_lakes.get(i)) # Get this one lake
             # Spawn a processing thread for this lake
-            LakeThread((all_lakes_local[i], ee_lake, start_date, end_date, results_dir))
+            LakeThread((all_lakes_local[i], ee_lake, start_date, end_date, results_dir, \
+                    functools.partial(update_function, i, len(all_lakes_local))))
 
         # Wait in this loop until all of the LakeThreads have stopped
         while True:
@@ -422,7 +436,8 @@ def Lake_Level_Run(lake, date = None, enddate = None, results_dir = None):
         for i in range(len(all_lakes_local)): # For each lake...
             ee_lake = ee.Feature(all_lakes.get(i)) # Get this one lake
             # Spawn a processing thread for this lake
-            LakeThread((all_lakes_local[i], ee_lake, start_date, end_date, results_dir))
+            LakeThread((all_lakes_local[i], ee_lake, start_date, end_date, results_dir, \
+                    functools.partial(update_function, i, len(all_lakes_local))))
 
         # Wait in this loop until all of the LakeThreads have stopped
         while True:
@@ -432,5 +447,6 @@ def Lake_Level_Run(lake, date = None, enddate = None, results_dir = None):
                 break
             thread_lock.release()
             time.sleep(0.1)
-    print 'Done.'
+    if complete_function != None:
+        complete_function()
 #Lake_Level_Run('Fallen Leaf', date = '2014-3-01', enddate = '2014-4-01', results_dir = 'C:\\Projects\\Fall 2015 - Lake Tahoe Water Resources\\Data\\Python Scripts\\UI_Script\\results')
