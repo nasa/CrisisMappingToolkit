@@ -83,8 +83,9 @@ class Lake_Level_App(QtGui.QMainWindow, Ui_Lake_Level_UI):
 
         super(self.__class__, self).__init__()
         self.setupUi(self)
-        self.start_date = '2000-01-01'
-        self.end_date = '2000-01-01'
+        self.start_date = '1984-04-25'
+        # Sets end date to current date.
+        self.end_date = str((QtCore.QDate.currentDate()).toString('yyyy-MM-dd'))
         self.selected_lake = 'Lake Tahoe'
         self.selectlakeDropMenu.activated[str].connect(self.selectLakeHandle)
         self.okBtn.clicked.connect(self.okHandle)
@@ -125,16 +126,12 @@ class Lake_Level_App(QtGui.QMainWindow, Ui_Lake_Level_UI):
         self.popup.show()
         self.lake_thread.start()
 
-        #CHANGE THIS. NEED TO MAKE THESE PARTS WAIT UNTIL LAKE_THREAD IS FINISHED.
+        # CHANGE THIS. NEED TO MAKE THESE PARTS WAIT UNTIL LAKE_THREAD IS FINISHED.
         if self.tableCheckbox.isChecked():
-            table_water_level(self.selected_lake, self.start_date, self.end_date,
-                    result_dir =
-                        'C:\\Projects\\Fall 2015 - Lake Tahoe Water Resources\\Data\\Python Scripts\\UI_Script\\results')
+            table_water_level(self.selected_lake, self.start_date, self.end_date, result_dir='results')
 
         if self.graphCheckbox.isChecked():
-            plot_water_level(self.selected_lake, self.start_date, self.end_date,
-                    result_dir =
-                        'C:\\Projects\\Fall 2015 - Lake Tahoe Water Resources\\Data\\Python Scripts\\UI_Script\\results')
+            plot_water_level(self.selected_lake, self.start_date, self.end_date, result_dir='results')
 
 def main():
     app = QtGui.QApplication(sys.argv)  # A new instance of QApplication
