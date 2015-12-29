@@ -60,8 +60,8 @@ def parse_lake_results(name):
     f.close()
 
     # remove values that differ from neighbors by large amounts
-    NEIGHBOR_RADIUS = 3
-    OUTLIER_FACTOR = 0.98
+    NEIGHBOR_RADIUS = 4
+    OUTLIER_FACTOR = 0.90
     remove = []
     for i in range(len(y_axis)):
         start = max(0, i - NEIGHBOR_RADIUS)
@@ -95,28 +95,32 @@ def parse_lake_results(name):
 def plot_results(features, dates, water, clouds, save_directory=None, ground_truth_file=None):
     fig, ax = plt.subplots()
     water_line = ax.plot(dates, water, linestyle='-', color='b', linewidth=1,
-                         label='Landsat-5 Surface Area')
+                         label='Landsat Surface Area')
     ax.plot(dates, water, 'gs', ms=3)
     # ax.bar(dates, water, color='b', width=15, linewidth=0)
     # ax.bar(dates, clouds, bottom=water, color='r', width=15, linewidth=0)
-    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_locator(mdates.YearLocator(2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    ax.xaxis.set_minor_locator(mdates.MonthLocator())
+    ax.xaxis.set_minor_locator(mdates.MonthLocator([1, 4, 7, 10]))
     ax.set_xlabel('Time')
     ax.format_xdata = mdates.DateFormatter('%m/%d/%Y')
+    ax.set_xlim([datetime.date(1984, 1, 1), datetime.date(1984, 12, 31)])
+    ax.set_ylim([150, 190])
 
+    lns = water_line
     if ground_truth_file is not None:
         (ground_truth_dates, ground_truth_levels) = load_ground_truth(ground_truth_file)
         ax2 = ax.twinx()
         ground_truth_line = ax2.plot(ground_truth_dates, ground_truth_levels, linestyle='--', color='r', linewidth=2, label='Measured Elevation')
         ax2.set_ylabel('Lake Elevation (ft)')
         ax2.format_ydata = (lambda x: '%g ft' % (x))
-        ax2.set_ylim([6372, 6385.5])
+        ax2.set_ylim([6372.0, 6385.5])
+        lns = lns + ground_truth_line
+        ax2.set_xlim([datetime.date(1984, 6, 1), datetime.date(2015, 10, 1)])
 
     ax.format_ydata = (lambda x: '%g km^2' % (x))
     ax.set_ylabel('Lake Surface Area (km^2)')
     fig.suptitle(features['name'] + ' Surface Area from Landsat')
-    lns = water_line + ground_truth_line
     labs = [l.get_label() for l in lns]
     ax.legend(lns, labs, loc=4)
 
@@ -151,7 +155,10 @@ def load_ground_truth(filename):
 if len(sys.argv) > 1:
     (features, dates, water, clouds) = parse_lake_results(sys.argv[1])
     # plot_results(features, dates, water, clouds, None, 'results/mono_lake_elevation.txt')
-    plot_results(features, dates, water, clouds)
+    if len(sys.argv) > 2:
+        plot_results(features, dates, water, clouds, 'results', sys.argv[2])
+    else:
+        plot_results(features, dates, water, clouds)
     plt.show()
 else:
     for fname in glob.iglob(os.path.join('results', '*.txt')):
