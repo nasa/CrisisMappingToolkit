@@ -39,7 +39,6 @@ import threading
 import os
 import os.path
 from pprint import pprint
-import ctypes
 import urllib
 import glob
 
@@ -253,7 +252,7 @@ def parse_lake_data(filename):
     return results
 
 # --- Global variables that govern the parallel threads ---
-NUM_SIMULTANEOUS_THREADS = 8
+NUM_SIMULTANEOUS_THREADS = 4
 global_semaphore = threading.Semaphore(NUM_SIMULTANEOUS_THREADS)
 thread_lock = threading.Lock()
 total_threads = 0
@@ -476,12 +475,10 @@ def Lake_Level_Run(lake, date = None, enddate = None, results_dir = None, fai=Fa
         start_date = ee.Date(date)
         end_date   = ee.Date(enddate)
         if dt.strptime(date,'%Y-%m-%d') > dt.strptime(enddate,'%Y-%m-%d'):
-            ctypes.windll.user32.MessageBoxA(0, "Date range invalid: Start date is after end date. Please adjust date range and retry."
-                                             , "Invalid Date Range", 1)
+            print "Date range invalid: Start date is after end date. Please adjust date range and retry."
             return
         elif dt.strptime(date,'%Y-%m-%d') == dt.strptime(enddate,'%Y-%m-%d'):
-            ctypes.windll.user32.MessageBoxA(0, "Date range invalid: Start date is same as end date. Please adjust date range and retry."
-                                             , "Invalid Date Range", 1)
+            print "Date range invalid: Start date is same as end date. Please adjust date range and retry."
             return
     else:
         start_date = ee.Date(date)
@@ -573,4 +570,4 @@ def Lake_Level_Run(lake, date = None, enddate = None, results_dir = None, fai=Fa
             time.sleep(0.1)
     if complete_function != None:
         complete_function()
-        ctypes.windll.user32.MessageBoxA(0, "Operation completed.", "Operation Complete", 1)
+        print "Operation completed."

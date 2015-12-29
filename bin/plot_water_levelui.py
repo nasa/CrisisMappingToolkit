@@ -16,6 +16,7 @@
 # -----------------------------------------------------------------------------
 
 import sys
+import os
 import os.path
 import glob
 import datetime
@@ -50,6 +51,7 @@ def parse_lake_results(name, startdate, enddate):
 
     f.readline()
     parts = f.readline().split(',')
+    print name
     names = parts[0]
     country = parts[1]
     # Dynamic cloud pixel thresholding.
@@ -183,19 +185,17 @@ def load_ground_truth(filename):
 
 # --- Main script ---
 def table_water_level(lake, startdate, enddate, result_dir):
-    import ctypes
     # Grabs lake names from .txt files in the results folder.
     lakes = [i.split('.')[0] for i in glob.glob1(result_dir,'*txt')]
 
     # Compares lake names found from .txt files with the chosen lake. If a match is found, the parser is run.
     if lake in lakes:
-        lake_dir = result_dir + '\\' + lake + '.txt'
+        lake_dir = result_dir + os.sep + lake + '.txt'
         (features, dates, water, clouds) = parse_lake_results(lake_dir, startdate, enddate)
 
         # Error-catcher for situation where a date range is selected and no good points are available for plotting.
         if water == False:
-            ctypes.windll.user32.MessageBoxA(0, "No good data points found in selected date range. Please try a larger date range and retry.",
-                                         "No good points", 1)
+            print "No good data points found in selected date range. Please try a larger date range and retry."
         # Table creating and saving block:
         else:
             root = Tkinter.Tk()
@@ -210,8 +210,7 @@ def table_water_level(lake, startdate, enddate, result_dir):
             if len(tempdir) > 0:
                 directory = tempdir
             else:
-                ctypes.windll.user32.MessageBoxA(0, "Invalid directory. Table will be saved in the results folder."
-                                              , "Invalid Directory", 1)
+                print "Invalid directory. Table will be saved in the results folder."
                 directory = 'results'
             with open(directory + '/' + lake + '.csv', 'wb') as f:
                 writer = csv.writer(f)
@@ -219,19 +218,17 @@ def table_water_level(lake, startdate, enddate, result_dir):
                 writer.writerows(izip(dates, water))
 
 def plot_water_level(lake, startdate, enddate, result_dir):
-    import ctypes
     # Grabs lake names from .txt files in the results folder.
     lakes = [i.split('.')[0] for i in glob.glob1(result_dir,'*txt')]
 
     # Compares lake names found from .txt files with the chosen lake. If a match is found, the parser is run.
     if lake in lakes:
-        lake = result_dir + '\\' + lake + '.txt'
+        lake = result_dir + os.sep + lake + '.txt'
         (features, dates, water, clouds) = parse_lake_results(lake, startdate, enddate)
 
         # Error-catcher for situation where a date range is selected and no good points are available for plotting.
         if water == False:
-            ctypes.windll.user32.MessageBoxA(0, "No good data points found in selected date range. Please try a larger date range.",
-                                         "No good points", 1)
+            print "No good data points found in selected date range. Please try a larger date range."
         # plot_results(features, dates, water, clouds, None, 'results/mono_lake_elevation.txt')
         else:
             plot_results(features, dates, water, clouds)
@@ -239,6 +236,5 @@ def plot_water_level(lake, startdate, enddate, result_dir):
 
     # Notifies user if the data file for the selected lake has not been generated yet.
     else:
-        import ctypes  # An included library with Python install.
-        ctypes.windll.user32.MessageBoxA(0, "Specified lake data file not found. Please retrieve data and try again.",
-                                         "No lake data", 1)
+        print "Specified lake data file not found. Please retrieve data and try again."
+
