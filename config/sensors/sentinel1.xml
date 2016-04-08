@@ -2,8 +2,10 @@
 <sensor>
     <name>SENTINEL-1</name>
     <bands>
+        <source><collection>COPERNICUS/S1_GRD</collection></source>
         <band>
             <name>vv</name>
+            <source><name>VV</name></source>
             <distribution name="water">
                 <mode><range>
                     <minimum>30</minimum>
@@ -13,6 +15,7 @@
         </band>
         <band>
             <name>vh</name>
+            <source><name>VH</name></source>
             <distribution name="water">
                 <mode><range>
                     <minimum>30</minimum>
@@ -20,10 +23,13 @@
                 </range></mode>
             </distribution>
         </band>
+        
+        <resolution>10</resolution>
+
     </bands>
     <range>
-        <minimum>0</minimum>
-        <maximum>1200</maximum>
+        <minimum>-30</minimum>
+        <maximum>10</maximum>
     </range>
 
     <distribution name="water">

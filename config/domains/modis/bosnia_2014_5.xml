@@ -42,7 +42,7 @@
     </bbox>
 
     
-    <truth>18108519531116889794-10343636198137636421</truth>
+    <truth>users/bcoltin/groundtruths/bosnia</truth>
     <training_domain>bosnia_west_2014_5</training_domain>
     <unflooded_training_domain>unflooded_bosnia_2013</unflooded_training_domain>
     

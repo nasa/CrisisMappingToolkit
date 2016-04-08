@@ -37,7 +37,7 @@
         </topright>
     </bbox>
     
-    <truth>18108519531116889794-01868982135388955423</truth>
+    <truth>users/bcoltin/groundtruths/malawi</truth>
     <training_domain>malawi_2015_training</training_domain>
     
     <algorithm_params>

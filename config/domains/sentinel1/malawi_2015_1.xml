@@ -20,13 +20,10 @@
       <sensor>
         <name>Sentinel1</name>
         <bands>
-            <band>
-                <name>vv</name>
-                <source>
-                    <eeid>18108519531116889794-15658084116283052074</eeid>
-                    <name>b1</name>
-                </source>
-            </band>
+          <source>
+            <start_date>2015-01-01</start_date>
+            <end_date>2015-05-28</end_date>
+          </source>
         </bands>
       </sensor>
 
@@ -50,7 +47,7 @@
         </topright>
     </bbox>
     
-    <truth>18108519531116889794-06852393645150519151</truth>
+    <truth>users/bcoltin/groundtruths/malawi</truth>
     <training_domain>malawi_2015_1_training</training_domain>
    
     <algorithm_params>

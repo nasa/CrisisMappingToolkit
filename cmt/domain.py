@@ -15,10 +15,12 @@
 # the License.
 # -----------------------------------------------------------------------------
 
-import os
+import os, sys
 import xml.etree.ElementTree as ET
 import ee
 import json
+import traceback
+import util.miscUtilities
 
 # Default search path for domain xml files: [root]/config/domains/[sensor_name]/
 DOMAIN_SOURCE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
@@ -38,7 +40,6 @@ class SensorObservation(object):
                
         # xml_source can be a path to an xml file or a parsed xml object
         try:
-        #if os.path.isfile(xml_source):
             xml_root = ET.parse(xml_source).getroot()
         except:
             xml_root = xml_source
@@ -259,7 +260,7 @@ class SensorObservation(object):
         if len(image.getInfo()['bands']) == 1: # Only one input band, just use it.
             name = image.getInfo()['bands'][0]['id']
             return name
-        raise Exception('Missing band name for source!')
+        raise Exception('Missing band name for source: ' + str(source))
             
 
     def _load_image(self, eeBounds):
@@ -270,24 +271,54 @@ class SensorObservation(object):
         missingBands = []
         for thisBandName in self.band_names:
             source       = self._band_sources[thisBandName]
-            #print '======================================='
-            #print 'Loading band: ' + thisBandName
-            #print source
-            if 'mosaic' in source:
+            print '======================================='
+            print 'Loading band: ' + thisBandName
+            print source
+            if 'mosaic' in source: # A premade collection with an ID
                 ims = ee.ImageCollection(source['eeid'])
                 im  = ims.mosaic()
-            elif 'eeid' in source:
+            elif 'eeid' in source: # A single image with an ID
                 im = ee.Image(source['eeid'])
             elif ('collection' in source) and ('start_date' in source) and ('end_date' in source):
-                # Select a single image from an Earth Engine image collection
-                im = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date']).mean()
+                # Make a single image from an Earth Engine image collection with date boundaries
+                
+                if source['collection'] == 'COPERNICUS/S1_GRD':
+                    print 'SENT 1 BRANCH'
+                    # Special handling for Sentinel1 
+                    im = ee.ImageCollection(source['collection']).filterBounds(eeBounds) \
+                            .filterDate(source['start_date'], source['end_date']) \
+                            .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV')) \
+                            .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH')) \
+                            .filter(ee.Filter.eq('resolution_meters', 10.0)) \
+                            .filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING')).mean()
+                            #.first()
+                            
+                    
+                    # TODO: Try decreasing resolution until we find images or a coverage percentage?
+                    
+                    # Overwrite the band resolution
+                    foundResolution = 10.0 # TODO: Read from the data!
+                    self.band_resolutions[thisBandName] = foundResolution
+                    
+                else:
+                    im = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date']).mean()
+                
+                # TODO: Add special case for Sentinel1 to filter on available bands?
+                #     : Add something to specifiy ascending/descending?
+                
             else: # Not enough information was provided!
                 print 'Warning: Incomplete source information for band: ' + thisBandName
                 #raise Exception('Incomplete source information for band: ' + thisBandName)
                 missingBands.append(thisBandName)
                 continue # Skip this band
                 
-            #print im.getInfo()
+            print 'Image info:'
+            try:
+                #print util.miscUtilities.prettyPrintEE(im.getInfo())
+                print im.getInfo()
+            except:
+                raise Exception('Failed to retrieve image info!')
+            
             sourceBandName = self._getSourceBandName(source, im)
             band = im.select([sourceBandName], [thisBandName])
             #print band.getInfo()
@@ -396,7 +427,7 @@ class SensorObservation(object):
 
         if self._display_bands != None: # The user has specified display bands
             if len(self._display_bands) != 3:
-                raise Exception('')
+                raise Exception('Manual display requires 3 bands!') # Could change this!
             
             b0         = self.image.select(self._display_bands[0])
             b1         = self.image.select(self._display_bands[1])
@@ -407,8 +438,10 @@ class SensorObservation(object):
         else: # Automatically decide the display bands
             
             if len(band_names) == 2:  # If two bands, add a constant zero band to fake a "B" channel
-                image      = self.image.addBands(0)
-                band_names = band_names + ['constant']
+                image = self.image.addBands( 
+                    self.image.select(band_names[0]).subtract(self.image.select(band_names[1])))
+                print image.getInfo()
+                band_names = band_names + ['vv_1']
             if (len(band_names) > 3): # If more than three bands, just use the first three.
                 image      = self.image.select(band_names[0]).addBands(self.image.select(band_names[1])).addBands(self.image.select(band_names[2]))
                 band_names = self.band_names[0:2]
@@ -596,13 +629,20 @@ class Domain(object):
         
         # Load each <sensor> tag seperately
         for sensor_node in sensors.findall('sensor'):
-            # Send the sensor node of the domain file for parsing
-            newSensor = SensorObservation(xml_source=sensor_node, ee_bounds=self.bounds,
-                                          is_domain_file=True) 
-            self.sensor_list.append(newSensor)   # Store the new sensor object
-            
-            # Set sensor as member variable, e.g., self.__dict__['uavsar'] is equivalent to self.uavsar
-            self.__dict__[newSensor.sensor_name] = newSensor
+            try:
+                # Send the sensor node of the domain file for parsing
+                newSensor = SensorObservation(xml_source=sensor_node, ee_bounds=self.bounds,
+                                              is_domain_file=True) 
+                self.sensor_list.append(newSensor)   # Store the new sensor object
+                
+                # Set sensor as member variable, e.g., self.__dict__['uavsar'] is equivalent to self.uavsar
+                self.__dict__[newSensor.sensor_name] = newSensor
+            except:
+                print '###############################################'
+                print 'Caught exception loading sensor:'
+                print traceback.format_exc()
+                print '###############################################'
+                
 
         # Load a ground truth image if one was specified
         # - These are always binary and are either loaded from an asset ID in Maps Engine

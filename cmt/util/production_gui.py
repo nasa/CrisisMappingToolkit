@@ -23,15 +23,6 @@ It consists of one large map with an inspector tool that appears when it is righ
 """
 
 
-'''
-Goals for production GUI (Only for Google):
-- Done through a new top level python script
-- (Nice) Wizard to walk through setting parameters / selecting algorithms
-- Parameter adjustment with fixed bank of widgets
-- Simplified right click menu
-- Display flood statistics (flooded area, etc)
-'''
-
 import functools
 import sys
 import os
@@ -249,7 +240,7 @@ class FloodDetectParams:
 
 
 class ProductionGui(QtGui.QMainWindow):
-    '''This sets up the main viewing window in QT, fills it up with aMapView,
+    '''This sets up the main viewing window in QT, fills it up with a MapView,
        and then forwards all function calls to it.'''
     
     def __init__(self, parent=None):
@@ -475,7 +466,7 @@ class ProductionGui(QtGui.QMainWindow):
             self.radioButtons[0].setChecked(True)
             
             # Set up the other controls
-            self.lineIn       = QtGui.QLineEdit("GME/images/00979750194450688595-02912990955588156238")#QtGui.QLineEdit("Earth Engine ID")
+            self.lineIn       = QtGui.QLineEdit("Asset ID")
             self.okButton     = QtGui.QPushButton('Ok',     self)
             self.cancelButton = QtGui.QPushButton('Cancel', self)            
             self.okButton.clicked.connect(self.accept)
@@ -499,6 +490,8 @@ class ProductionGui(QtGui.QMainWindow):
         
     def _loadMapsEngineImage(self):
         '''Loads in an image stored in Google Maps Engine'''
+
+        raise Exception('TODO: Update for the death of Maps Engine!')
     
         # Pop up a dialog and get the input values back
         dialog = self.GuestImageDialog(self)

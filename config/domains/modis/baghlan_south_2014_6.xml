@@ -41,7 +41,7 @@
         </topright>
     </bbox>
     
-    <truth>18108519531116889794-10497219480104721454</truth>
+    <truth>users/bcoltin/groundtruths/baghlan_south</truth>
     <training_domain>baghlan_2014_6</training_domain>
     
     <algorithm_params>
