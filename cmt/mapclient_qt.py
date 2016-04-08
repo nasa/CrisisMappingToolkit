@@ -60,11 +60,12 @@ import json
 import ee
 import os
 import zipfile
+import cPickle as pickle
 
 # check if the Python imaging libraries used by the mapclient module are installed
 try:
     from PIL import ImageQt                      # pylint: disable=g-import-not-at-top
-    from PIL import Image, ImageChops                            # pylint: disable=g-import-not-at-top
+    from PIL import Image, ImageChops            # pylint: disable=g-import-not-at-top
 except ImportError:
     print """
         ERROR: A Python library (PILLOW) used by the CMT mapclient_qt module
@@ -96,6 +97,10 @@ DEFAULT_SAVE_DIR = os.path.abspath(__file__)
 # The z, x and y arguments at the end correspond to level, x, y here.
 DEFAULT_MAP_URL_PATTERN = ('http://mt1.google.com/vt/lyrs=m@176000000&hl=en&'
                                                      'src=app&z=%d&x=%d&y=%d')
+
+
+# Tiles downloaded from Google Maps are cached here between 
+LOCAL_MAP_CACHE_PATH = '/home/smcmich1/repo/earthEngine/gm_tile_cache.dat'
 
 
 # Text to display in "About" buttons for legal purposes
@@ -267,11 +272,14 @@ class MapViewWidget(QtGui.QWidget):
 
         if not inputTileManager:
             # Default to a google maps basemap
-            inputTileManager = TileManager(DEFAULT_MAP_URL_PATTERN)
+            self.inputTileManager = TileManager(DEFAULT_MAP_URL_PATTERN)
+        else:
+            self.inputTileManager = inputTileManager
 
         # The array of overlays are displayed as last on top.
-        self.overlays = [MapViewOverlay(inputTileManager, None, 'Google Maps')]
+        self.overlays = [MapViewOverlay(self.inputTileManager, None, 'Google Maps')]
         #print 'Added base overlay!'
+
     
     def paintEvent(self, event):
         '''Rasterize each of the tiles on to the output image display'''
@@ -318,8 +326,8 @@ class MapViewWidget(QtGui.QWidget):
             #print 'Refreshing layer = ' + str(i)
             tile_list = overlay.tileManager.CalcTiles(self.level, self.GetViewport())
             for key in tile_list:
-                overlay.tileManager.getTile(key, functools.partial(
-                        self.AddTile, key=key, overlay=self.overlays[i], layer=i))
+                callback = functools.partial(self.AddTile, key=key, overlay=self.overlays[i], layer=i)
+                overlay.tileManager.getTile(key, callback)
 
     def Flush(self):
         """Empty out all the image fetching queues."""
@@ -339,14 +347,16 @@ class MapViewWidget(QtGui.QWidget):
         for layer in sorted(self.tiles[key]):
             image = self.tiles[key][layer]
             if not composite:
-                composite = image.copy()
+                composite = image.copy() # Create output image buffer
             else:
                 #composite = Image.blend(composite, image, self.overlays[layer].opacity)#composite.paste(image, (0, 0), image)
                 #if layer >= len(self.overlays):
                 #    print 'Error coming!'
                 #    print key
                 try:
-                    composite.paste(image, (0, 0), ImageChops.multiply(image.split()[3], ImageChops.constant(image, int(self.overlays[layer].opacity * 255))))
+                    composite.paste(image, (0, 0), 
+                                    ImageChops.multiply(image.split()[3], 
+                                                        ImageChops.constant(image, int(self.overlays[layer].opacity * 255))))
                 except: # TODO: Why do we get errors here after deleting overlays?
                     pass
                     #print 'CompositeTiles Exception caught!'
@@ -453,6 +463,7 @@ class MapViewWidget(QtGui.QWidget):
         cmt.util.miscUtilities.downloadEeImage(overlayToSave.eeobject, current_view_bbox, scale, file_path, overlayToSave.vis_params)
 
     def contextMenuEvent(self, event):
+    
         menu = QtGui.QMenu(self)
 
         TOP_BUTTON_HEIGHT  = 20
@@ -675,22 +686,23 @@ class TileManager(object):
 
     TILE_WIDTH  = 256
     TILE_HEIGHT = 256
-    MAX_CACHE   = 1000                    # The maximum number of tiles to cache.
-    _images   = {}                           # The tile cache, keyed by (url, level, x, y).
-    _lru_keys = []                       # Keys to the cached tiles, for cache ejection.
+    MAX_CACHE   = 1000   # The maximum number of tiles to cache.
+    _images   = {}       # The tile cache, keyed by (url, level, x, y).  Static class variable.
+    _lru_keys = []       # Keys to the cached tiles, for cache ejection.
 
     def __init__(self, url):
         """Initialize the TileManager."""
         self.url = url
-        workers = 10
+        NUM_WORKERS = 10
         self.delay = False
         # Google's map tile server thinks we are automating queries and blocks us, so we forcibly slow down
         if self.url == DEFAULT_MAP_URL_PATTERN:
-            workers = 1
+            print 'Throttling tile download'
+            NUM_WORKERS = 1
             self.delay = True
         # Make 10 workers, each an instance of the TileFetcher helper class.
         self.queue    = Queue.Queue()
-        self.fetchers = [TileManager.TileFetcher(self) for unused_x in range(workers)]
+        self.fetchers = [TileManager.TileFetcher(self) for unused_x in range(NUM_WORKERS)]
         self.constant = None
 
     def getTile(self, key, callback):       # pylint: disable=g-bad-name
@@ -708,9 +720,10 @@ class TileManager(object):
         """
         result = self.GetCachedTile(key)
         if result:
-            callback(result)
+            callback(result) # Already have the tile, execute callback
         else:
             # Interpolate what we have and put the key on the fetch queue.
+            # - The callback will get called once now and once when we get the tile
             self.queue.put((key, callback))
             self.Interpolate(key, callback)
 
@@ -758,28 +771,56 @@ class TileManager(object):
             px = (key[1] % 2 ** delta) * TileManager.TILE_WIDTH / 2 ** delta
             py = (key[2] % 2 ** delta) * TileManager.TILE_HEIGHT / 2 ** delta
             image = (result.crop([px, py,
-                                                        px + TileManager.TILE_WIDTH / 2 ** delta,
+                                                        px + TileManager.TILE_WIDTH  / 2 ** delta,
                                                         py + TileManager.TILE_HEIGHT / 2 ** delta])
                              .resize((TileManager.TILE_WIDTH, TileManager.TILE_HEIGHT)))
             callback(image)
 
     def PutCacheTile(self, key, image):
         """Insert a new tile in the cache and eject old ones if it's too big."""
-        cache_key = (self.url,) + key
-        TileManager._images[cache_key] = image
-        TileManager._lru_keys.append(cache_key)
+        cache_key = (self.url,) + key            # Generate key
+        TileManager._images[cache_key] = image   # Store image in cache
+        TileManager._lru_keys.append(cache_key)  # Record the key in insertion order
+        
+        # When the cache gets too big, clear the oldest tile.
         while len(TileManager._lru_keys) > TileManager.MAX_CACHE:
-            remove_key = TileManager._lru_keys.pop(0)
+            remove_key = TileManager._lru_keys.pop(0) # The first entry is the oldest
             try:
                 TileManager._images.pop(remove_key)
             except KeyError:
-                # Just in case someone removed this before we did.
+                # Just in case someone removed this before we did, don't die on cache clear!
                 pass
 
     def GetCachedTile(self, key):
         """Returns the specified tile if it's in the cache."""
         cache_key = (self.url,) + key
         return TileManager._images.get(cache_key, None)
+
+    def SaveCacheToDisk(self, path):
+        '''Record all tile cache information to a file on disk'''
+        def makePickleImage(image):
+            return {'pixels': image.tostring(),
+                        'size'  : image.size,
+                        'mode'  : image.mode}
+        pickle_images = [makePickleImage(TileManager._images[key]) for key in TileManager._lru_keys]
+        with open(path, 'wb') as f:
+            pickle.dump( (pickle_images, TileManager._lru_keys), f)
+        print 'Saved '+str(len(TileManager._lru_keys))+' tiles from cache to path: ' + path
+        
+    def LoadCacheFromDisk(self, path):
+        '''Read a cache file from disk'''
+        
+        def readPickleImage(pImage):
+          return Image.fromstring(pImage['mode'], pImage['size'], pImage['pixels'])
+        
+        # Load the pickle formatted data
+        with open(path, 'rb') as f:
+            (pickle_images, TileManager._lru_keys) = pickle.load(f)
+        # Unpack images one at a time
+        TileManager._images = {}
+        for (pImage, key) in zip(pickle_images, TileManager._lru_keys):
+           TileManager._images[key] = readPickleImage(pImage)
+        print 'Loaded '+str(len(TileManager._lru_keys))+' tiles to cache from path: ' + path
 
     class TileFetcher(threading.Thread):
         """A threaded URL fetcher used to retrieve tiles."""
@@ -792,11 +833,13 @@ class TileManager(object):
 
         def run(self):
             """Pull URLs off the TileManager's queue and call the callback when done."""
+           
             while True:
                 (key, callback) = self.manager.queue.get()
                 # Google tile manager thinks we are automating queries and blocks us, so slow down
                 if self.manager.delay and not self.manager.GetCachedTile(key):
-                    time.sleep(0.1 + (random.random() * 0.4))
+                    delayTime = 0.10 + (random.random() * 0.4)
+                    time.sleep(delayTime)
                 # Check one more time that we don't have this yet.
                 if not self.manager.GetCachedTile(key):
                     (level, x, y) = key
@@ -805,9 +848,12 @@ class TileManager(object):
                         try:
                             data = urllib2.urlopen(url).read()
                         except urllib2.HTTPError as e:
+                            print 'urllib2 error!'
+                            print url
                             print >> sys.stderr, e
                         else:
                             # PhotoImage can't handle alpha on LA images.
+                            # - The convert command forces the image to be loaded into memory.
                             image = Image.open(cStringIO.StringIO(data)).convert('RGBA')
                             callback(image)
                             self.manager.PutCacheTile(key, image)
@@ -860,28 +906,18 @@ class GenericMapGui(QtGui.QMainWindow):
     
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
-        self.mapWidget = MapViewWidget()
+        
+        self.tileManager = TileManager(DEFAULT_MAP_URL_PATTERN)
+        if os.path.exists(LOCAL_MAP_CACHE_PATH):
+            self.tileManager.LoadCacheFromDisk(LOCAL_MAP_CACHE_PATH)
+        #except:
+        #    print 'Unable to load cache information from ' + LOCAL_MAP_CACHE_PATH
+        
+        self.mapWidget = MapViewWidget(self.tileManager)
 
 
         # Set up all the components in a vertical layout
         vbox = QtGui.QVBoxLayout()
-        
-        ## Add a horizontal row of widgets at the top
-        #topHorizontalBox = QtGui.QHBoxLayout()
-        
-        #TOP_BUTTON_HEIGHT = 30
-        #TINY_BUTTON_WIDTH = 30
-        
-        ## Make a tiny "About" box for legal information
-        #self.aboutButton = QtGui.QPushButton('?', self)
-        #self.aboutButton.setMinimumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        #self.aboutButton.setMaximumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
-        #self.aboutButton.clicked[bool].connect(self.__showAboutText)
-        #topHorizontalBox.addStretch(1) # This pushes the button to the right side of the screen
-        #topHorizontalBox.addWidget(self.aboutButton)
-
-        ## Add the row of widgets on the top of the GUI
-        #vbox.addLayout(topHorizontalBox)
         
         # Add the main map widget
         vbox.addWidget(self.mapWidget)
@@ -896,14 +932,18 @@ class GenericMapGui(QtGui.QMainWindow):
         self.setWindowTitle('EE Map View')
         self.show()
 
+    def closeEvent(self,event):
+        '''Dump the cache to disk'''
+        #try:
+        print 'Attempting to save tile cache...'
+        self.tileManager.SaveCacheToDisk(LOCAL_MAP_CACHE_PATH)
+        #except:
+        #    print 'Unable to load cache information from ' + LOCAL_MAP_CACHE_PATH
+
     def keyPressEvent(self, event):
         """Handle keypress events."""
         if event.key() == QtCore.Qt.Key_Q:
             QtGui.QApplication.quit()
-
-    #def __showAboutText(self):
-    #    '''Pop up a little text box to display legal information'''
-    #    QtGui.QMessageBox.about(self, 'about', ABOUT_TEXT)
 
     def __getattr__(self, attr):
         '''Forward any unknown function call to MapViewWidget() widget we created'''

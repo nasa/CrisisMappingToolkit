@@ -42,7 +42,7 @@ except ImportError:
         """
     raise
 
-from cmt.mapclient_qt import MapViewWidget, ABOUT_TEXT
+from cmt.mapclient_qt import MapViewWidget, TileManager, ABOUT_TEXT, DEFAULT_MAP_URL_PATTERN, LOCAL_MAP_CACHE_PATH
 
 
 import cmt.modis.flood_algorithms
@@ -51,6 +51,45 @@ import cmt.modis.flood_algorithms
 LANDSAT_5 = 5
 LANDSAT_7 = 7
 LANDSAT_8 = 8
+
+
+
+#-----------------------------------------------------------------------------------------------
+# TODO: Move these functions
+
+
+def getDateFromSentinel1Info(info):
+    '''Finds the date in a Sentinel1 EE object'''
+    idString = info['id']
+    
+    # The string should look something like this:
+    # COPERNICUS/S1_GRD/S1A_IW_GRDH_1SDV_20151112T003149_20151112T003214_008564_00C241_135A
+    parts = idString.split('_')
+    dateString = parts[5]
+    #year  = int(dateString[0:4])
+    #month = int(dateString[4:6])
+    #day   = int(dateString[6:8])
+    #date  = ee.Date.fromYMD(year, month, day)
+    return dateString
+
+def getDateFromLandsatInfo(info):
+    '''Finds the date in a Landsat EE object'''
+    # Landsat images do not have consistent header information so try multiple names here.
+    if 'DATE_ACQUIRED' in info['properties']:
+        return info['properties']['DATE_ACQUIRED']
+    elif 'ACQUISITION_DATE' in info['properties']:
+        return info['properties']['ACQUISITION_DATE']
+    else:
+        return None
+
+# Currently these functions return non-standard strings
+def getDateFromImageInfo(info):
+    '''Get the date from an Earth Engine image object.'''
+    date = getDateFromLandsatInfo(info)
+    if not date:
+        date = getDateFromSentinel1Info(info)
+    return date
+
 
 #-----------------------------------------------------------------------------------------------
 
@@ -254,6 +293,8 @@ class ProductionGui(QtGui.QMainWindow):
         self.compositeModis = None # MODIS display image consisting of bands 1, 2, 6
         self.landsatPrior   = None # First Landsat image < date.
         self.landsatPost    = None # First Landsat image >= the date.
+        self.sentinel1Prior = None # First Sentinel1 image < date.
+        self.sentinel1Post  = None # First Sentinel1 image >= date.
         self.demImage       = None # DEM image
         self.permWaterMask  = None # The permanent water mask, never changes.
         self.guestImage     = None # A manually loaded image
@@ -261,9 +302,17 @@ class ProductionGui(QtGui.QMainWindow):
         self.landsatType    = None # One of the types at the top of the file
         self.classWindow    = None # Handle for class training window
         
-        # Now set up all the GUI stuff!
+        
+        # Init a tile manager and load it with cache from disk
+        self.tileManager = TileManager(DEFAULT_MAP_URL_PATTERN)
+        if os.path.exists(LOCAL_MAP_CACHE_PATH):
+            self.tileManager.LoadCacheFromDisk(LOCAL_MAP_CACHE_PATH)
+        #except:
+        #    print 'Unable to load cache information from ' + LOCAL_MAP_CACHE_PATH
+
+        # Now set up all the GUI stuff
         QtGui.QWidget.__init__(self, parent)
-        self.mapWidget  = MapViewWidget()
+        self.mapWidget = MapViewWidget(self.tileManager)
         
         # Set up all the components in a vertical layout
         vbox = QtGui.QVBoxLayout()
@@ -276,9 +325,9 @@ class ProductionGui(QtGui.QMainWindow):
         TOP_SMALL_BUTTON_WIDTH  = 100
         
         # Add a date selector to the top row of widgets
-        DEFAULT_START_DATE = ee.Date.fromYMD(2010, 8, 25)
+        DEFAULT_START_DATE = ee.Date.fromYMD(2015, 11, 15)
         self.floodDate = DEFAULT_START_DATE
-        dateString     = '2006/7/18' # TODO: Generate from the default start date
+        dateString     = '2015/11/15' # TODO: Generate from the default start date
         self.dateButton = QtGui.QPushButton(dateString, self)
         self.dateButton.setMinimumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         self.dateButton.setMaximumSize(TOP_SMALL_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
@@ -373,9 +422,16 @@ class ProductionGui(QtGui.QMainWindow):
         self.show()
 
     def closeEvent(self, event):
-        '''Cleanup all other windows'''
+        '''Cleanup all other windows and dump cache to disk'''
         if self.classWindow:
             self.classWindow.close()
+
+        #try:
+        print 'Attempting to save tile cache...'
+        self.tileManager.SaveCacheToDisk(LOCAL_MAP_CACHE_PATH)
+        #except:
+        #    print 'Unable to load cache information from ' + LOCAL_MAP_CACHE_PATH
+
 
     def _addParamSlider(self, name, maxVal, minVal, defaultVal, container):
         '''Adds a single parameter slider to the passed in container.'''
@@ -535,6 +591,9 @@ class ProductionGui(QtGui.QMainWindow):
             landsatVisParams = {'bands': ['B3', 'B2', 'B1'], 'min': 0, 'max': 0.7}
         else: # LANDSAT_8
             landsatVisParams = {'bands': ['B4', 'B3', 'B2'], 'min': 0, 'max': 0.8}
+            
+        sentinel1VisParams = {'bands': ['VV'], 'min': -30, 'max': 5}
+            
         MODIS_RANGE  = [0, 3000]
         DEM_RANGE    = [0, 1000]
         if self.landsatPrior:
@@ -545,6 +604,16 @@ class ProductionGui(QtGui.QMainWindow):
             self.mapWidget.addToMap(self.landsatPost, landsatVisParams, 'LANDSAT Post-Flood', True)
         else:
             print 'Failed to find post LANDSAT image!'
+            
+        if self.sentinel1Prior:
+            self.mapWidget.addToMap(self.sentinel1Prior, sentinel1VisParams, 'Sentinel-1 Pre-Flood', False)
+        else:
+            print 'Failed to find prior Sentinel-1 image!'
+        if self.sentinel1Post:
+            self.mapWidget.addToMap(self.sentinel1Post, sentinel1VisParams, 'Sentinel-1 Post-Flood', False)
+        else:
+            print 'Failed to find post Sentinel-1 image!'
+            
         if self.compositeModis:
             vis_params = {'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06'],
                           'min': MODIS_RANGE[0], 'max': MODIS_RANGE[1]}
@@ -591,21 +660,16 @@ class ProductionGui(QtGui.QMainWindow):
         return eeLandsatFunc
 
 
-    def _pickLandsatImage(self, eeImageCollection, bounds, chooseLast=False):
-        '''Picks the best image from an ImageCollection of Landsat images'''
-        # We require the LANDSAT image to contain the center of the analysis region,
+    def _pickImage(self, eeImageCollection, bounds, chooseLast=False):
+        '''Picks the first or last image from an ImageCollection of images'''
+        # We require the image to contain the center of the analysis region,
         #  otherwise we tend to get images with minimal overlap.
         geoLimited = eeImageCollection.filterBounds(bounds.centroid())
         
         dateList = []
         index    = 0
         for f in geoLimited.getInfo()['features']:
-            imageDate = None
-            # Landsat images do not have consistent header information so try multiple names here.
-            if 'DATE_ACQUIRED' in f['properties']:
-               imageDate = f['properties']['DATE_ACQUIRED']
-            elif 'ACQUISITION_DATE' in f['properties']:
-               imageDate = f['properties']['ACQUISITION_DATE']
+            imageDate = getDateFromImageInfo(f)
                
             if not imageDate: # Failed to extract the date!
                 print '===================================\n\n'
@@ -653,14 +717,21 @@ class ProductionGui(QtGui.QMainWindow):
         boundsInsideTheUS = miscUtilities.regionIsInUnitedStates(self.detectParams.statisticsRegion)
 
         # Set up the search range of dates for each image type
-        MODIS_SEARCH_RANGE_DAYS   = 1  # MODIS updates frequently so we can have a narrow range
-        LANDSAT_SEARCH_RANGE_DAYS = 30 # LANDSAT does not update often so we need a large search range
-        modisStartDate        = self.floodDate # Modis date range starts from the date
-        modisEndDate          = self.floodDate.advance(   MODIS_SEARCH_RANGE_DAYS,   'day')
-        landsatPriorStartDate = self.floodDate.advance(-1*LANDSAT_SEARCH_RANGE_DAYS, 'day') # Prior landsat stops before the date
-        landsatPriorEndDate   = self.floodDate.advance(-1,                           'day')
-        landsatPostStartDate  = self.floodDate # Post landsat starts at the date
-        landsatPostEndDate    = self.floodDate.advance(   LANDSAT_SEARCH_RANGE_DAYS, 'day')
+        MODIS_SEARCH_RANGE_DAYS     = 1  # MODIS updates frequently so we can have a narrow range
+        LANDSAT_SEARCH_RANGE_DAYS   = 30 # LANDSAT does not update often so we need a large search range
+        SENTINEL1_SEARCH_RANGE_DAYS = 20
+        modisStartDate          = self.floodDate # Modis date range starts from the date
+        modisEndDate            = self.floodDate.advance(   MODIS_SEARCH_RANGE_DAYS,   'day')
+        landsatPriorStartDate   = self.floodDate.advance(-1*LANDSAT_SEARCH_RANGE_DAYS, 'day') # Prior landsat stops before the date
+        landsatPriorEndDate     = self.floodDate.advance(-1,                           'day')
+        landsatPostStartDate    = self.floodDate # Post landsat starts at the date
+        landsatPostEndDate      = self.floodDate.advance(   LANDSAT_SEARCH_RANGE_DAYS, 'day')
+        
+        sentinel1PriorStartDate = self.floodDate.advance(-1*SENTINEL1_SEARCH_RANGE_DAYS, 'day')
+        sentinel1PriorEndDate   = self.floodDate.advance(-1,                             'day')
+        sentinel1PostStartDate  = self.floodDate
+        sentinel1PostEndDate    = self.floodDate.advance(   SENTINEL1_SEARCH_RANGE_DAYS, 'day')
+        
         
         # Load the two LANDSAT images
         self.landsatType = self._pickLandsatSat(self.floodDate)
@@ -676,9 +747,9 @@ class ProductionGui(QtGui.QMainWindow):
         priorLandsatCollection = ee.ImageCollection(landsatCode).filterDate(landsatPriorStartDate, landsatPriorEndDate)
         postLandsatCollection  = ee.ImageCollection(landsatCode).filterDate(landsatPostStartDate,  landsatPostEndDate)
 
-        self.landsatPrior, priorLsDate = self._pickLandsatImage(priorLandsatCollection, bounds, chooseLast=True)
-        self.landsatPost,  postLsDate  = self._pickLandsatImage(postLandsatCollection,  bounds)
-        
+        self.landsatPrior, priorLsDate = self._pickImage(priorLandsatCollection, bounds, chooseLast=True)
+        self.landsatPost,  postLsDate  = self._pickImage(postLandsatCollection,  bounds)
+       
         if priorLsDate:
             print 'Selected prior landsat date: ' + str(priorLsDate)
         if postLsDate:
@@ -687,6 +758,25 @@ class ProductionGui(QtGui.QMainWindow):
         # Select the bands to view
         self.landsatPrior = self._selectLandsatBands(self.landsatPrior)
         self.landsatPost  = self._selectLandsatBands(self.landsatPost)
+
+        # Select the Sentinel1 images
+        # - TODO: Probably need to do some filtering here  
+        sentinel1Code = 'COPERNICUS/S1_GRD'
+        priorSentinel1Collection = ee.ImageCollection(sentinel1Code).filterDate(sentinel1PriorStartDate, landsatPriorEndDate)
+        postSentinel1Collection  = ee.ImageCollection(sentinel1Code).filterDate(sentinel1PostStartDate,  landsatPostEndDate)
+        
+        self.sentinel1Prior, priorS1Date = self._pickImage(priorSentinel1Collection, bounds, chooseLast=True)
+        self.sentinel1Post,  postS1Date  = self._pickImage(postSentinel1Collection,  bounds)
+
+        print '\n\nPRIOR----------------------'
+        print self.sentinel1Prior.getInfo()
+        print '\n\nPOST----------------------'
+        print self.sentinel1Post.getInfo()
+
+        if priorS1Date:
+            print 'Selected prior Sentinel-1 date: ' + str(priorS1Date)
+        if postS1Date:
+            print 'Selected post  Sentinel-1 date: ' + str(postS1Date)
         
         # Load the two MODIS images and create a composite
         self.highResModis   = ee.ImageCollection('MOD09GQ').filterBounds(bounds).filterDate(modisStartDate, modisEndDate).limit(1).mean();
