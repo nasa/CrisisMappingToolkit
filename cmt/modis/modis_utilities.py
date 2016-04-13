@@ -94,7 +94,7 @@ def getCloudPercentage(lowResModis, region):
     areaCount  = oneMask.reduceRegion(  ee.Reducer.sum(), region, MODIS_CLOUD_RESOLUTION)
     cloudCount = cloudMask.reduceRegion(ee.Reducer.sum(), region, MODIS_CLOUD_RESOLUTION)
     percentage = safe_get_info(cloudCount)['cloud_state'] / safe_get_info(areaCount)['constant']
-    print 'Detected cloud percentage: ' + str(percentage)
+
     return percentage
 
 def get_permanent_water_mask():

@@ -47,22 +47,28 @@ ee.Initialize()
 
 cloudThresh = 0.35
 
+# Shorthand name to associated EE collection name
 collection_dict = {'L8': 'LANDSAT/LC8_L1T_TOA',
                    'L7': 'LANDSAT/LE7_L1T_TOA',
                    'L5': 'LANDSAT/LT5_L1T_TOA'
                    }
 
+
+# The list of bands we are interested in
+bandNames = ee.List(['blue', 'green', 'red', 'nir', 'swir1', 'temp', 'swir2'])
+
+# The indices where these bands are found in the Landsat satellites
 sensor_band_dict = ee.Dictionary({'L8': ee.List([1, 2, 3, 4, 5, 9, 6]),
                                   'L7': ee.List([0, 1, 2, 3, 4, 5, 7]),
                                   'L5': ee.List([0, 1, 2, 3, 4, 5, 6]),
                                   })
 
-spacecraft_dict = {'Landsat5': 'L5', 'Landsat7': 'L7', 'LANDSAT_8': 'L8'}
+spacecraft_dict    = {'Landsat5': 'L5', 'Landsat7': 'L7', 'LANDSAT_8': 'L8'}
 spacecraft_strdict = {'Landsat5': 'Landsat 5', 'Landsat7': 'Landsat 7', 'LANDSAT_8': 'Landsat 8'}
 
-bandNames = ee.List(['blue', 'green', 'red', 'nir', 'swir1', 'temp', 'swir2'])
-bandNumbers = [0, 1, 2, 3, 4, 5, 6]
 possibleSensors = ee.List(['L5', 'L7', 'L8'])
+
+#bandNumbers = [0, 1, 2, 3, 4, 5, 6]
 
 def getCollection(sensor, bounds, startDate, endDate):
     global collection_dict, sensor_band_dict, bandNames
@@ -71,9 +77,10 @@ def getCollection(sensor, bounds, startDate, endDate):
     # Start with an un-date-confined collection of images
     WOD = ee.ImageCollection(collectionName).filterBounds(ee_bounds)
     # Filter by the dates
-    ls = WOD.filterDate(startDate,endDate)
-    ls = ls.select(sensor_band_dict.get(sensor),bandNames)
-    return ls
+    landsat_set = WOD.filterDate(startDate,endDate)
+    # Select and rename the bands
+    landsat_set = landsat_set.select(sensor_band_dict.get(sensor),bandNames)
+    return landsat_set
 
 def get_image_collection(bounds, start_date, end_date):
     '''Retrieve Landsat 5 imagery for the selected location and dates'''
@@ -116,7 +123,7 @@ def detect_clouds(img):
 
 
 def detect_water(image):
-    global collection_dict, sensor_band_dict, spacecraft_dict
+    global collection_dict, sensor_band_dict#, spacecraft_dict
     shadowSumBands = ee.List(['nir','swir1','swir2'])# Bands for shadow masking
     # Compute several indicators of water and take the minimum of them.
     score = ee.Image(1.0)

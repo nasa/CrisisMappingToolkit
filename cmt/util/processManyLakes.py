@@ -40,75 +40,6 @@ import functools
 import traceback
 import ee
 
-
-#---------------------------------------------------------------------------
-
-
-
-
-def get_image_collection_landsat5(bounds, start_date, end_date):
-    '''Retrieve Landsat 5 imagery for the selected location and dates.'''
-
-    ee_bounds  = bounds
-    ee_points  = ee.List(bounds.bounds().coordinates().get(0))
-    points     = ee_points.getInfo()
-    points     = map(functools.partial(apply, ee.Geometry.Point), points)
-    collection = ee.ImageCollection('LT5_L1T').filterDate(start_date, end_date).filterBounds(points[0]).filterBounds(points[1]).filterBounds(points[2]).filterBounds(points[3])
-    return collection
-
-
-def get_image_collection_modis(region, start_date, end_date):
-    '''Retrieve MODIS imagery for the selected location and dates.'''
-
-    print 'Fetching MODIS data...'
-
-    ee_points    = ee.List(region.bounds().coordinates().get(0))
-    points       = ee_points.getInfo()
-    points       = map(functools.partial(apply, ee.Geometry.Point), points)
-    highResModis = ee.ImageCollection('MOD09GQ').filterDate(start_date, end_date).filterBounds(points[0]).filterBounds(points[1]).filterBounds(points[2]).filterBounds(points[3])
-    lowResModis  = ee.ImageCollection('MOD09GA').filterDate(start_date, end_date).filterBounds(points[0]).filterBounds(points[1]).filterBounds(points[2]).filterBounds(points[3])
-    
-    #print highResModis.getInfo()
-    #print '================================='
-    #print lowResModis.getInfo()['bands']
-    #print lowResModis.select('sur_refl_b03').getInfo()
-    #print lowResModis.select('sur_refl_b06').getInfo()
-    #collection   = highResModis.addBands(lowResModis.select('sur_refl_b03'))#.addBands(lowResModis.select('sur_refl_b06'))
-
-    # This set of code is needed to merge the low and high res MODIS bands
-    def merge_bands(element):
-        # A function to merge the bands together.
-        # After a join, results are in 'primary' and 'secondary' properties.       
-        return ee.Image.cat(element.get('primary'), element.get('secondary'))
-    join          = ee.Join.inner()
-    f             = ee.Filter.equals('system:time_start', None, 'system:time_start')
-    modisJoined   = ee.ImageCollection(join.apply(lowResModis, highResModis, f));
-    roughJoined   = modisJoined.map(merge_bands);
-    # Clean up the joined band names
-    band_names_in = ['num_observations_1km','state_1km','SensorZenith','SensorAzimuth','Range','SolarZenith','SolarAzimuth','gflags','orbit_pnt',
-                     'num_observations_500m','sur_refl_b03','sur_refl_b04','sur_refl_b05','sur_refl_b06','sur_refl_b07',
-                     'QC_500m','obscov_500m','iobs_res','q_scan','num_observations', 'sur_refl_b01_1','sur_refl_b02_1','QC_250m','obscov']
-    band_names_out = ['num_observations_1km','state_1km','SensorZenith','SensorAzimuth','Range','SolarZenith','SolarAzimuth','gflags','orbit_pnt',
-                      'num_observations_500m','sur_refl_b03','sur_refl_b04','sur_refl_b05','sur_refl_b06','sur_refl_b07',
-                      'QC_500m','obscov_500m','iobs_res','q_scan','num_observations_250m', 'sur_refl_b01','sur_refl_b02','QC_250m','obscov']
-    collection    = roughJoined.select(band_names_in, band_names_out)
-    return collection
-
-
-def get_image_date(image_info):
-    '''Extract the (text format) date from EE image.getInfo() - look for it in several locations'''
-    
-    if 'DATE_ACQUIRED' in image_info['properties']: # Landsat 5
-        this_date = image_info['properties']['DATE_ACQUIRED']
-    else:
-        # MODIS: The date is stored in the 'id' field in this format: 'MOD09GA/MOD09GA_005_2004_08_15'
-        text       = image_info['id']
-        dateStart1 = text.rfind('MOD09GA_') + len('MOD09GA_')
-        dateStart2 = text.find('_', dateStart1) + 1
-        this_date  = text[dateStart2:].replace('_', '-')
-
-    return this_date
-
 #---------------------------------------------------------------------------
 
 class LakeDataLoggerBase(object):
@@ -226,7 +157,7 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
         logger = logging_class(output_directory, ee_lake, name)
         
         
-        # Fetch all the landsat 5 imagery covering the lake on the date range
+        # Fetch all the imagery covering the lake on the date range
         collection    = image_fetching_function(ee_bounds, start_date, end_date)
         ee_image_list = collection.toList(1000000)
         

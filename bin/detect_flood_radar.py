@@ -73,7 +73,8 @@ if len(sys.argv) < 2:
 cmt.ee_authenticate.initialize()
 
 # Fetch data set information
-domain = cmt.domain.Domain(sys.argv[1])
+domain = cmt.domain.Domain()
+domain.load_xml(sys.argv[1])
 
 # Display radar and ground truth
 cmt.util.gui_util.visualizeDomain(domain)

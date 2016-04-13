@@ -80,7 +80,8 @@ cmt.ee_authenticate.initialize()
 
 
 # Fetch data set information
-domain = cmt.domain.Domain(sys.argv[1])
+domain = cmt.domain.Domain()
+domain.load_xml(sys.argv[1])
 
 # Display the Landsat and MODIS data for the data set
 cmt.util.gui_util.visualizeDomain(domain)

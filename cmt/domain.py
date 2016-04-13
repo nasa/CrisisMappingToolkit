@@ -35,15 +35,9 @@ SENSOR_SOURCE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
 class SensorObservation(object):
     '''A class for accessing a sensor's observation at one time.'''
 
-    def __init__(self, xml_source=None, ee_bounds=None, is_domain_file=False, manual_ee_ID=None):
-        '''Initialize the object from XML data and the desired bounding box'''
-               
-        # xml_source can be a path to an xml file or a parsed xml object
-        try:
-            xml_root = ET.parse(xml_source).getroot()
-        except:
-            xml_root = xml_source
-               
+    def __init__(self):
+        '''Create an empty object'''
+
         # Public class members
         self.sensor_name   = 'Unnamed' # Name of the sensor!
         self.image         = None      # EE image object containing the selected sensor bands
@@ -64,11 +58,45 @@ class SensorObservation(object):
         self._band_sources  = dict() # Where to get each band from
 
 
+    def init_from_xml(self, xml_source=None, ee_bounds=None, is_domain_file=False, manual_ee_ID=None):
+        '''Initialize the object from XML data and the desired bounding box'''
+               
+        # xml_source can be a path to an xml file or a parsed xml object
+        try:
+            xml_root = ET.parse(xml_source).getroot()
+        except:
+            xml_root = xml_source
+
         # Parse the xml file to fill in the class variables
         self._load_xml(xml_root, is_domain_file, manual_ee_ID)
         
         # Set up the EE image object using the band information
         self._load_image(ee_bounds)
+
+    def init_from_image(self, ee_image, sensor_name):
+        '''Init from an already loaded Earth Engine Image'''
+        self.sensor_name = sensor_name
+        self.image       = ee_image
+        
+        # Fetch info from the sensor definition file
+        self._load_sensor_xml_file(sensor_name)
+        
+        # Compare list of bands in ee_image with bands loaded from the definition file
+        bands_in_image = self.image.bandNames().getInfo()
+        #source_bands   = [self._band_sources[x]['source'] for x in self.band_names]
+        shared_bands   = list(set(bands_in_image) & set(self.band_names))
+        
+        if not shared_bands:
+            print self._band_sources
+            raise Exception('For sensor '+sensor_name+' expected bands: '
+                            +str(self.band_names)+' but found '+str(bands_in_image))
+                            
+        # Set up band access in manner of self.red_channel.
+        # - Also prune sensor bands that were not included in the provided image.
+        for band_name in shared_bands:
+            self.__dict__[band_name] = self.image.select(band_name)
+        self.band_names = shared_bands
+        
 
     def __str__(self):
         s  = 'SensorObservation: ' + self.sensor_name + '\n'
@@ -79,10 +107,6 @@ class SensorObservation(object):
 
     def __repr__(self):
         return self.sensor_name
-
-    def _init_from_dict(manual_init_dict):
-        '''Initialize from a passed in dictionary instead of an XML file'''
-        pass
 
     def get_date(self):
         '''Returns the start date for the image if one was provided, None otherwise.'''
@@ -283,15 +307,14 @@ class SensorObservation(object):
                 # Make a single image from an Earth Engine image collection with date boundaries
                 
                 if source['collection'] == 'COPERNICUS/S1_GRD':
-                    print 'SENT 1 BRANCH'
+                    print 'SENTINEL 1 BRANCH'
                     # Special handling for Sentinel1 
-                    im = ee.ImageCollection(source['collection']).filterBounds(eeBounds) \
-                            .filterDate(source['start_date'], source['end_date']) \
-                            .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV')) \
-                            .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH')) \
-                            .filter(ee.Filter.eq('resolution_meters', 10.0)) \
-                            .filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING')).mean()
-                            #.first()
+                    collection = ee.ImageCollection(source['collection']).filterBounds(eeBounds) \
+                                  .filterDate(source['start_date'], source['end_date']) \
+                                  .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV')) \
+                                  .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH')) \
+                                  .filter(ee.Filter.eq('resolution_meters', 10.0)) \
+                                  .filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING'))
                             
                     
                     # TODO: Try decreasing resolution until we find images or a coverage percentage?
@@ -301,7 +324,13 @@ class SensorObservation(object):
                     self.band_resolutions[thisBandName] = foundResolution
                     
                 else:
-                    im = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date']).mean()
+                    collection = ee.ImageCollection(source['collection']).filterBounds(eeBounds).filterDate(source['start_date'], source['end_date'])
+                
+                numFound = collection.size().getInfo()
+                if numFound == 0:
+                    raise Exception('Did not find any images for collection ' + source['collection'])
+                # Take the average across all images that we found.
+                im = collection.mean()
                 
                 # TODO: Add special case for Sentinel1 to filter on available bands?
                 #     : Add something to specifiy ascending/descending?
@@ -438,10 +467,8 @@ class SensorObservation(object):
         else: # Automatically decide the display bands
             
             if len(band_names) == 2:  # If two bands, add a constant zero band to fake a "B" channel
-                image = self.image.addBands( 
-                    self.image.select(band_names[0]).subtract(self.image.select(band_names[1])))
-                print image.getInfo()
-                band_names = band_names + ['vv_1']
+                image = self.image.addBands(ee.Image(0))
+                band_names = band_names + ['constant']
             if (len(band_names) > 3): # If more than three bands, just use the first three.
                 image      = self.image.select(band_names[0]).addBands(self.image.select(band_names[1])).addBands(self.image.select(band_names[2]))
                 band_names = self.band_names[0:2]
@@ -469,7 +496,7 @@ class Domain(object):
     '''A class representing a problem domain. Loads sensor and location
         information from an xml file. Default information may be specified in a
         file specific to a sensor type, which can be overridden.'''
-    def __init__(self, xml_file, is_training=False):
+    def __init__(self):
         
         self.name              = 'Unnamed' # The name assigned to the domain.
         self.bbox              = None      # Bounding box of the domain.
@@ -482,11 +509,9 @@ class Domain(object):
         self.algorithm_params  = {}        # Dictionary of algorithm parameters
         self.sensor_list       = []        # Contains a SensorObservation object for each related sensor.
         
-
         # You can also access each sensor as a member variable, e.g. self.uavsar
         #   gives access to the sensor named 'uavsar'
 
-        self._load_xml(xml_file, is_training) # Call function to initialize from the XML file
 
     def __str__(self):
         '''Generate a string overview of the domain'''
@@ -527,6 +552,108 @@ class Domain(object):
             if s.sensor_name.lower() in landsat_list:
                 return s
         raise LookupError('Unable to find a landsat image in domain!')
+
+
+    def load_sensor_observations(self, name, bbox, sensor_observation_list):
+        '''Manual init with input sensor observations'''
+        self.name        = name
+        self.sensor_list =  sensor_observation_list
+        self.bbox        = bbox
+        self.bounds      = ee.Geometry.Rectangle(bbox)
+        self.center      = ((self.bbox[0] + self.bbox[2]) / 2, (self.bbox[1] + self.bbox[3]) / 2)
+
+        # Add access in the format domain.modis
+        for sensor in sensor_observation_list:
+            safe_name = sensor.sensor_name.replace('-','')
+            self.__dict__[safe_name] = sensor
+
+
+    def load_xml(self, xml_file, is_training=False):
+        '''Load an xml file representing a domain or a sensor'''
+        #print 'Reading file: ' + xml_file
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+
+        if root.tag != "domain":
+            raise Exception("Domain XML file required!")
+
+        # get name of domain
+        try:
+            self.name = root.find('name').text
+        except:
+            raise Exception('Domain has no name.')
+
+        # Load the bounding box that contains the domain
+        self.bbox   = self._load_bbox(root.find('bbox'))
+        self.bounds = apply(ee.geometry.Geometry.Rectangle, self.bbox)
+        self.center = ((self.bbox[0] + self.bbox[2]) / 2, (self.bbox[1] + self.bbox[3]) / 2)
+        
+        sensor_domain_folder = os.path.dirname(xml_file) # Look in the same directory as the primary xml file
+        
+        if not is_training:
+            # Try to load the training domain
+            training_domain = root.find('training_domain')
+            if training_domain != None:
+                training_file_xml_path = os.path.join(sensor_domain_folder, training_domain.text + '.xml')
+                if not os.path.exists(training_file_xml_path):
+                    raise Exception('Training file not found: ' + training_file_xml_path)
+                self.training_domain = Domain()
+                self.training_domain.load_xml(training_file_xml_path, True)
+            
+            unflooded_training_domain = root.find('unflooded_training_domain')
+            if unflooded_training_domain != None:
+                training_file_xml_path = os.path.join(sensor_domain_folder, unflooded_training_domain.text + '.xml')
+                if not os.path.exists(training_file_xml_path):
+                    raise Exception('Training file not found: ' + training_file_xml_path)
+                self.unflooded_domain = Domain()
+                self.unflooded_domain.load_xml(training_file_xml_path, True)
+                
+            # Load any algorithm params
+            algorithm_params = root.find('algorithm_params')
+            if algorithm_params != None:
+                for child in algorithm_params:
+                    self.algorithm_params[child.tag] = child.text
+                    
+        else: # Load certain things only in a training domain
+            
+            # Try to load a training feature JSON file    
+            json_file_name = root.find('training_json')
+            if json_file_name != None:
+                self._load_training_json(sensor_domain_folder, json_file_name)
+        
+        
+        # Make sure the <sensors> tag is present
+        sensors = root.find('sensors')
+        if sensors == None:
+            raise Exception('Must have at least one sensor for the domain!')
+        
+        # Load each <sensor> tag seperately
+        for sensor_node in sensors.findall('sensor'):
+            try:
+                # Send the sensor node of the domain file for parsing
+                newSensor = SensorObservation()
+                newSensor.init_from_xml(xml_source=sensor_node, ee_bounds=self.bounds, is_domain_file=True) 
+                self.sensor_list.append(newSensor)   # Store the new sensor object
+                
+                # Set sensor as member variable, e.g., self.__dict__['uavsar'] is equivalent to self.uavsar
+                self.__dict__[newSensor.sensor_name] = newSensor
+            except:
+                print '###############################################'
+                print 'Caught exception loading sensor:'
+                print traceback.format_exc()
+                print '###############################################'
+                
+
+        # Load a ground truth image if one was specified
+        # - These are always binary and are either loaded from an asset ID in Maps Engine
+        #   or use the modis permament water mask.
+        truth_section = root.find('truth')
+        if truth_section != None:
+            if (truth_section.text.lower() == 'permanent_water_mask'):
+                self.ground_truth = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1']).clamp(0, 1)
+            else:
+                self.ground_truth = ee.Image(truth_section.text).select(['b1']).clamp(0, 1)
+
 
     def _load_bbox(self, root):
         '''read a bbox, <bbox>'''
@@ -569,89 +696,4 @@ class Domain(object):
             feature_list.append(this_feature)
         
         self.training_features = ee.FeatureCollection(feature_list)
-
-    def _load_xml(self, xml_file, is_training=False):
-        '''load an xml file representing a domain or a sensor'''
-        #print 'Reading file: ' + xml_file
-        tree = ET.parse(xml_file)
-        root = tree.getroot()
-
-        if root.tag != "domain":
-            raise Exception("Domain XML file required!")
-
-        # get name of domain
-        try:
-            self.name = root.find('name').text
-        except:
-            raise Exception('Domain has no name.')
-
-        # Load the bounding box that contains the domain
-        self.bbox   = self._load_bbox(root.find('bbox'))
-        self.bounds = apply(ee.geometry.Geometry.Rectangle, self.bbox)
-        self.center = ((self.bbox[0] + self.bbox[2]) / 2, (self.bbox[1] + self.bbox[3]) / 2)
-        
-        sensor_domain_folder = os.path.dirname(xml_file) # Look in the same directory as the primary xml file
-        
-        if not is_training:
-            # Try to load the training domain
-            training_domain = root.find('training_domain')
-            if training_domain != None:
-                training_file_xml_path = os.path.join(sensor_domain_folder, training_domain.text + '.xml')
-                if not os.path.exists(training_file_xml_path):
-                    raise Exception('Training file not found: ' + training_file_xml_path)
-                self.training_domain = Domain(training_file_xml_path, True)
-            
-            unflooded_training_domain = root.find('unflooded_training_domain')
-            if unflooded_training_domain != None:
-                training_file_xml_path = os.path.join(sensor_domain_folder, unflooded_training_domain.text + '.xml')
-                if not os.path.exists(training_file_xml_path):
-                    raise Exception('Training file not found: ' + training_file_xml_path)
-                self.unflooded_domain = Domain(training_file_xml_path, True)
-                
-            # Load any algorithm params
-            algorithm_params = root.find('algorithm_params')
-            if algorithm_params != None:
-                for child in algorithm_params:
-                    self.algorithm_params[child.tag] = child.text
-                    
-        else: # Load certain things only in a training domain
-            
-            # Try to load a training feature JSON file    
-            json_file_name = root.find('training_json')
-            if json_file_name != None:
-                self._load_training_json(sensor_domain_folder, json_file_name)
-        
-        
-        # Make sure the <sensors> tag is present
-        sensors = root.find('sensors')
-        if sensors == None:
-            raise Exception('Must have at least one sensor for the domain!')
-        
-        # Load each <sensor> tag seperately
-        for sensor_node in sensors.findall('sensor'):
-            try:
-                # Send the sensor node of the domain file for parsing
-                newSensor = SensorObservation(xml_source=sensor_node, ee_bounds=self.bounds,
-                                              is_domain_file=True) 
-                self.sensor_list.append(newSensor)   # Store the new sensor object
-                
-                # Set sensor as member variable, e.g., self.__dict__['uavsar'] is equivalent to self.uavsar
-                self.__dict__[newSensor.sensor_name] = newSensor
-            except:
-                print '###############################################'
-                print 'Caught exception loading sensor:'
-                print traceback.format_exc()
-                print '###############################################'
-                
-
-        # Load a ground truth image if one was specified
-        # - These are always binary and are either loaded from an asset ID in Maps Engine
-        #   or use the modis permament water mask.
-        truth_section = root.find('truth')
-        if truth_section != None:
-            if (truth_section.text.lower() == 'permanent_water_mask'):
-                self.ground_truth = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1']).clamp(0, 1)
-            else:
-                self.ground_truth = ee.Image(truth_section.text).select(['b1']).clamp(0, 1)
-
 

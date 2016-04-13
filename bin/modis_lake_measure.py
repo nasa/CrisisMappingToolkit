@@ -45,6 +45,7 @@ import cmt.modis.flood_algorithms
 import cmt.util.evaluation
 import cmt.util.miscUtilities
 from   cmt.util.processManyLakes import LakeDataLoggerBase
+import cmt.util.imageRetrievalFunctions
 
 
 
@@ -309,24 +310,9 @@ def processing_function(bounds, image, image_date, logger):
     # - We change the band name to make this work with the evaluation function call further down
     waterMask = ee.Image("MODIS/MOD44W/MOD44W_005_2000_02_24").select(['water_mask'], ['b1'])
 
-    # Pick a training image.  We just use the same lake one year in the past.
-    trainingStart = eeDate.advance(-1.0, 'year')
-    trainingEnd = eeDate.advance(10.0, 'day')
-    # Fetch a MODIS image for training
-    print 'Retrieving training data...'
-    modisTrainingCollection = cmt.util.processManyLakes.get_image_collection_modis(bounds, trainingStart, trainingEnd)
-    modisTrainingList  = modisTrainingCollection.toList(100)
-    modisTrainingInfo = modisTrainingList.getInfo()
-    # Find the first image with a low cloud percentage
-    trainingImage = None
-    for i in range(len(modisTrainingInfo)):
-        thisImage  = ee.Image(modisTrainingList.get(i))
-        cloudPercentage = cmt.modis.modis_utilities.getCloudPercentage(thisImage, rectBounds)
-        if cloudPercentage < MAX_CLOUD_PERCENTAGE:
-            trainingImage = thisImage
-            break
-    if not trainingImage:
-        raise Exception('Could not find a training image for date ' + str(image_date))
+    # Pick a training image without clouds.  We just use the same lake one year in the past.
+    dateOneYearPrior = eeDate.advance(-1.0, 'year')
+    trainingImage    = imageRetrievalFunctions.getCloudFreeModis(dateOneYearPrior, MAX_CLOUD_PERCENTAGE)
 
     # Generate a pair of train/test domain files for this lake
     training_date = cmt.util.processManyLakes.get_image_date(trainingImage.getInfo())
@@ -506,7 +492,8 @@ def main():
     try:
         pos = sys.argv.index('--compile-logs')
     except: # Otherwise call the main argument handling function from the supporting file
-        return cmt.util.processManyLakes.main(processing_function, LoggingClass, cmt.util.processManyLakes.get_image_collection_modis)
+        return cmt.util.processManyLakes.main(processing_function, LoggingClass,
+                                              cmt.util.processManyLakes.get_image_collection_modis)
 
     # Compile flag found, just compile the logs.
     try:

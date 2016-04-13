@@ -32,6 +32,10 @@ import cmt.domain
 import miscUtilities
 import cmt.modis.modis_utilities
 
+
+import landsat_functions
+
+
 try:
     import PyQt4                         # pylint: disable=g-import-not-at-top
     from PyQt4 import QtCore, QtGui
@@ -58,37 +62,6 @@ LANDSAT_8 = 8
 # TODO: Move these functions
 
 
-def getDateFromSentinel1Info(info):
-    '''Finds the date in a Sentinel1 EE object'''
-    idString = info['id']
-    
-    # The string should look something like this:
-    # COPERNICUS/S1_GRD/S1A_IW_GRDH_1SDV_20151112T003149_20151112T003214_008564_00C241_135A
-    parts = idString.split('_')
-    dateString = parts[5]
-    #year  = int(dateString[0:4])
-    #month = int(dateString[4:6])
-    #day   = int(dateString[6:8])
-    #date  = ee.Date.fromYMD(year, month, day)
-    return dateString
-
-def getDateFromLandsatInfo(info):
-    '''Finds the date in a Landsat EE object'''
-    # Landsat images do not have consistent header information so try multiple names here.
-    if 'DATE_ACQUIRED' in info['properties']:
-        return info['properties']['DATE_ACQUIRED']
-    elif 'ACQUISITION_DATE' in info['properties']:
-        return info['properties']['ACQUISITION_DATE']
-    else:
-        return None
-
-# Currently these functions return non-standard strings
-def getDateFromImageInfo(info):
-    '''Get the date from an Earth Engine image object.'''
-    date = getDateFromLandsatInfo(info)
-    if not date:
-        date = getDateFromSentinel1Info(info)
-    return date
 
 
 #-----------------------------------------------------------------------------------------------
@@ -669,7 +642,7 @@ class ProductionGui(QtGui.QMainWindow):
         dateList = []
         index    = 0
         for f in geoLimited.getInfo()['features']:
-            imageDate = getDateFromImageInfo(f)
+            imageDate = miscUtilities.getDateFromImageInfo(f)
                
             if not imageDate: # Failed to extract the date!
                 print '===================================\n\n'
@@ -754,6 +727,12 @@ class ProductionGui(QtGui.QMainWindow):
             print 'Selected prior landsat date: ' + str(priorLsDate)
         if postLsDate:
             print 'Selected post  landsat date: ' + str(postLsDate)
+       
+       
+        temp = landsat_functions.getCloudPercentage(self.landsatPrior, self.detectParams.statisticsRegion)
+        print 'Prior landsat cloud percentage = ' + str(temp)
+        temp = landsat_functions.getCloudPercentage(self.landsatPost, self.detectParams.statisticsRegion)
+        print 'Post landsat cloud percentage = ' + str(temp)       
         
         # Select the bands to view
         self.landsatPrior = self._selectLandsatBands(self.landsatPrior)

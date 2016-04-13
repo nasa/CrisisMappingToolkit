@@ -30,6 +30,33 @@ SENSOR_FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../
 
 TEMP_FILE_DIR = tempfile.gettempdir()
 
+
+# This is an approximate function
+def getExpandingIndices(length, minIndex=0):
+    '''Gets a list of indices starting from the middle and expanding outwards
+       evenly in both directions.'''
+    
+    maxIndex = length-1
+    if (maxIndex < 0):
+        return []
+    
+    center = (minIndex + maxIndex) / 2
+    offset = 1
+    output = [center]
+    while True:
+    
+        if len(output)==length:
+            return output
+    
+        thisIndex = center + offset
+        output.append(thisIndex)
+        
+        if offset > 0:
+          offset = -offset
+        else:
+          offset = -offset + 1
+        
+
 def safe_get_info(ee_object, max_num_attempts=5):
     '''Keep trying to call getInfo() on an Earth Engine object until it succeeds.'''
     num_attempts = 0
@@ -80,8 +107,53 @@ def getDefinedSensorNames():
         '''Returns the list of known sensor types'''
         # Get a list of xml files from the sensor files directory
         return [f[:-4] for f in os.listdir(SENSOR_FILE_DIR) if f.endswith('.xml')]
+
+
+def getDateFromSentinel1Info(info):
+    '''Finds the date in a Sentinel1 EE object'''
+    idString = info['id']
     
+    # The string should look something like this:
+    # COPERNICUS/S1_GRD/S1A_IW_GRDH_1SDV_20151112T003149_20151112T003214_008564_00C241_135A
+    parts = idString.split('_')
+    dateString = parts[5]
+    #year  = int(dateString[0:4])
+    #month = int(dateString[4:6])
+    #day   = int(dateString[6:8])
+    #date  = ee.Date.fromYMD(year, month, day)
+    return dateString
+
+def getDateFromLandsatInfo(info):
+    '''Finds the date in a Landsat EE object'''
+    # Landsat images do not have consistent header information so try multiple names here.
+    if 'DATE_ACQUIRED' in info['properties']:
+        return info['properties']['DATE_ACQUIRED']
+    elif 'ACQUISITION_DATE' in info['properties']:
+        return info['properties']['ACQUISITION_DATE']
+    else:
+        return None
+
+def getDateFromModis(info):
+    '''Finds the date in a MODIS EE object'''
     
+    # MODIS: The date is stored in the 'id' field in this format: 'MOD09GA/MOD09GA_005_2004_08_15'
+    text       = info['id']
+    dateStart1 = text.rfind('MOD09GA_') + len('MOD09GA_')
+    dateStart2 = text.find('_', dateStart1) + 1
+    this_date  = text[dateStart2:].replace('_', '-')
+
+
+# Currently these functions return non-standard strings
+def getDateFromImageInfo(info):
+    '''Get the date from an Earth Engine image object.'''
+    date = getDateFromLandsatInfo(info)
+    if not date:
+        date = getDateFromSentinel1Info(info)
+    if not date:
+        date = getDateFromModisInfo(info)
+    return date
+
+
 def unComputeRectangle(eeRect):
     '''"Decomputes" an ee Rectangle object so more functions will work on it'''
     # This function is to work around some dumb EE behavior
@@ -98,11 +170,12 @@ def unComputeRectangle(eeRect):
     return eeRectFixed
     
 
-def writeModisDomainFile(domainName, bounds, image_ee_date, outputPath, trainingName=None, unfloodedTrainingName=None):
+def writeModisDomainFile(domainName, bounds, image_ee_date, outputPath, 
+                         trainingName=None, unfloodedTrainingName=None):
     '''Generates a MODIS domain file for a location using the permanent water mask'''
 
     # Get the date one day after the provided date
-    end_ee_date = image_ee_date.advance(1.0, 'day')
+    end_ee_date  = image_ee_date.advance(1.0, 'day')
     startDateStr = image_ee_date.format().getInfo()[:10] # Get just the date in string format
     endDateStr   = end_ee_date.format().getInfo()[:10]
 

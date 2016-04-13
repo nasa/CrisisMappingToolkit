@@ -5,50 +5,50 @@
         <source><collection>LANDSAT/LC8_L1T_TOA</collection></source>
         <band>
             <source><name>B1</name></source>
-            <name>B1</name>
+            <name>aerosol</name>
         </band>
         <band>
             <source><name>B2</name></source>
-            <name>B2</name>
+            <name>blue</name>
         </band>
         <band>
             <source><name>B3</name></source>
-            <name>B3</name>
+            <name>green</name>
         </band>
         <band>
             <source><name>B4</name></source>
-            <name>B4</name>
+            <name>red</name>
         </band>
         <band>
             <source><name>B5</name></source>
-            <name>B5</name>
+            <name>nir</name>
         </band>
         <band>
             <source><name>B6</name></source>
-            <name>B6</name>
+            <name>swir1</name>
         </band>
         <band>
-              <source><name>B7</name></source>
-              <name>B7</name>
-          </band>
-          <band>
-              <source><name>B8</name></source>
-              <name>B8</name>
-          </band>
-          <band>
-              <source><name>B9</name></source>
-              <name>B9</name>
-          </band>
-          <band>
-              <source><name>B10</name></source>
-              <name>B10</name>
-          </band>
-          <band>
-              <source><name>B11</name></source>
-              <name>B11</name>
-            </band>
-          <resolution>30</resolution>
-          <display_bands>B4, B3, B2</display_bands>
+            <source><name>B7</name></source>
+            <name>swir2</name>
+        </band>
+        <band>
+            <source><name>B8</name></source>
+            <name>pan</name>
+        </band>
+        <band>
+            <source><name>B9</name></source>
+            <name>cirrus</name>
+        </band>
+        <band>
+            <source><name>B10</name></source>
+            <name>temp</name>
+        </band>
+        <band>
+            <source><name>B11</name></source>
+            <name>temp2</name>
+        </band>
+        <resolution>30</resolution>
+        <display_bands>red, green, blue</display_bands>
     </bands>
     <range>
         <minimum>0</minimum>

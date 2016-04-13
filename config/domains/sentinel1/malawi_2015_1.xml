@@ -27,13 +27,6 @@
         </bands>
       </sensor>
 
-      <sensor>
-        <name>skybox_nir</name>
-        <bands>
-            <source mosaic="true"><eeid>18108519531116889794-15989983115440808490</eeid></source>
-        </bands>
-      </sensor>
-
     </sensors>
     
     <bbox>

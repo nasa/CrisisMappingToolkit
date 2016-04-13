@@ -833,24 +833,33 @@ class TileManager(object):
 
         def run(self):
             """Pull URLs off the TileManager's queue and call the callback when done."""
-           
+
+            MAX_403_ERRORS = 10
+            errorCount403 = 0
             while True:
                 (key, callback) = self.manager.queue.get()
                 # Google tile manager thinks we are automating queries and blocks us, so slow down
                 if self.manager.delay and not self.manager.GetCachedTile(key):
-                    delayTime = 0.10 + (random.random() * 0.4)
+                    delayTime = 0.05 + (random.random() * 0.2)
                     time.sleep(delayTime)
                 # Check one more time that we don't have this yet.
                 if not self.manager.GetCachedTile(key):
+                
+                    if errorCount403 > MAX_403_ERRORS:
+                        continue
+                
                     (level, x, y) = key
                     if x >= 0 and y >= 0 and x <= 2 ** level-1 and y <= 2 ** level-1:
                         url = self.manager.url % key
                         try:
                             data = urllib2.urlopen(url).read()
                         except urllib2.HTTPError as e:
-                            print 'urllib2 error!'
-                            print url
                             print >> sys.stderr, e
+                            print e
+                            if 'HTTP Error 403' in e:
+                                errorCount403 += 1
+                                if errorCount403 > MAX_403_ERRORS:
+                                    print 'Maximum HTTP Error 403 count exceeded, tile fetching disabled.'
                         else:
                             # PhotoImage can't handle alpha on LA images.
                             # - The convert command forces the image to be loaded into memory.
