@@ -46,7 +46,7 @@
         </topright>
     </bbox>
     
-    <truth>18108519531116889794-14495543923251622067</truth>
+    <truth>users/scottmcmichael/crisis_mapping_truths/cmt_kashmore_truth</truth>
     <training_domain>kashmore_north_2010_8</training_domain>
     <unflooded_training_domain>unflooded_kashmore_2009</unflooded_training_domain>
     

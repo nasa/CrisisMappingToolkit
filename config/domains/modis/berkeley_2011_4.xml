@@ -39,7 +39,7 @@
         </topright>
     </bbox>
     
-    <truth>18108519531116889794-13496919088645259843</truth>
+    <truth>users/scottmcmichael/crisis_mapping_truths/cmt_berkeley_truth</truth>
     <training_domain>sf_bay_area_2011_4</training_domain>
     
     <algorithm_params>

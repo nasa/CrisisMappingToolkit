@@ -50,7 +50,7 @@
         </topright>
     </bbox>
     
-    <truth>18108519531116889794-01677512005004143246</truth>
+    <truth>users/scottmcmichael/crisis_mapping_truths/cmt_sentinel1_rome_truth</truth>
     <training_domain>lanciano</training_domain>
     
     <algorithm_params>

@@ -40,7 +40,7 @@
         </topright>
     </bbox>
     
-    <truth>18108519531116889794-12421761926155747447</truth>
+    <truth>users/scottmcmichael/crisis_mapping_truths/cmt_kashmore_north_truth</truth>
     <training_domain>kashmore_2010_8</training_domain>
     
     <algorithm_params>

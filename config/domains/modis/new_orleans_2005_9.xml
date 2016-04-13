@@ -45,7 +45,7 @@
         </topright>
     </bbox>
     
-    <truth>18108519531116889794-17234028967417318364</truth>
+    <truth>users/scottmcmichael/crisis_mapping_truths/cmt_katrina_truth</truth>
     <training_domain>slidell_2005_9</training_domain>
     <unflooded_training_domain>unflooded_new_orleans_2004</unflooded_training_domain>
     

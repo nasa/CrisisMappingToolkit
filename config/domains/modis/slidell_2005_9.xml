@@ -39,7 +39,7 @@
             <lat>30.32</lat>
         </topright>
     </bbox>
-    <truth>18108519531116889794-15363260755447510668</truth>
+    <truth>users/scottmcmichael/crisis_mapping_truths/cmt_katrina_slidell_truth</truth>
     
     <algorithm_params>
       <modis_diff_threshold>1200</modis_diff_threshold>

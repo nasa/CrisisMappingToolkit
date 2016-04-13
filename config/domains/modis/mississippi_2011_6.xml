@@ -45,7 +45,7 @@
         </topright>
     </bbox>
     
-    <truth>18108519531116889794-12921502713420913455</truth>
+    <truth>users/scottmcmichael/crisis_mapping_truths/cmt_mississippi_june_2011_truth</truth>
     <training_domain>arkansas_city_2011_5</training_domain>
     <unflooded_training_domain>unflooded_mississippi_2010</unflooded_training_domain>
     
