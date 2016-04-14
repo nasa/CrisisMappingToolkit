@@ -56,15 +56,16 @@ def _create_adaboost_learning_image(domain, b):
     
     # If available, try adding Landsat data
     try:
+        print 'Added Landsat to Adaboost!'
         landsat_sensor = domain.get_landsat()
-        added = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']
+        added = ['blue', 'green', 'red', 'nir', 'swir1', 'temp', 'swir2']
         a = a.addBands(landsat_sensor.image.select(added))
-        print 'Adding landsat bands!'
     except: # No Landsat data is present
         pass
     
     # If available, try adding radar data
     try:
+        print 'Added Radar to Adaboost!'
         # Add all of the bands from the radar sensor
         # - All of the input training images need to have the same bands available!
         radar_sensor = domain.get_radar()

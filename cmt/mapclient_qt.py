@@ -802,10 +802,19 @@ class TileManager(object):
             return {'pixels': image.tostring(),
                         'size'  : image.size,
                         'mode'  : image.mode}
-        pickle_images = [makePickleImage(TileManager._images[key]) for key in TileManager._lru_keys]
+        # Prepare the images for pickle one at a time (the in-memory format is incompatible)
+        pickle_images = []
+        matched_keys  = []
+        for key in TileManager._lru_keys:
+            if not (key in TileManager._images):
+                print 'Warning: Key not found in _images: ' + str(key)
+                continue
+            pickle_images.append(makePickleImage(TileManager._images[key]))
+            matched_keys.append(key)
+            
         with open(path, 'wb') as f:
-            pickle.dump( (pickle_images, TileManager._lru_keys), f)
-        print 'Saved '+str(len(TileManager._lru_keys))+' tiles from cache to path: ' + path
+            pickle.dump( (pickle_images, matched_keys), f)
+        print 'Saved '+str(len(pickle_images))+' tiles from cache to path: ' + path
         
     def LoadCacheFromDisk(self, path):
         '''Read a cache file from disk'''

@@ -56,7 +56,7 @@ Tool for testing MODIS based flood detection algorithms using a simple GUI.
 # ALGORITHMS = [ACTIVE_CONTOUR]
 
 #ALGORITHMS = [DART_LEARNED, EVI, XIAO, MARTINIS_TREE, CART, ADABOOST, ADABOOST_DEM]
-ALGORITHMS = [DIFFERENCE, EVI, XIAO]
+ALGORITHMS = [DIFFERENCE, EVI, XIAO, ADABOOST]
 #ALGORITHMS = []
 
 # --------------------------------------------------------------

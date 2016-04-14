@@ -27,16 +27,16 @@
             <source><name>B6</name></source>
             <name>temp</name>
         </band>
-          <band>
-              <source><name>B7</name></source>
-              <name>swir2</name>
-          </band>
-          <band>
-              <source><name>B8</name></source>
-              <name>pan</name>
-          </band>
-          <resolution>30</resolution>
-          <display_bands>red, green, blue</display_bands>
+        <band>
+            <source><name>B7</name></source>
+            <name>swir2</name>
+        </band>
+        <band>
+            <source><name>B8</name></source>
+            <name>pan</name>
+        </band>
+        <resolution>30</resolution>
+        <display_bands>red, green, blue</display_bands>
     </bands>
     <range>
         <minimum>0</minimum>

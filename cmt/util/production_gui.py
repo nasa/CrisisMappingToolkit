@@ -31,6 +31,7 @@ import ee
 import cmt.domain
 import miscUtilities
 import cmt.modis.modis_utilities
+from cmt.util.imageRetrievalFunctions import *
 
 
 import landsat_functions
@@ -50,18 +51,6 @@ from cmt.mapclient_qt import MapViewWidget, TileManager, ABOUT_TEXT, DEFAULT_MAP
 
 
 import cmt.modis.flood_algorithms
-
-# Codes for selecting which LANDSAT to use
-LANDSAT_5 = 5
-LANDSAT_7 = 7
-LANDSAT_8 = 8
-
-
-
-#-----------------------------------------------------------------------------------------------
-# TODO: Move these functions
-
-
 
 
 #-----------------------------------------------------------------------------------------------
@@ -260,12 +249,11 @@ class ProductionGui(QtGui.QMainWindow):
         self.detectParams = FloodDetectParams()
         self.qtDate         = None # Date of the flood to analyze.
         self.floodDate      = None # Date of the flood to analyze.
-        self.lowResModis    = None # 250m MODIS image on the date.
-        self.highResModis   = None # 500m MODIS image on the date.
         self.modisCloudMask = None # Cloud mask from 500m MODIS
-        self.compositeModis = None # MODIS display image consisting of bands 1, 2, 6
-        self.landsatPrior   = None # First Landsat image < date.
-        self.landsatPost    = None # First Landsat image >= the date.
+        self.modisPrior     = None # First cloud free  MODIS image < date.
+        self.modisPost      = None # First cloud light MODIS image >= the date.
+        self.landsatPrior   = None # First cloud free  Landsat image < date.
+        self.landsatPost    = None # First cloud light Landsat image >= the date.
         self.sentinel1Prior = None # First Sentinel1 image < date.
         self.sentinel1Post  = None # First Sentinel1 image >= date.
         self.demImage       = None # DEM image
@@ -457,9 +445,12 @@ class ProductionGui(QtGui.QMainWindow):
 
     def _unloadCurrentImages(self):
         '''Just unload all the current images. Low level function'''
-        if self.compositeModis: # Note: Individual MODIS images are not added to the map
-            self.mapWidget.removeFromMap(self.compositeModis)
-            self.compositeModis = None
+        if self.modisPrior:
+            self.mapWidget.removeFromMap(self.modisPrior)
+            self.modisPrior = None
+        if self.modisPost:
+            self.mapWidget.removeFromMap(self.modisPost)
+            self.modisPost = None
         if self.modisCloudMask:
             self.mapWidget.removeFromMap(self.modisCloudMask)
             self.modisCloudMask = None
@@ -557,42 +548,32 @@ class ProductionGui(QtGui.QMainWindow):
 
     def _displayCurrentImages(self):
         '''Add all the current images to the map. Low level function'''
-        # TODO: Come up with a method for setting the intensity bounds!
-        if self.landsatType == LANDSAT_5:
-            landsatVisParams = {'bands': ['B3', 'B2', 'B1'], 'min': 0, 'max': 0.7}
-        elif self.landsatType == LANDSAT_7:
-            landsatVisParams = {'bands': ['B3', 'B2', 'B1'], 'min': 0, 'max': 0.7}
-        else: # LANDSAT_8
-            landsatVisParams = {'bands': ['B4', 'B3', 'B2'], 'min': 0, 'max': 0.8}
-            
-        sentinel1VisParams = {'bands': ['VV'], 'min': -30, 'max': 5}
-            
+        
         MODIS_RANGE  = [0, 3000]
         DEM_RANGE    = [0, 1000]
+        
+        # TODO: Come up with a method for setting the intensity bounds!
+        landsatVisParams = {'bands': ['red', 'green', 'blue'], 'min': 0, 'max': 0.75}
+            
+        sentinel1VisParams = {'bands': ['vv'], 'min': -30, 'max': 5}
+        
+        modisVisParams = {'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06'],
+                          'min': MODIS_RANGE[0], 'max': MODIS_RANGE[1]}
+
         if self.landsatPrior:
             self.mapWidget.addToMap(self.landsatPrior, landsatVisParams, 'LANDSAT Pre-Flood', False)
-        else:
-            print 'Failed to find prior LANDSAT image!'
         if self.landsatPost:
             self.mapWidget.addToMap(self.landsatPost, landsatVisParams, 'LANDSAT Post-Flood', True)
-        else:
-            print 'Failed to find post LANDSAT image!'
-            
+           
         if self.sentinel1Prior:
             self.mapWidget.addToMap(self.sentinel1Prior, sentinel1VisParams, 'Sentinel-1 Pre-Flood', False)
-        else:
-            print 'Failed to find prior Sentinel-1 image!'
         if self.sentinel1Post:
             self.mapWidget.addToMap(self.sentinel1Post, sentinel1VisParams, 'Sentinel-1 Post-Flood', False)
-        else:
-            print 'Failed to find post Sentinel-1 image!'
-            
-        if self.compositeModis:
-            vis_params = {'bands': ['sur_refl_b01', 'sur_refl_b02', 'sur_refl_b06'],
-                          'min': MODIS_RANGE[0], 'max': MODIS_RANGE[1]}
-            self.mapWidget.addToMap(self.compositeModis, vis_params, 'MODIS Channels 1/2/6', False)
-        else:
-            print 'Failed to find MODIS image!'
+         
+        if self.modisPrior:
+            self.mapWidget.addToMap(self.modisPrior, modisVisParams, 'MODIS Pre-Flood', False)
+        if self.modisPost:
+            self.mapWidget.addToMap(self.modisPost, modisVisParams, 'MODIS Post-Flood', False)
             
         # This one works a little differently since it never changes
         # - We just add this once and never remove it.
@@ -604,74 +585,10 @@ class ProductionGui(QtGui.QMainWindow):
         if self.modisCloudMask:
             vis_params = {'min': 0, 'max': 1, 'palette': '000000, FF0000'}
             self.mapWidget.addToMap(self.modisCloudMask, vis_params, '1km Bad MODIS pixels', False)
-        else:
-            print 'Failed to find MODIS Cloud Mask image!'
 
         if self.demImage:
             vis_params = {'min': DEM_RANGE[0], 'max': DEM_RANGE[1]}
             self.mapWidget.addToMap(self.demImage, vis_params, 'Digital Elevation Map', False)
-        else:
-            print 'Failed to find DEM!'
-
-
-    def _selectLandsatBands(self, eeLandsatFunc):
-        '''Given a raw landsat image, pick which bands to view'''
-        if not eeLandsatFunc:
-            return None
-        
-        # Select the bands to view
-        if self.landsatType == LANDSAT_5:
-            bandNamesIn  = ['10', '20', '30', '40', '50', '60', '70']
-            bandNamesOut = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']
-        elif self.landsatType == LANDSAT_7:
-            bandNamesIn  = ['10', '20', '30', '40', '50', '60', '70']
-            bandNamesOut = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']
-        else: # LANDSAT_8
-            bandNamesIn  = ['10', '20', '30', '40', '50', '60', '70', '80']
-            bandNamesOut = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8']    
-            
-        return eeLandsatFunc
-
-
-    def _pickImage(self, eeImageCollection, bounds, chooseLast=False):
-        '''Picks the first or last image from an ImageCollection of images'''
-        # We require the image to contain the center of the analysis region,
-        #  otherwise we tend to get images with minimal overlap.
-        geoLimited = eeImageCollection.filterBounds(bounds.centroid())
-        
-        dateList = []
-        index    = 0
-        for f in geoLimited.getInfo()['features']:
-            imageDate = miscUtilities.getDateFromImageInfo(f)
-               
-            if not imageDate: # Failed to extract the date!
-                print '===================================\n\n'
-                print geoLimited.getInfo()['features']
-            else: # Found the date
-                dateList.append((imageDate, index))
-            index += 1
-        if not dateList: # Could not read any dates, just pick the first image.
-            return (geoLimited.limit(1).mean(), 'NA')
-
-        # Now select the first or last image, sorting on date but also retrieving the index.
-        if chooseLast: # Latest date
-            bestDate = max(dateList)
-        else: # First date
-            bestDate = min(dateList)
-
-        return (ee.Image(geoLimited.toList(255).get(bestDate[1])), bestDate)
-
-    def _pickLandsatSat(self, date):
-        '''Pick the best landsat satellite to use for the given date'''
-        # Try to avoid LANDSAT_7 since it produces ugly images
-        
-        month = date.get('month').getInfo()
-        year  = date.get('year').getInfo()
-        if (year > 2013) or ((year == 2013) and (month > 5)):
-            return LANDSAT_8
-        else:
-            return LANDSAT_5
-
 
     def _loadImageData(self):
         '''Updates the MODIS and LANDSAT images for the current date'''
@@ -690,81 +607,86 @@ class ProductionGui(QtGui.QMainWindow):
         boundsInsideTheUS = miscUtilities.regionIsInUnitedStates(self.detectParams.statisticsRegion)
 
         # Set up the search range of dates for each image type
-        MODIS_SEARCH_RANGE_DAYS     = 1  # MODIS updates frequently so we can have a narrow range
-        LANDSAT_SEARCH_RANGE_DAYS   = 30 # LANDSAT does not update often so we need a large search range
-        SENTINEL1_SEARCH_RANGE_DAYS = 20
-        modisStartDate          = self.floodDate # Modis date range starts from the date
-        modisEndDate            = self.floodDate.advance(   MODIS_SEARCH_RANGE_DAYS,   'day')
-        landsatPriorStartDate   = self.floodDate.advance(-1*LANDSAT_SEARCH_RANGE_DAYS, 'day') # Prior landsat stops before the date
-        landsatPriorEndDate     = self.floodDate.advance(-1,                           'day')
-        landsatPostStartDate    = self.floodDate # Post landsat starts at the date
-        landsatPostEndDate      = self.floodDate.advance(   LANDSAT_SEARCH_RANGE_DAYS, 'day')
-        
-        sentinel1PriorStartDate = self.floodDate.advance(-1*SENTINEL1_SEARCH_RANGE_DAYS, 'day')
-        sentinel1PriorEndDate   = self.floodDate.advance(-1,                             'day')
-        sentinel1PostStartDate  = self.floodDate
-        sentinel1PostEndDate    = self.floodDate.advance(   SENTINEL1_SEARCH_RANGE_DAYS, 'day')
-        
-        
-        # Load the two LANDSAT images
-        self.landsatType = self._pickLandsatSat(self.floodDate)
-        if self.landsatType == LANDSAT_8:
-            print 'Using Landsat 8'
-            landsatCode = 'LANDSAT/LC8_L1T_TOA'
-        elif self.landsatType == LANDSAT_7:
-            print 'Using Landsat 7'
-            landsatCode = 'LANDSAT/LE7_L1T_TOA'
-        else:
-            print 'Using Landsat 5'
-            landsatCode = 'LANDSAT/LT5_L1T_TOA'
-        priorLandsatCollection = ee.ImageCollection(landsatCode).filterDate(landsatPriorStartDate, landsatPriorEndDate)
-        postLandsatCollection  = ee.ImageCollection(landsatCode).filterDate(landsatPostStartDate,  landsatPostEndDate)
+        PRIOR_SEARCH_RANGE_DAYS = 20 # Not picky about the pre-flooding image
+        POST_SEARCH_RANGE_DAYS  = 3  # After too many days the flood will have receded.
+        priorStartDate = self.floodDate.advance(-1*PRIOR_SEARCH_RANGE_DAYS, 'day') # Prior stops before the date
+        postStartDate  = self.floodDate # Post starts at the date
 
-        self.landsatPrior, priorLsDate = self._pickImage(priorLandsatCollection, bounds, chooseLast=True)
-        self.landsatPost,  postLsDate  = self._pickImage(postLandsatCollection,  bounds)
-       
-        if priorLsDate:
-            print 'Selected prior landsat date: ' + str(priorLsDate)
-        if postLsDate:
-            print 'Selected post  landsat date: ' + str(postLsDate)
-       
-       
-        temp = landsat_functions.getCloudPercentage(self.landsatPrior, self.detectParams.statisticsRegion)
-        print 'Prior landsat cloud percentage = ' + str(temp)
-        temp = landsat_functions.getCloudPercentage(self.landsatPost, self.detectParams.statisticsRegion)
-        print 'Post landsat cloud percentage = ' + str(temp)       
+        # Load before and after Landsat data
+        # - We can afford to be pickier about clouds in the prior image than in the post image.
+        try:
+            self.landsatPrior = getCloudFreeLandsat(bounds, priorStartDate, PRIOR_SEARCH_RANGE_DAYS, 
+                                                    maxCloudPercentage=0.05, searchMethod='decreasing')
+            priorLsDate = cmt.util.miscUtilities.getDateFromLandsatInfo(self.landsatPrior.getInfo())
+            print 'Found prior Landsat date: ' + priorLsDate
+        except Exception as e:
+            print 'Failed to find prior Landsat image!'
+            print str(e)
+            print(sys.exc_info()[0])
+            self.landsatPrior = None
+        try:
+            self.landsatPost  = getCloudFreeLandsat(bounds, postStartDate,  POST_SEARCH_RANGE_DAYS,  
+                                                    maxCloudPercentage=0.25, searchMethod='increasing')
+            postLsDate = cmt.util.miscUtilities.getDateFromLandsatInfo(self.landsatPost.getInfo())
+            print 'Found post Landsat date: ' +priorLsDate
+        except Exception as e:
+            print 'Failed to find post Landsat image!' 
+            print str(e)
+            print(sys.exc_info()[0])
+            self.landsatPost = None
+
+
+        # Load before and after Sentinel-1 data
+        try:
+            self.sentinel1Prior = getNearestSentinel1(bounds, priorStartDate, PRIOR_SEARCH_RANGE_DAYS, 
+                                                     searchMethod='decreasing')
+            priorS1Date = cmt.util.miscUtilities.getDateFromSentinel1Info(self.sentinel1Prior.getInfo())
+            print 'Found prior Sentinel-1 date: ' + priorS1Date
+        except Exception as e:
+            print 'Failed to find prior Sentinel-1 image!'
+            print str(e)
+            print(sys.exc_info()[0])
+            self.sentinel1Prior = None
+        try:
+            self.sentinel1Post  = getNearestSentinel1(bounds, postStartDate,  POST_SEARCH_RANGE_DAYS,  
+                                                     searchMethod='increasing')
+            postS1Date = cmt.util.miscUtilities.getDateFromSentinel1Info(self.sentinel1Post.getInfo())
+            print 'Found post Sentinel-1 date: ' + postS1Date
+        except Exception as e:
+            print 'Failed to find post Sentinel-1 image!' 
+            print str(e)
+            print(sys.exc_info()[0])
+            self.sentinel1Post = None
+            
         
-        # Select the bands to view
-        self.landsatPrior = self._selectLandsatBands(self.landsatPrior)
-        self.landsatPost  = self._selectLandsatBands(self.landsatPost)
+        # Load before and after MODIS data
+        # - We can afford to be pickier about clouds in the prior image than in the post image.
+        try:
+            self.modisPrior = getCloudFreeModis(bounds, priorStartDate, PRIOR_SEARCH_RANGE_DAYS, 
+                                                maxCloudPercentage=0.05, searchMethod='decreasing')
+            priorModisDate = cmt.util.miscUtilities.getDateFromModisInfo(self.modisPrior.getInfo())
+            print 'Found prior MODIS date: ' + priorModisDate
+        except Exception as e:
+            print 'Failed to find prior MODIS image!'
+            print str(e)
+            print(sys.exc_info()[0])
+            self.modisPrior = None
+        try:
+            self.modisPost  = getCloudFreeModis(bounds, postStartDate,  POST_SEARCH_RANGE_DAYS,  
+                                                maxCloudPercentage=0.25, searchMethod='increasing')
+            postModisDate = cmt.util.miscUtilities.getDateFromModisInfo(self.modisPost.getInfo())
+            print 'Found post MODIS date: ' + postModisDate
+        except Exception as e:
+            print 'Failed to find post MODIS image!'
+            print str(e)
+            print(sys.exc_info()[0])
+            self.modisPost = None
 
-        # Select the Sentinel1 images
-        # - TODO: Probably need to do some filtering here  
-        sentinel1Code = 'COPERNICUS/S1_GRD'
-        priorSentinel1Collection = ee.ImageCollection(sentinel1Code).filterDate(sentinel1PriorStartDate, landsatPriorEndDate)
-        postSentinel1Collection  = ee.ImageCollection(sentinel1Code).filterDate(sentinel1PostStartDate,  landsatPostEndDate)
-        
-        self.sentinel1Prior, priorS1Date = self._pickImage(priorSentinel1Collection, bounds, chooseLast=True)
-        self.sentinel1Post,  postS1Date  = self._pickImage(postSentinel1Collection,  bounds)
-
-        print '\n\nPRIOR----------------------'
-        print self.sentinel1Prior.getInfo()
-        print '\n\nPOST----------------------'
-        print self.sentinel1Post.getInfo()
-
-        if priorS1Date:
-            print 'Selected prior Sentinel-1 date: ' + str(priorS1Date)
-        if postS1Date:
-            print 'Selected post  Sentinel-1 date: ' + str(postS1Date)
-        
-        # Load the two MODIS images and create a composite
-        self.highResModis   = ee.ImageCollection('MOD09GQ').filterBounds(bounds).filterDate(modisStartDate, modisEndDate).limit(1).mean();
-        self.lowResModis    = ee.ImageCollection('MOD09GA').filterBounds(bounds).filterDate(modisStartDate, modisEndDate).limit(1).mean();
-        self.compositeModis = self.highResModis.addBands(self.lowResModis.select('sur_refl_b06'))
-
-        # Extract the MODIS cloud mask
-        self.modisCloudMask = cmt.modis.modis_utilities.getModisBadPixelMask(self.lowResModis)
-        self.modisCloudMask = self.modisCloudMask.mask(self.modisCloudMask)
+        if self.modisPost:
+            # Extract the MODIS cloud mask
+            # - We only use the cloud mask from the POST image
+            self.modisCloudMask = cmt.modis.modis_utilities.getModisBadPixelMask(self.modisPost)
+            self.modisCloudMask = self.modisCloudMask.mask(self.modisCloudMask)
 
         # Load a DEM
         demName = 'CGIAR/SRTM90_V4' # The default 90m global DEM
@@ -780,7 +702,7 @@ class ProductionGui(QtGui.QMainWindow):
         '''Creates the Earth Engine flood detection function and adds it to the map'''
         
         # Check prerequisites
-        if (not self.highResModis) or (not self.floodDate) or (not self.detectParams.statisticsRegion):
+        if (not self.modisPost) or (not self.floodDate) or (not self.detectParams.statisticsRegion):
             print "Can't detect floods without image data and flood date!"
             return
         
@@ -793,7 +715,7 @@ class ProductionGui(QtGui.QMainWindow):
         print '--> Change detection threshold = ' + str(self.detectParams.changeDetectThreshold)
         
         # Generate a new EE function
-        self.eeFunction = cmt.modis.misc_algorithms.history_diff_core(self.highResModis,
+        self.eeFunction = cmt.modis.misc_algorithms.history_diff_core(self.modisPost,
                                         self.floodDate, self.detectParams.waterMaskThreshold,
                                         self.detectParams.changeDetectThreshold, self.detectParams.statisticsRegion)
         self.eeFunction = self.eeFunction.mask(self.eeFunction)

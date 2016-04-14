@@ -59,11 +59,20 @@ def getExpandingIndices(length, minIndex=0):
 
 def safe_get_info(ee_object, max_num_attempts=5):
     '''Keep trying to call getInfo() on an Earth Engine object until it succeeds.'''
+    
+    # Do not try again if we get one of these exceptions
+    fail_messages = ['Too many pixels']
+    
     num_attempts = 0
     while True:
         try:
             return ee_object.getInfo()
         except Exception as e:
+            # Rethrow the exception if it is not timeout related
+            for message in fail_messages:
+                if message in str(e):
+                    raise e
+                    
             print 'Earth Engine Error: %s. Waiting 10s and then retrying.' % (e)
             time.sleep(10)
             num_attempts += 1
@@ -133,7 +142,7 @@ def getDateFromLandsatInfo(info):
     else:
         return None
 
-def getDateFromModis(info):
+def getDateFromModisInfo(info):
     '''Finds the date in a MODIS EE object'''
     
     # MODIS: The date is stored in the 'id' field in this format: 'MOD09GA/MOD09GA_005_2004_08_15'
@@ -141,6 +150,7 @@ def getDateFromModis(info):
     dateStart1 = text.rfind('MOD09GA_') + len('MOD09GA_')
     dateStart2 = text.find('_', dateStart1) + 1
     this_date  = text[dateStart2:].replace('_', '-')
+    return this_date
 
 
 # Currently these functions return non-standard strings
