@@ -460,6 +460,12 @@ class ProductionGui(QtGui.QMainWindow):
         if self.landsatPost:
             self.mapWidget.removeFromMap(self.landsatPost)
             self.landsatPost = None
+        if self.sentinel1Prior:
+            self.mapWidget.removeFromMap(self.sentinel1Prior)
+            self.sentinel1Prior = None
+        if self.sentinel1Post:
+            self.mapWidget.removeFromMap(self.sentinel1Post)
+            self.sentinel1Post = None
         if self.demImage:
             self.mapWidget.removeFromMap(self.demImage)
             self.demImage = None
@@ -608,7 +614,7 @@ class ProductionGui(QtGui.QMainWindow):
 
         # Set up the search range of dates for each image type
         PRIOR_SEARCH_RANGE_DAYS = 20 # Not picky about the pre-flooding image
-        POST_SEARCH_RANGE_DAYS  = 3  # After too many days the flood will have receded.
+        POST_SEARCH_RANGE_DAYS  = 20  # After too many days the flood will have receded.
         priorStartDate = self.floodDate.advance(-1*PRIOR_SEARCH_RANGE_DAYS, 'day') # Prior stops before the date
         postStartDate  = self.floodDate # Post starts at the date
 
@@ -628,7 +634,7 @@ class ProductionGui(QtGui.QMainWindow):
             self.landsatPost  = getCloudFreeLandsat(bounds, postStartDate,  POST_SEARCH_RANGE_DAYS,  
                                                     maxCloudPercentage=0.25, searchMethod='increasing')
             postLsDate = cmt.util.miscUtilities.getDateFromLandsatInfo(self.landsatPost.getInfo())
-            print 'Found post Landsat date: ' +priorLsDate
+            print 'Found post Landsat date: ' +postLsDate
         except Exception as e:
             print 'Failed to find post Landsat image!' 
             print str(e)

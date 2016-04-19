@@ -1,0 +1,11 @@
+runtime: python27
+api_version: 1
+threadsafe: true
+
+handlers:
+- url: /.*
+  script: app_engine.app
+  
+libraries:
+- name: webapp2
+  version: latest
