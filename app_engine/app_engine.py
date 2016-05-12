@@ -18,6 +18,9 @@ from bs4 import BeautifulSoup
 # TODO: Move this!
 STORAGE_URL = 'http://byss.arc.nasa.gov/smcmich1/cmt_detections/'    
 
+# This is the HTML used to draw each of the web pages.
+# - Normally this would be use with web template rendering software 
+#   like Django or Jinja but we are keeping the complexity down.
 PAGE_HTML = """\
 <html>
 
@@ -56,6 +59,7 @@ PAGE_HTML = """\
 
 MAP_HTML = """\
     <div id="map"></div>
+    <strong>[MAP_TITLE]</strong>
     <script>
       function initMap() {
         var mapDiv = document.getElementById('map');
@@ -72,47 +76,106 @@ MAP_HTML = """\
     </script>
     <script src="https://maps.googleapis.com/maps/api/js?callback=initMap"
         async defer></script>
+    <br><br>
 """
 
+def renderHtml(html, pairList):
+    '''Simple alternative to html template rendering software'''
+
+    for pair in pairList:
+        html = html.replace(pair[0], pair[1])
+    return html
 
 
-# TODO: Store the dates in a better manner!
-def fetchDateList():
+
+def fetchDateList(datesOnly=False):
     '''Fetches the list of available dates'''
     
     dateList = []
     parsedIndexPage = BeautifulSoup(urllib2.urlopen((STORAGE_URL)).read(), 'html.parser')
     
     for line in parsedIndexPage.findAll('a'):
-        dateList.append(line.string)
+        dateString = line.string
         
+        if datesOnly:
+            dateList.append(dateString)
+            continue
+
+        # Else look through each page so we can make date__location pairs.
+        subUrl = STORAGE_URL + dateString
+        
+        try:
+            parsedSubPage = BeautifulSoup(urllib2.urlopen((subUrl)).read(), 'html.parser')
+            
+            for line in parsedSubPage.findAll('a'):
+                kmlName = line.string
+                info = extractInfoFromKmlUrl(kmlName)
+                
+                # Store combined date/location string.
+                displayString = dateString +'__'+ info['location']
+                dateList.append(displayString)
+        except:
+            pass # Ignore pages that we fail to parse
+
     return dateList
 
-def getKmlUrlsForDate(dateString):
-    '''Fetches all the kml files from a given date'''
+def getKmlUrlsForKey(key):
+    '''Fetches all the kml files from a given date.
+       If the dateString includes a location, only fetch the matching URL.
+       Otherwise return all URLs for that date.'''
+
+    # The key contains the date and optionally the location
+    if '__' in key:
+        parts = key.split('__')
+        dateString = parts[0]
+        location   = parts[1]
+    else:
+        dateString = key
+        location   = None
 
     kmlList = []
     subUrl = STORAGE_URL + dateString
     parsedSubPage = BeautifulSoup(urllib2.urlopen((subUrl)).read(), 'html.parser')
       
     for line in parsedSubPage.findAll('a'):
-        kmlList.append(os.path.join(subUrl, line.string))
+        kmlName = line.string
+        fullUrl = os.path.join(subUrl, kmlName)
+        
+        # If this location matches a provided location, just return this URL.
+        if location and (location in kmlName):
+            return [fullUrl]
+        else:
+            kmlList.append(fullUrl)
 
     return kmlList
 
-def extractCenterFromKmlUrl(filename):
-    '''Extract the lon and lat values encoded in the KML filename'''
+
+def extractInfoFromKmlUrl(url):
+    '''Extract the information encoded in the KML filename into a dictionary.'''
     
-    # Format is: 'STUFF/results_%05f_%05f.kml'
+    # Format is: 'STUFF/results_location_%05f_%05f.kml'
+
+    # Get just the kml name    
+    rslash = url.rfind('/')
+    if rslash:
+        filename = url[rslash+1:]
+    else:
+        filename = url
+
+    # Split up the kml name
+    parts    = filename.split('_')
+    parts[3] = parts[3].replace('.kml','')
+
+    location = parts[1]
+    lon = float(parts[2])
+    lat = float(parts[3])
     
-    end = filename.rfind('.kml')
-    b2  = filename.rfind('_', end)
-    b1  = filename.rfind('_', b2)
-    
-    lon = float(filename[b1+1:b2 ])
-    lat = float(filename[b2+1:end])
-    
-    return (lon, lat)
+    # Pack the results into a dictionary
+    return {'location':location, 'lon':lon, 'lat':lat}
+
+
+
+
 
 class MainPage(webapp2.RequestHandler):
     '''The splash page that the user sees when they access the site'''
@@ -126,45 +189,55 @@ class MainPage(webapp2.RequestHandler):
         optionText = ''
         for dateString in self._dateList:
             optionText += '<option>'+dateString+'</option>'
-            
-        self._htmlText = PAGE_HTML.replace('[OPTION_SECTION]', optionText).replace('[OUTPUT_SECTION]', '')
+        
+        # Insert the option section, leave the output section empty.
+        self._htmlText = renderHtml(PAGE_HTML, [('[OPTION_SECTION]', optionText), 
+                                                ('[OUTPUT_SECTION]', '')])
         
         # Write the output    
         self.response.write(self._htmlText)
 
 
 class MapPage(webapp2.RequestHandler):
+    '''Similar to the main page, but with a map displayed.'''
 
     def post(self):
 
         # Grab all dates where data is available
         self._dateList = fetchDateList()
         
-        
-        # TODO: Only do this once!
         # Build the list of date options
         optionText = ''
         for dateString in self._dateList:
             optionText += '<option>'+dateString+'</option>'
-            
-        self._htmlText = PAGE_HTML.replace('[OPTION_SECTION]', optionText)
 
+        # Insert the options section
+        self._htmlText = renderHtml(PAGE_HTML, [('[OPTION_SECTION]', optionText)])
 
         # Fetch user selection    
-        dateString = self.request.get('date_select', 'default_date!')
+        dateLocString = self.request.get('date_select', 'default_date!')
 
-        kmlUrls = getKmlUrlsForDate(dateString)
+        # This should only return one URL, provided that the location is included in dateLocString
+        kmlUrls = getKmlUrlsForKey(dateLocString)
         
         if not kmlUrls:
             newText = 'No KML files were found for this date!'
         else:
-            kmlUrl = kmlUrls[0]
-            (lat, lon) = extractCenterFromKmlUrl(kmlUrl)
-            newText = MAP_HTML.replace('[KML_URL]', kmlUrl).replace('[LAT]',lat).replace('[LON]',lon)
+            # Prepare the map HTML with the data we found
+            kmlUrl  = kmlUrls[0]
+            info    = extractInfoFromKmlUrl(kmlUrl)
+            newText = renderHtml(MAP_HTML, [('[MAP_TITLE]', dateLocString),
+                                            ('[KML_URL]',   kmlUrl), 
+                                            ('[LAT]',       str(info['lat'])), 
+                                            ('[LON]',       str(info['lon']))])
 
         #newText = 'You selected: <pre>'+ cgi.escape(date) +'</pre>'
         #newText = MAP_HTML
-        text = self._htmlText.replace('[OUTPUT_SECTION]', newText)
+        
+        # Fill in the output section
+        text = renderHtml(self._htmlText, [('[OUTPUT_SECTION]', newText)])
+        
+        # Write the output
         self.response.write(text)
 
 app = webapp2.WSGIApplication([
