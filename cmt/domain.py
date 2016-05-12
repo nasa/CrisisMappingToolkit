@@ -537,6 +537,13 @@ class Domain(object):
         else:
             return self.srtm90
 
+    def has_sensor(self, sensor_name):
+        '''Returns true if the domain contains the named sensor'''
+        for s in self.sensor_list:
+            if s.sensor_name.lower() == sensor_name:
+              return True
+        return False
+
     def get_radar(self):
         '''Returns a RADAR image if one is loaded'''
         radar_list = ['terrasar-x', 'uavsar', 'sentinel-1']

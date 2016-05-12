@@ -365,14 +365,14 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
     # Generate an intermediate vrt file
     vrt_path = os.path.join(TEMP_FILE_DIR, temp_prefix + '.vrt')
     cmd = 'gdalbuildvrt -separate -resolution highest ' + vrt_path +' '+ band_files_string
-    #print cmd
+    print cmd
     os.system(cmd)
     if not os.path.exists(vrt_path):
         raise Exception('Failed to create VRT file!')
     
     # Convert to the output file
     cmd = 'gdal_translate -ot byte '+ vrt_path + ' ' +file_path
-    #print cmd
+    print cmd
     os.system(cmd)
     
     ### Clean up vrt file
@@ -389,6 +389,18 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
     
     print 'Finished saving ' + file_path
     return True
-    
-    
-    
+
+
+def safeEeImageDownload(eeObject, bbox, scale, file_path, vis_params=None):
+    '''Wraps downloadEeImage to allow multiple attempts.'''
+    NUM_ATTEMPTS = 3
+    attempt = 0
+    while attempt < NUM_ATTEMPTS:
+        if attempt < (NUM_ATTEMPTS-1):
+            try:
+                return downloadEeImage(eeObject, bbox, scale, file_path, vis_params)
+            except:
+                time.sleep(3)
+        else:
+            return downloadEeImage(eeObject, bbox, scale, file_path, vis_params)
+        attempt += 1
