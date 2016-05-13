@@ -170,7 +170,7 @@ def clean_coordinates(coordList, height=2000):
         output.append((coord[0], coord[1], height))
     return output
 
-def coordListsToKml(coordLists, typeList, kmlPath):
+def coordListsToKml(allFeatureInfo, kmlPath):
     '''Converts a local coordinate list to KML'''
     
     MIN_REGION_SIZE = 0.000001
@@ -182,29 +182,66 @@ def coordListsToKml(coordLists, typeList, kmlPath):
 
     height = 2000
 
-    for (coords, isWater) in zip(coordLists, typeList):
-        
-        #print 'Num pruned coords: ' + str(len(prunedCoords))
-        #if len(prunedCoords) < 3: # Skip invalid polygons
-        #    continue
- 
-        # Separate the outer and inner coordinate lists that were passed in
-        outerBounds = clean_coordinates(coords[0], height)
-        innerBounds = []
-        for i in range(1,len(coords)):
-            innerBounds.append(clean_coordinates(coords[i], height))
-  
-        # Make a polygon with the provided borders    
-        poly = kml.newpolygon(outerboundaryis=outerBounds,
-                              innerboundaryis=innerBounds)
 
-        poly.altitudemode = simplekml.AltitudeMode.relativetoground
-        poly.extrude=1
-        if isWater:
-            poly.style.linestyle.color = simplekml.Color.blue
-            #poly.style.polystyle.color = '37F0E614' # Translucent teal
-            poly.style.polystyle.color = 'FFF0E614' # Solid teal
-            poly.style.polystyle.fill  = 1
+
+    for featureInfo in allFeatureInfo:
+       
+        #print featureInfo['geometry']['type']
+        #print featureInfo['properties']['area']
+        
+        isWater = featureInfo['properties']['label']
+        coords  = featureInfo['geometry']['coordinates']
+        
+        if featureInfo['geometry']['type'] == 'MultiPolygon':
+
+            # Multipolygons are basically just multiple polygons, not sure
+            #  why they are grouped up.
+
+            #print 'MULTIPOLYGON: ' + str(len(coords))
+            #print 'area = ' + str(featureInfo['properties']['area'])
+            
+            multipoly = kml.newmultigeometry()
+            
+            for entry in coords:
+            
+                # Separate the outer and inner coordinate lists that were passed in
+                outerBounds = clean_coordinates(entry[0], height)
+                innerBounds = []
+                for i in range(1,len(entry)):
+                    innerBounds.append(clean_coordinates(entry[i], height))
+                    
+                poly = multipoly.newpolygon(outerboundaryis=outerBounds,
+                                     innerboundaryis=innerBounds)
+
+                poly.altitudemode = simplekml.AltitudeMode.relativetoground
+                poly.extrude=1
+                if isWater:
+                    poly.style.linestyle.color = simplekml.Color.blue
+                    #poly.style.polystyle.color = '37F0E614' # Translucent teal
+                    poly.style.polystyle.color = 'FFF0E614' # Solid teal
+                    poly.style.polystyle.fill  = 1
+                
+        else: # Regular polygon
+            
+            # TODO: Put in a function!
+            
+            # Separate the outer and inner coordinate lists that were passed in
+            outerBounds = clean_coordinates(coords[0], height)
+            innerBounds = []
+            for i in range(1,len(coords)):
+                innerBounds.append(clean_coordinates(coords[i], height))
+      
+            # Make a polygon with the provided borders    
+            poly = kml.newpolygon(outerboundaryis=outerBounds,
+                                  innerboundaryis=innerBounds)
+
+            poly.altitudemode = simplekml.AltitudeMode.relativetoground
+            poly.extrude=1
+            if isWater:
+                poly.style.linestyle.color = simplekml.Color.blue
+                #poly.style.polystyle.color = '37F0E614' # Translucent teal
+                poly.style.polystyle.color = 'FFF0E614' # Solid teal
+                poly.style.polystyle.fill  = 1
     
     
         #height += 100
@@ -236,6 +273,7 @@ def main(argsIn):
           (options, args) = parser.parse_args(argsIn)
 
           if len(args) < 5:
+              print usage
               raise Exception('Not enough arguments provided!')
 
     except optparse.OptionError, msg:
@@ -396,63 +434,21 @@ def main(argsIn):
     fList = fList.map(simplifyFeature)
     numFeatures = fList.size().getInfo()
 
-    print 'Grabbing polygon ifo...'
-    allFeatureInfo = fList.getInfo()
-    print '...done'
-    
-    coordLists = []
-    typeList   = []
-    
-    print 'Restricted to ' +str(numFeatures)+ ' polygons.'
-    #for i in range(0,numFeatures):
-    for featureInfo in allFeatureInfo:
-       
-        #print featureInfo['geometry']['type']
-        #print featureInfo['properties']['area']
-        
-        if featureInfo['geometry']['type'] == 'MultiPolygon':
-        
-            # TODO: Handle these better?
-        
-            #print featureInfo
-            # These are multi level, add each one as a type of feature
-            multiList = featureInfo['geometry']['coordinates']
-            print 'MULTIPOLYGON: ' + str(len(multiList))
-            for a in multiList:
-                print len(a)
-                for b in a: 
-                    print '-- ' + str(len(b))
-                    typeList.append(featureInfo['properties']['label'])
-                    coordLists.append(b)
-                    
-            #print multiList
-            #raise Exception('DEBUG')
-
-            ## Extract all the coordinates from the multipolygon
-            ##  (which may be multiple levels deep) and flatten them
-            ##  into a single long list. 
-            #multiList = featureInfo['geometry']['coordinates']
-            #s = str(multiList).replace('[','').replace(']','')
-            #parts = s.split(',')
-            #coordList = []
-            #for j in range(0,len(parts),2):
-            #    coordList.append((float(parts[j]),float(parts[j+1])))
-
-        else:
-            # TODO
-            theseCoords = featureInfo['geometry']['coordinates']
-            
-            typeList.append(featureInfo['properties']['label'])
-            coordLists.append(theseCoords)
-
     # Quit now if we did not find anything
     if numFeatures == 0:
         return 0
 
+    print 'Grabbing polygon info...'
+    allFeatureInfo = fList.getInfo()
+    print '...done'
+    
+
+    print 'Restricted to ' +str(numFeatures)+ ' polygons.'
+
         
     print 'Converting coordinates to KML'
     kmlPath = os.path.join(outputFolder, 'floodCoords.kml')
-    coordListsToKml(coordLists, typeList, kmlPath)
+    coordListsToKml(allFeatureInfo, kmlPath)
         
         
     return 0
