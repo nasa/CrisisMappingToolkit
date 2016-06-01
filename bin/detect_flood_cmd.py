@@ -317,8 +317,6 @@ def main(argsIn):
     outputVisParams  = {'min': 0, 'max': 1} # Binary image data
     print 'Best output resolution = ' + str(outputResolution)
 
-    DEBUG_RESOLUTION = 250
-    
     if options.saveInputs:
         inputPathModis     = os.path.join(outputFolder, 'input_modis.tif'    )
         inputPathLandsat   = os.path.join(outputFolder, 'input_landsat.tif'  )
@@ -327,13 +325,13 @@ def main(argsIn):
         if modisSensor:
             (rgbImage, visParams, name, show) = domain.modis.visualize()
             print visParams
-            cmt.util.miscUtilities.safeEeImageDownload(rgbImage, eeBounds, DEBUG_RESOLUTION, inputPathModis, visParams)
+            cmt.util.miscUtilities.safeEeImageDownload(rgbImage, eeBounds, 250, inputPathModis, visParams)
         if landsatSensor:
             (rgbImage, visParams, name, show) = domain.get_landsat().visualize()
-            cmt.util.miscUtilities.safeEeImageDownload(rgbImage, eeBounds, DEBUG_RESOLUTION, inputPathLandsat, visParams)
+            cmt.util.miscUtilities.safeEeImageDownload(rgbImage, eeBounds, 90, inputPathLandsat, visParams)
         if sentinel1Sensor:
             (rgbImage, visParams, name, show) = domain.sentinel1.visualize()
-            cmt.util.miscUtilities.safeEeImageDownload(rgbImage, eeBounds, DEBUG_RESOLUTION, inputPathSentinel1, visParams)        
+            cmt.util.miscUtilities.safeEeImageDownload(rgbImage, eeBounds, 90, inputPathSentinel1, visParams)        
 
 
     # TODO: Adaboost train command or separate tool?
@@ -347,7 +345,7 @@ def main(argsIn):
     result = detect_flood(domain)
 
     resultPath = os.path.join(outputFolder, 'flood_detect_result.tif')
-    cmt.util.miscUtilities.safeEeImageDownload(result, eeBounds, 250, resultPath, outputVisParams)
+    cmt.util.miscUtilities.safeEeImageDownload(result, eeBounds, 150, resultPath, outputVisParams)
 
     # Perform an erosion followed by a dilation to clean up small specks of detection
     print 'Filtering result...'
@@ -362,12 +360,13 @@ def main(argsIn):
     # If too many features were detected, keep the N largest ones.
     #MAX_POLYGONS = 100
     MAX_POLYGONS = 1000
+    MIN_POLYGONS = 2 # If less than this, must be bad!
     #MIN_AREA = 500000
     MIN_AREA = 0
     
     numFeatures = featureCollection.size().getInfo()
     print 'Detected ' +str(numFeatures)+ ' polygons.'
-    if numFeatures == 0:
+    if numFeatures < MIN_POLYGONS:
         return 0
 
     # Compute the size of each feature
@@ -379,7 +378,10 @@ def main(argsIn):
     # Throw out features below a certain size
     featureCollection = featureCollection.filterMetadata('area', 'greater_than', MIN_AREA)
     numFeatures = featureCollection.size().getInfo()
+
     print 'Reduced to ' +str(numFeatures)+ ' polygons.'
+    if numFeatures < MIN_POLYGONS:
+        return 0
 
     #if numFeatures > MAX_POLYGONS:
     #    print 'Sorting by area'

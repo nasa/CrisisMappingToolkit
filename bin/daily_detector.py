@@ -24,21 +24,21 @@ def archiveResult(kmlPath, dateString):
     DEST_BASE = '/byss/docroot/smcmich1/cmt_detections/'
 
     dateFolder = os.path.join(DEST_BASE, dateString)
-    cmd = 'ssh lunokhod2 mkdir '+dateFolder
+    cmd = 'mkdir '+dateFolder
     print cmd
     os.system(cmd)
 
     filename = os.path.split(kmlPath)[1]
     destinationPath = os.path.join(dateFolder, filename)
-    cmd = 'scp ' +kmlPath+ ' lunokhod2:'+destinationPath
+    cmd = 'cp ' +kmlPath+ ' '+destinationPath
     print cmd
     os.system(cmd)
 
     # Update the HTML indices
-    cmd = 'ssh lunokhod2 python makeHtmlIndex.py ' + DEST_BASE
+    cmd = 'python ~/makeHtmlIndex.py ' + DEST_BASE
     print cmd
     os.system(cmd)
-    cmd = 'ssh lunokhod2 python makeHtmlIndex.py ' + dateFolder
+    cmd = 'python ~/makeHtmlIndex.py ' + dateFolder
     print cmd
     os.system(cmd)
 
@@ -87,7 +87,8 @@ def grabGdacsResults(startDate, endDate):
     centers = []
     for line in parsedPage.findAll('georss:point'):
         coord = line.string.split()
-        centers.append([float(x) for x in coord])
+        coord.reverse()
+        centers.append([float(x) for x in coord]) # Grabs lat, lon
         
     labels  = []
     for line in parsedPage.findAll('gdacs:country'):
@@ -132,7 +133,7 @@ def getSearchRegions(date):
     endDateString   = ('%d-%02d-%02d' % (date.year, date.month, date.day)) 
     
     (centers, labels) = grabGdacsResults(startDateString, endDateString)
-    
+
     regions = []
     for coord in centers:
         region = (coord[0]-REGION_SIZE, coord[1]-REGION_SIZE,
@@ -183,8 +184,8 @@ if __name__ == "__main__":
         outputFolder = os.path.join(dateFolder, label)
         #try:
         detect_flood_cmd.main(['--search-days', '10', 
-                               '--max-cloud-percentage', '0.05', 
-                               #'--save-inputs', 
+                               '--max-cloud-percentage', '0.20', 
+                               '--save-inputs', 
                                '--',
                                outputFolder, dateString, 
                                str(region[0]), str(region[1]), 
