@@ -88,7 +88,7 @@ def get_image_collection_sentinel1(bounds, start_date, end_date, min_images=1):
        decreasing quality until it finds at least min_images using
        a combination of settings.'''
 
-    # Currently we always require VV and VH polarization (the most common).
+    # Currently we try to load both VV and VH polarization (the most common).
     # This leaves us with two variables that we don't want to mix up.
     # - TODO: Can we mix the different resolutions?
     resolutionList = [10.0, 25.0, 40.0]
@@ -106,11 +106,9 @@ def get_image_collection_sentinel1(bounds, start_date, end_date, min_images=1):
         for angle in angleList:
             print 'Searching S1 angle: ' + str(angle)
             collection = ee.ImageCollection('COPERNICUS/S1_GRD').filterDate(start_date, end_date) \
-                          .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV')) \
-                          .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH')) \
-                                            .filterBounds(bounds.centroid()) \
-                                            .filter(ee.Filter.eq('resolution_meters',    resolution)) \
-                                            .filter(ee.Filter.eq('orbitProperties_pass', angle))
+                          .filterBounds(bounds.centroid()) \
+                          .filter(ee.Filter.eq('resolution_meters',    resolution)) \
+                          .filter(ee.Filter.eq('orbitProperties_pass', angle))
 #                                            .filterBounds(points[0]).filterBounds(points[1]) \
 #                                            .filterBounds(points[2]).filterBounds(points[3]) \
 
@@ -118,9 +116,9 @@ def get_image_collection_sentinel1(bounds, start_date, end_date, min_images=1):
             numFound = collection.size().getInfo()
             print 'Found ' + str(numFound) + ' images'
             if numFound >= min_images:
-                # Switch band names to lower case to be consistent with domain notation
-                collection = collection.select(['VV', 'VH'], ['vv', 'vh'])
-                return collection
+                # Switch band names to lower case to be consistent with domain notation               
+                return cmt.util.miscUtilities.safeRename(collection, ['VV', 'VH'], ['vv', 'vh'])
+
                                             
     return collection # Failed to find anything!
 

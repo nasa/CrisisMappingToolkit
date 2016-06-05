@@ -387,11 +387,130 @@ def sar_martinis(domain, cr_method=False):
     
     finalWaterClass = grayLayer.lte(computedThreshold)
 
-    #addToMap(finalWaterClass.mask(finalWaterClass),  {'min': 0, 'max': 1, 'opacity': 0.6, 'palette': RED_PALETTE}, 'mirtinis class',  False)
+    #addToMap(finalWaterClass.mask(finalWaterClass),  {'min': 0, 'max': 1, 'opacity': 0.6, 'palette': RED_PALETTE}, 'martinis class',  False)
     
     # Rename the channel to what the evaluation function requires
     finalWaterClass = finalWaterClass.select([channelName], ['b1'])
     
     return finalWaterClass
     
+#=======================================================================
+# An updated algorithm from:
+#
+# "A fully automated TerraSAR-X based flood service"
+#
     
+def sar_martinis2(domain):
+    ''''''
+
+    # Select the radar layer we want to work in
+    if 'water_detect_radar_channel' in domain.algorithm_params:
+        channelName = domain.algorithm_params['water_detect_radar_channel']
+    else: # Just use the first radar channel
+        channelName = sensor.band_names[0]   
+        
+    sensor     = domain.get_radar()
+    radarImage = sensor.image.select(channelName)
+    print channelName
+    print radarImage.getInfo()
+
+
+
+    # TODO: Try to match the pre-processing in the paper.
+    # Note that Earth Engine has already done some preprocessing on the data.
+
+
+    # Set up the grid sizes we will use
+    # TODO: Compute these based on the region size and input resolution!
+    BASE_RES = 40; # Input meters per pixel
+    S2_DS    = 32; # Size of the smaller grid S-
+    S1_DS    = 64; # Size of the larger grid S+
+    S1_WIDTH_METERS = BASE_RES*S1_DS;
+
+    # TODO: Blur base before resampling!
+    # - Because we can only call reduceResolution on 64x64 tiles,
+    #  downsample the input images to get the correct size.
+    gray     = radarImage.reproject(radarImage.projection(), scale=BASE_RES);
+    grayProj = gray.projection();
+
+    # Compute mean at S- level, and standard deviation at S+ level.
+    s2Mean   = gray.reduceResolution(  ee.Reducer.mean(),   True).reproject(grayProj.scale(S2_DS, S2_DS));
+    s1StdDev = s2Mean.reduceResolution(ee.Reducer.stdDev(), True).reproject(grayProj.scale(S1_DS, S1_DS));
+
+    addToMap(gray,     {'min': -25, 'max': 5, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'gray',      False)
+    addToMap(s2Mean,   {'min': -25, 'max': 5, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 's2Mean',    False)
+    addToMap(s1StdDev, {'min':   0, 'max': 5, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 's1StdDev',  False)
+
+    # TODO: Make sure threshold is above the global mean.
+    # Pick the highest STD grid locations
+    p = s1StdDev.reduceRegion(ee.Reducer.percentile([95]), domain.bounds); # TODO 95
+    if not p:
+        raise Exception('Failed to find high STD tiles!')
+    thresh = ee.Number(p.getInfo().values()[0]);
+    print 'Computed 95% std threshold: ' + str(thresh.getInfo())
+    kept = s1StdDev.gt(ee.Image(thresh));
+    addToMap(kept, {'min':   0, 'max': 1, 'opacity': 0.5, 'palette': GREEN_PALETTE}, 'top_std_dev',  False)
+
+    # Add lonlat bands to the tile STD values and get a nice list of kept
+    #  tile STD values with the center coordinate of the tile.
+    augStdDev  = s1StdDev.addBands(ee.Image.pixelLonLat()).mask(kept);
+    stdDevInfo = augStdDev.reduceRegion(ee.Reducer.toList(3), domain.bounds);
+    stdDevList = ee.List(stdDevInfo.get('list')); # A necessary bit of casting
+
+    print 'Selected ' + str(len(stdDevList.getInfo())) + ' tiles to compute thresholds from.'
+
+
+    # Define a function to get a S+ tile bounding box from the tile center in stdDevList.
+    def getTileBoundingBox(p):
+        pixel  = ee.List(p);
+        center = ee.Geometry.Point([pixel.get(1), pixel.get(2)]);
+        buff   = center.buffer(S1_WIDTH_METERS/2-1);
+        box    = buff.bounds();
+        return ee.Feature(box);
+
+    # Get the bounding box of each chosen grid location as a Geometry type
+    # using the function defined above.
+    # - Unfortunately EE will only let us get an approximation.
+    boxes = stdDevList.map(getTileBoundingBox);
+
+    # Obtain a histogram for each of the bounding boxes
+    features = ee.FeatureCollection(boxes);
+    hists    = gray.reduceRegions(features, ee.Reducer.histogram())
+
+
+    # This is the point where we had to leave Earth Engine behind, hopefully it is not too slow.
+
+    # At each selected grid location, compute a threshold
+    tileThresholds = []
+    print('\n\n======= HistProc ========\n')
+    #histProc = hists.map(histCheck)
+    histData = hists.getInfo()['features']
+    for feature in histData:
+        # TODO: Quality of fit score
+        # TODO: Plot the histograms to make sure the splitter works well
+        hist     = feature['properties']['histogram']
+        splitVal = histogram.splitHistogramKittlerIllingworth(hist['histogram'], hist['bucketMeans'])
+        print 'Computed split value: ' + str(splitVal)
+        tileThresholds.append(splitVal)
+    print('\n\n----------------------\n')
+    
+    threshMean = numpy.mean(tileThresholds)
+    threshStd  = numpy.std(tileThresholds)
+    print 'Mean of tile thresholds: ' + str(threshMean)
+    print 'STD  of tile thresholds: ' + str(threshStd)
+    
+    # TODO: Compute thresh stats, use backup method from the paper.
+
+    simpleThreshImage = radarImage.lte(threshMean)
+
+    # TODO: Fuzzy logic based improvement of the results
+
+    return simpleThreshImage
+
+
+
+
+
+
+
+

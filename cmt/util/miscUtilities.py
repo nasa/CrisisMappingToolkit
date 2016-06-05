@@ -55,6 +55,28 @@ def getExpandingIndices(length, minIndex=0):
           offset = -offset
         else:
           offset = -offset + 1
+
+
+def safeRename(collection, inputNames, outputNames):
+    '''Tries to rename the given bands of the collection.  Safely ignores
+       any bands which are not present.'''
+
+    output = None
+
+    # Try to add each band to the output collection one at a time    
+    for (nameIn, nameOut) in zip(inputNames, outputNames):
+        try:
+            testBand = collection.select([nameIn], [nameOut])
+            # Call getInfo() here to force an exception if the band does not exist
+            testBand.getInfo()
+            if output:
+                output = output.combine(testBand)
+            else:
+                output = testBand
+        except:
+            pass
+       
+    return output
         
 
 def safe_get_info(ee_object, max_num_attempts=5):
@@ -293,8 +315,8 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
             if len(band_names) == 3:
                 break
             
-    if (len(band_names) != 3) and (len(band_names) != 1):
-        raise Exception('Only 1 and 3 channel output images supported!')
+    if len(band_names) >= 3:
+        raise Exception('Images with more than three channels are not supported!')
     
     # Handle selected visualization parameters
     if vis_params and ('min' in vis_params) and ('max' in vis_params): # User specified scaling

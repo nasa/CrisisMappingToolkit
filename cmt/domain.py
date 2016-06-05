@@ -21,6 +21,7 @@ import ee
 import json
 import traceback
 import util.miscUtilities
+import util.imageRetrievalFunctions
 
 # Default search path for domain xml files: [root]/config/domains/[sensor_name]/
 DOMAIN_SOURCE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), \
@@ -83,11 +84,10 @@ class SensorObservation(object):
         
         # Compare list of bands in ee_image with bands loaded from the definition file
         bands_in_image = self.image.bandNames().getInfo()
-        #source_bands   = [self._band_sources[x]['source'] for x in self.band_names]
         shared_bands   = list(set(bands_in_image) & set(self.band_names))
         
         if not shared_bands:
-            print self._band_sources
+            #print self._band_sources
             raise Exception('For sensor '+sensor_name+' expected bands: '
                             +str(self.band_names)+' but found '+str(bands_in_image))
                             
@@ -295,9 +295,9 @@ class SensorObservation(object):
         missingBands = []
         for thisBandName in self.band_names:
             source       = self._band_sources[thisBandName]
-            print '======================================='
+            #print '======================================='
             print 'Loading band: ' + thisBandName
-            print source
+            #print source
             if 'mosaic' in source: # A premade collection with an ID
                 ims = ee.ImageCollection(source['eeid'])
                 im  = ims.mosaic()
@@ -309,16 +309,9 @@ class SensorObservation(object):
                 if source['collection'] == 'COPERNICUS/S1_GRD':
                     print 'SENTINEL 1 BRANCH'
                     # Special handling for Sentinel1 
-                    collection = ee.ImageCollection(source['collection']).filterBounds(eeBounds) \
-                                  .filterDate(source['start_date'], source['end_date']) \
-                                  .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV')) \
-                                  .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH')) \
-                                  .filter(ee.Filter.eq('resolution_meters', 10.0)) \
-                                  .filter(ee.Filter.eq('orbitProperties_pass', 'DESCENDING'))
-                            
-                    
-                    # TODO: Try decreasing resolution until we find images or a coverage percentage?
-                    
+                    collection = util.imageRetrievalFunctions.get_image_collection_sentinel1(eeBounds, 
+                                              source['start_date'], source['end_date'], min_images=1)
+
                     # Overwrite the band resolution
                     foundResolution = 10.0 # TODO: Read from the data!
                     self.band_resolutions[thisBandName] = foundResolution
@@ -333,7 +326,7 @@ class SensorObservation(object):
                 im = collection.mean()
                 
                 # TODO: Add special case for Sentinel1 to filter on available bands?
-                #     : Add something to specifiy ascending/descending?
+                #     : Add something to specify ascending/descending?
                 
             else: # Not enough information was provided!
                 print 'Warning: Incomplete source information for band: ' + thisBandName
@@ -341,16 +334,23 @@ class SensorObservation(object):
                 missingBands.append(thisBandName)
                 continue # Skip this band
                 
-            print 'Image info:'
-            try:
-                #print util.miscUtilities.prettyPrintEE(im.getInfo())
-                print im.getInfo()
-            except:
-                raise Exception('Failed to retrieve image info!')
+            #print 'Image info:'
+            #try:
+            #    #print util.miscUtilities.prettyPrintEE(im.getInfo())
+            #    print im.getInfo()
+            #except:
+            #    raise Exception('Failed to retrieve image info!')
             
             sourceBandName = self._getSourceBandName(source, im)
             band = im.select([sourceBandName], [thisBandName])
-            #print band.getInfo()
+            try:
+                #print 'band:'
+                temp = band.getInfo()
+            except:
+                print 'Failed to retrieve band, marked as missing.'
+                missingBands.append(thisBandName)
+                continue
+                
             if self.image == None:
                 self.image = band
             else:
@@ -361,6 +361,8 @@ class SensorObservation(object):
         for band in missingBands:
             self.band_names.remove(band)
             
+        if self.image == None:
+            raise Exception('Failed to load any bands for image!')
             
         #print '---------------------------'
         #print self.image.getInfo()
@@ -550,6 +552,7 @@ class Domain(object):
         for s in self.sensor_list:
             if s.sensor_name.lower() in radar_list:
                 return s
+        #print self.sensor_list
         raise LookupError('Unable to find a radar image in domain!')
 
     def get_landsat(self):
@@ -564,7 +567,7 @@ class Domain(object):
     def load_sensor_observations(self, name, bbox, sensor_observation_list):
         '''Manual init with input sensor observations'''
         self.name        = name
-        self.sensor_list =  sensor_observation_list
+        self.sensor_list = sensor_observation_list
         self.bbox        = bbox
         self.bounds      = ee.Geometry.Rectangle(bbox)
         self.center      = ((self.bbox[0] + self.bbox[2]) / 2, (self.bbox[1] + self.bbox[3]) / 2)
@@ -644,6 +647,9 @@ class Domain(object):
                 
                 # Set sensor as member variable, e.g., self.__dict__['uavsar'] is equivalent to self.uavsar
                 self.__dict__[newSensor.sensor_name] = newSensor
+                
+                print 'Loaded sensor: ' + newSensor.sensor_name
+                
             except:
                 print '###############################################'
                 print 'Caught exception loading sensor:'

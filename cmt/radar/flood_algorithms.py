@@ -34,7 +34,8 @@ SVM            = 4
 MARTINIS_CV    = 5
 MARTINIS_CR    = 6
 ACTIVE_CONTOUR = 7
-ADABOOST      = 8
+ADABOOST       = 8
+MARTINIS_2     = 9
 
 # For each algorithm specify the name, function, and color.
 __ALGORITHMS = {
@@ -44,6 +45,7 @@ __ALGORITHMS = {
     SVM            : ('SVM',              learning.svm,                  '00AAFF'),
     MARTINIS_CV    : ('Martinis CV',      martinis.sar_martinis,         'AAFF00'),
     MARTINIS_CR    : ('Martinis CR',      martinis.sar_martinis_cr,      'AA00FF'),
+    MARTINIS_2     : ('Martinis 2',       martinis.sar_martinis2,        'AA0000'),
     ACTIVE_CONTOUR : ('Active Contour',   active_contour.active_contour, 'FF00AA'),
     ADABOOST       : ('Adaboost',         cmt.modis.adaboost.adaboost_radar, '00FFFF')
 }
