@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Tamil Nadu 2015 Flood</name>
+    <sensors>
+    
+      <sensor>
+        <name>SRTM90</name>
+      </sensor>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2015-11-12</start_date>
+            <end_date>2015-11-13</end_date>
+          </source>
+        </bands>
+      </sensor>
+
+      <sensor>
+        <name>Sentinel1</name>
+        <bands>
+          <source>
+            <start_date>2015-11-08</start_date>
+            <end_date>2015-11-20</end_date>
+          </source>
+        </bands>
+      </sensor>
+
+
+    </sensors>
+    
+    <bbox>
+        <bottomleft>
+            <lon>78.9</lon>
+            <lat>11</lat>
+        </bottomleft>
+        <topright>
+            <lon>80</lon>
+            <lat>11.8</lat>
+        </topright>
+    </bbox>
+   
+    <algorithm_params>
+      <water_detect_radar_channel>vv</water_detect_radar_channel>
+    </algorithm_params> 
+   
+    
+</domain>
+

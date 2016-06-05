@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<domain>
+    <name>Chandpur, Bangladesh 2016 Flood</name>
+    <sensors>
+    
+      <sensor>
+        <name>SRTM90</name>
+          <range>
+              <minimum>0</minimum>
+              <maximum>50</maximum>
+          </range>
+      </sensor>
+    
+      <sensor>
+        <name>MODIS</name>
+        <bands>
+          <source>
+            <start_date>2016-5-26</start_date>
+            <end_date>2016-5-27</end_date>
+          </source>
+        </bands>
+      </sensor>
+
+      <sensor>
+        <name>Sentinel1</name>
+        <bands>
+          <source>
+            <start_date>2016-5-23</start_date>
+            <end_date>2016-5-24</end_date>
+          </source>
+        </bands>
+      </sensor>
+
+
+    </sensors>
+    
+    <!-- TODO: Adjust this! -->
+    <bbox>
+        <bottomleft>
+            <lon>90.2307</lon>
+            <lat>22.88</lat>
+        </bottomleft>
+        <topright>
+            <lon>90.9064</lon>
+            <lat>23.6923</lat>
+        </topright>
+    </bbox>
+   
+    <algorithm_params>
+      <water_detect_radar_channel>vv</water_detect_radar_channel>
+    </algorithm_params> 
+   
+    
+</domain>
+
