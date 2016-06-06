@@ -399,9 +399,57 @@ def sar_martinis(domain, cr_method=False):
 #
 # "A fully automated TerraSAR-X based flood service"
 #
+
+
+def fuzzMemZ(x, a, b):
+    '''Standard Z shaped fuzzy math membership function between a and b'''
     
+    c = (a+b)/2.0
+    
+    #if x < a:
+    #    return 1.0
+    #if x < c:
+    #    return 1.0 - 2*((x-a)/(b-a))**2.0
+    #if x < b:
+    #    return 2*((x-b)/(b-a))**2.0
+    #return 0.0
+
+    case1 = x.expression('1.0 - 2.0*((b(0)-a)/(b-a))**2.0', {'a':a, 'b':b})
+    case2 = x.expression('      2.0*((b(0)-b)/(b-a))**2.0', {'a':a, 'b':b})
+    output = ee.Image(0.0).where(x.lt(ee.Image(b)), case2).where(x.lt(ee.Image(c)), case1).where(x.lt(ee.Image(a)), ee.Image(1.0))
+    return output
+
+
+def fuzzMemS(x, a, b):
+    '''Standard S shaped fuzzy math membership function between a and b'''
+
+    c = (a+b)/2.0
+
+    #if x < a:
+    #    return 0.0
+    #if x < c:
+    #    return 2*((x-a)/(b-a))**2.0
+    #if x < b:
+    #    return 1.0 - 2*((x-b)/(b-a))**2.0
+    #return 1.0
+
+
+    case1 = x.expression('      2.0*((b(0)-a)/(b-a))**2.0', {'a':a, 'b':b})
+    case2 = x.expression('1.0 - 2.0*((b(0)-b)/(b-a))**2.0', {'a':a, 'b':b})
+    output = ee.Image(1.0).where(x.lt(ee.Image(b)), case2).where(x.lt(ee.Image(c)), case1).where(x.lt(ee.Image(a)), ee.Image(0.0))
+    return output
+
+
 def sar_martinis2(domain):
     ''''''
+
+    # Set up the grid sizes we will use
+    # TODO: Compute these based on the region size and input resolution!
+    BASE_RES = 40; # Input meters per pixel
+    S2_DS    = 32; # Size of the smaller grid S-
+    S1_DS    = 64; # Size of the larger grid S+
+    S1_WIDTH_METERS = BASE_RES*S1_DS;
+
 
     # Select the radar layer we want to work in
     if 'water_detect_radar_channel' in domain.algorithm_params:
@@ -410,22 +458,16 @@ def sar_martinis2(domain):
         channelName = sensor.band_names[0]   
         
     sensor     = domain.get_radar()
-    radarImage = sensor.image.select(channelName)
-    print channelName
-    print radarImage.getInfo()
+    rawImage = sensor.image.select(channelName)
 
-
-
-    # TODO: Try to match the pre-processing in the paper.
-    # Note that Earth Engine has already done some preprocessing on the data.
-
-
-    # Set up the grid sizes we will use
-    # TODO: Compute these based on the region size and input resolution!
-    BASE_RES = 40; # Input meters per pixel
-    S2_DS    = 32; # Size of the smaller grid S-
-    S1_DS    = 64; # Size of the larger grid S+
-    S1_WIDTH_METERS = BASE_RES*S1_DS;
+    # EE does most of the same preprocessing as the paper but we still need to
+    #  duplicate the 0 to 400 scale they used.
+    MIN_VAL =   0.0
+    MAX_VAL = 400.0
+    minmax = rawImage.reduceRegion(ee.Reducer.minMax(), domain.bounds, scale=BASE_RES).getInfo();
+    minVal = [value for key, value in minmax.items() if 'min' in key.lower()][0]
+    maxVal = [value for key, value in minmax.items() if 'max' in key.lower()][0]
+    radarImage = rawImage.unitScale(minVal, maxVal).multiply(MAX_VAL)
 
     # TODO: Blur base before resampling!
     # - Because we can only call reduceResolution on 64x64 tiles,
@@ -437,8 +479,8 @@ def sar_martinis2(domain):
     s2Mean   = gray.reduceResolution(  ee.Reducer.mean(),   True).reproject(grayProj.scale(S2_DS, S2_DS));
     s1StdDev = s2Mean.reduceResolution(ee.Reducer.stdDev(), True).reproject(grayProj.scale(S1_DS, S1_DS));
 
-    addToMap(gray,     {'min': -25, 'max': 5, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'gray',      False)
-    addToMap(s2Mean,   {'min': -25, 'max': 5, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 's2Mean',    False)
+    addToMap(gray,     {'min': MIN_VAL, 'max': MAX_VAL, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'gray',      False)
+    addToMap(s2Mean,   {'min': MIN_VAL, 'max': MAX_VAL, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 's2Mean',    False)
     addToMap(s1StdDev, {'min':   0, 'max': 5, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 's1StdDev',  False)
 
     # TODO: Make sure threshold is above the global mean.
@@ -493,20 +535,82 @@ def sar_martinis2(domain):
         print 'Computed split value: ' + str(splitVal)
         tileThresholds.append(splitVal)
     print('\n\n----------------------\n')
-    
+
+    # TODO: Discard outliers!    
     threshMean = numpy.mean(tileThresholds)
     threshStd  = numpy.std(tileThresholds)
     print 'Mean of tile thresholds: ' + str(threshMean)
     print 'STD  of tile thresholds: ' + str(threshStd)
     
     # TODO: Compute thresh stats, use backup method from the paper.
+    initialThresh = threshMean
 
-    simpleThreshImage = radarImage.lte(threshMean)
+    rawWater = radarImage.lte(initialThresh)
+    addToMap(rawWater, {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': GRAY_PALETTE }, 'rawWater',  False)
 
-    # TODO: Fuzzy logic based improvement of the results
+    # Get information needed for fuzzy logic results filtering
 
-    return simpleThreshImage
+    meanRawValue = radarImage.mask(rawWater).reduceRegion(ee.Reducer.mean(), domain.bounds, scale=BASE_RES).getInfo().values()[0]
 
+    # Compute the number of pixels in each blob, up to the maximum we care about (1000m*m)
+    maxBlobSize = 1000/BASE_RES
+    blobSizes   = rawWater.mask(rawWater).connectedPixelCount(maxBlobSize)
+    addToMap(blobSizes, {'min':   0, 'max': maxBlobSize, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'blobs',  False)
+
+    # Get DEM information
+    dem        = domain.get_dem().image
+    slopeImage = ee.Terrain.slope(dem)
+    addToMap(slopeImage, {'min':   0, 'max': 30, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'slope',  False)
+    
+    # Compute mean and std of the elevations of the pixels we marked as water
+    waterHeights = dem.mask(rawWater)
+    meanWaterHeight = waterHeights.reduceRegion(ee.Reducer.mean(),   domain.bounds, scale=BASE_RES).getInfo()['elevation']
+    stdWaterHeight  = waterHeights.reduceRegion(ee.Reducer.stdDev(), domain.bounds, scale=BASE_RES).getInfo()['elevation']
+    
+    # Compute fuzzy classifications on four categories:
+    
+    # SAR
+    sarFuzz = fuzzMemZ(radarImage, meanRawValue,  initialThresh)
+    
+    # Elevation
+    # TODO: The max value seems a little strange.
+    heightFuzz = fuzzMemZ(dem, meanWaterHeight, meanWaterHeight + stdWaterHeight*(stdWaterHeight + 3.5))
+    
+    # Slope
+    slopeFuzz = fuzzMemZ(slopeImage, 0, 15) # Values in degrees
+    
+    # Body size
+    minBlobSize = 250/BASE_RES
+    blobFuzz = fuzzMemS(blobSizes, minBlobSize, maxBlobSize).mask(blobSizes)
+    
+    addToMap(sarFuzz,    {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': RED_PALETTE  }, 'SAR    fuzz',  False)
+    addToMap(heightFuzz, {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': TEAL_PALETTE }, 'Height fuzz',  False)
+    addToMap(slopeFuzz,  {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': LBLUE_PALETTE}, 'Slope  fuzz',  False)
+    addToMap(blobFuzz,   {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': BLUE_PALETTE }, 'Blob   fuzz',  False)
+    
+    # Combine fuzzy classification into a single fuzzy classification
+    zeroes    = sarFuzz.Not().Or(heightFuzz.Not().Or(slopeFuzz.Not().Or(blobFuzz.Not())))
+    meanFuzz  = sarFuzz.add(heightFuzz).add(slopeFuzz).add(blobFuzz).divide(ee.Image(4.0))
+    finalFuzz = meanFuzz.And(zeroes.Not())
+    
+    addToMap(zeroes,    {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': GRAY_PALETTE }, 'zeroes',  False)
+    addToMap(meanFuzz,  {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': GRAY_PALETTE }, 'mean fuzz',  False)
+    addToMap(finalFuzz, {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': GRAY_PALETTE }, 'final fuzz',  False)
+    
+    # Apply fixed threshold to get updated flooded pixels
+    defuzz = finalFuzz.gt(ee.Image(0.6))
+    addToMap(defuzz, {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': BLUE_PALETTE }, 'defuzz',  False)
+    
+    # Expand water classification outwards using a lower fuzzy threshold.
+    # - This step is a little tough for EE so we approximate using a dilation step.
+    dilatedWater = defuzz.focal_max(radius=1000, units='meters')
+    finalWater   = dilatedWater.And(finalFuzz.gt(ee.Image(0.45)))
+    
+    addToMap(dilatedWater, {'min': 0, 'max': 1, 'opacity': 1.0, 'palette': GRAY_PALETTE }, 'dilatedWater',  False)
+    
+    
+
+    return finalWater
 
 
 
