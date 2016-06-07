@@ -188,7 +188,7 @@ class MainPage(webapp2.RequestHandler):
         # Build the list of date options
         optionText = ''
         for dateString in self._dateList:
-            optionText += '<option>'+dateString+'</option>'
+            optionText += '<option>'+dateString.replace('_',' ')+'</option>'
         
         # Insert the option section, leave the output section empty.
         self._htmlText = renderHtml(PAGE_HTML, [('[OPTION_SECTION]', optionText), 
@@ -209,7 +209,7 @@ class MapPage(webapp2.RequestHandler):
         # Build the list of date options
         optionText = ''
         for dateString in self._dateList:
-            optionText += '<option>'+dateString+'</option>'
+            optionText += '<option>'+dateString.replace('_',' ')+'</option>'
 
         # Insert the options section
         self._htmlText = renderHtml(PAGE_HTML, [('[OPTION_SECTION]', optionText)])
@@ -217,11 +217,15 @@ class MapPage(webapp2.RequestHandler):
         # Fetch user selection    
         dateLocString = self.request.get('date_select', 'default_date!')
 
-        # This should only return one URL, provided that the location is included in dateLocString
-        kmlUrls = getKmlUrlsForKey(dateLocString)
+        ## This should only return one URL, provided that the location is included in dateLocString
+        try:
+            kmlUrls = getKmlUrlsForKey(dateLocString.replace(' ', '__'))
+        except:
+            kmlUrls = None
         
         if not kmlUrls:
-            newText = 'No KML files were found for this date!'
+            #newText = 'No KML files were found for this date!'
+            newText = dateLocString 
         else:
             # Prepare the map HTML with the data we found
             kmlUrl  = kmlUrls[0]

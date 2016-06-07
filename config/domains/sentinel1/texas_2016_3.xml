@@ -4,7 +4,7 @@
     <sensors>
     
       <sensor>
-        <name>SRTM90</name>
+        <name>NED13</name>
           <range>
               <minimum>0</minimum>
               <maximum>50</maximum>

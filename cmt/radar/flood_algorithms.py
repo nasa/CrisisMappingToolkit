@@ -58,7 +58,7 @@ def detect_flood(image, algorithm):
         approach = __ALGORITHMS[algorithm]
     except:
         return None
-    return approach[1](image)
+    return (approach[0], approach[1](image))
 
 def get_algorithm_name(algorithm):
     '''Return the text name of the algorithm.'''

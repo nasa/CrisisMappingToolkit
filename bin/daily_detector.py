@@ -185,7 +185,7 @@ if __name__ == "__main__":
         #try:
         detect_flood_cmd.main(['--search-days', '10', 
                                '--max-cloud-percentage', '0.20', 
-                               '--save-inputs', 
+                               #'--save-inputs', 
                                '--',
                                outputFolder, dateString, 
                                str(region[0]), str(region[1]), 
@@ -193,13 +193,35 @@ if __name__ == "__main__":
         centerPoint = ( (region[0] + region[2])/2.0, 
                         (region[1] + region[3])/2.0 )
                         
-        # Insert the center into the kml file name
-        kmlPath    = os.path.join(outputFolder, 'floodCoords.kml')
+        # Check if we successfully generated a kml output file
+        kmlPath = os.path.join(outputFolder, 'floodCoords.kml')
         if not os.path.exists(kmlPath):
             continue
-        newKmlName =  (('results_%s_%05f_%05f.kml') % (label, centerPoint[0], centerPoint[1]))
+        
+        # Read the sensors we used from the file and add them to the title
+        with open(kmlPath) as f:
+            for line in f:
+                if '<description>' in line:
+                    start = line.find('>')
+                    end   = line.rfind('<')
+                    s     = line[start+1:end]
+                    sensorList = s.split()
+                    break
+
+        pairs = [('modis', 'M'), ('landsat', 'L'), ('sentinel-1', 'S')]
+        sensorCode = '' # Will be something like "MLS"
+        for pair in pairs:
+            for s in sensorList:
+                if pair[0] in s:
+                    sensorCode += pair[1]
+                    break
+        
+        # Insert the center into the kml file name    
+        newKmlName = (('results_%s_%s_%05f_%05f.kml') % (label, sensorCode, centerPoint[0], centerPoint[1]))
         newKmlPath = os.path.join(outputFolder, newKmlName)
         shutil.move(kmlPath, newKmlPath)
+
+        raise Exception('DEBUG')
 
         archiveResult(newKmlPath, dateString)
         

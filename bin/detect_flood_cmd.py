@@ -38,6 +38,7 @@ import cmt.domain
 import cmt.modis.flood_algorithms
 import cmt.radar.flood_algorithms
 import cmt.util.landsat_functions
+import cmt.util.miscUtilities
 
 from cmt.util.imageRetrievalFunctions import getCloudFreeModis, getCloudFreeLandsat, getNearestSentinel1
 
@@ -89,10 +90,15 @@ def getBestResolution(domain):
 # May want to move this function
 def detect_flood(domain):
     '''Run flood detection using the available sensors'''
+
+    # Currently we run the sensors in order of preference, but we should use everything available.
     
-    if domain.has_sensor('modis'):
-        print 'Running ADABOOST flood detection...'
-        return cmt.modis.flood_algorithms.detect_flood(domain, cmt.modis.flood_algorithms.ADABOOST)[1]
+    try:
+        domain.get_radar()
+        print 'Running RADAR-only flood detection...'
+        return cmt.radar.flood_algorithms.detect_flood(domain, cmt.radar.flood_algorithms.MARTINIS_2)[1]
+    except LookupError:
+        pass        
 
     try:
         domain.get_landsat()
@@ -100,14 +106,10 @@ def detect_flood(domain):
         return cmt.util.landsat_functions.detect_water(domain.get_landsat().image)
     except LookupError:
         pass
-        
-    try:
-        domain.get_radar()
-        print 'Running RADAR-only flood detection...'
-        #return cmt.radar.flood_algorithms.detect_flood(domain, cmt.radar.flood_algorithms.MATGEN)[1]
-        return domain.get_radar().vv.lt(-15) # A dumb debug function!
-    except LookupError:
-        pass    
+    
+    if domain.has_sensor('modis'):
+        print 'Running ADABOOST flood detection...'
+        return cmt.modis.flood_algorithms.detect_flood(domain, cmt.modis.flood_algorithms.ADABOOST)[1]
 
     raise Exception('No data available to detect a flood!')
 
@@ -170,7 +172,7 @@ def clean_coordinates(coordList, height=2000):
         output.append((coord[0], coord[1], height))
     return output
 
-def coordListsToKml(allFeatureInfo, kmlPath):
+def coordListsToKml(allFeatureInfo, kmlPath, sensorList):
     '''Converts a local coordinate list to KML'''
     
     MIN_REGION_SIZE = 0.000001
@@ -178,6 +180,10 @@ def coordListsToKml(allFeatureInfo, kmlPath):
     # Initialize kml document
     kml = simplekml.Kml()
     kml.document.name = 'ASP CMT flood detections - DATE'
+    s = " ".join([sensor.sensor_name for sensor in sensorList])
+    kml.document.description = s
+    
+    
     kml.hint = 'target=earth'
 
     height = 2000
@@ -304,6 +310,7 @@ def main(argsIn):
     landsatSensor   = None
     sentinel1Sensor = None
     sensorList = []
+    
     try:
         #print 'Fetching MODIS data...'
         modisImage  = getCloudFreeModis(eeBounds, eeDate, options.searchRangeDays, options.maxCloudPercentage)
@@ -337,6 +344,17 @@ def main(argsIn):
     except Exception as e:
         print 'Unable to load a Sentinel1 image in this date range!'
         print str(e)
+
+    # Add DEM data
+    # - TODO: Should this be a function?
+    demSensor = cmt.domain.SensorObservation()
+    if cmt.util.miscUtilities.regionIsInUnitedStates(eeBounds):
+        demName = 'ned13.xml'
+    else:
+        demName = 'srtm90.xml'
+    xmlPath = xmlPath = os.path.join(cmt.domain.SENSOR_SOURCE_DIR, demName)
+    demSensor.init_from_xml(xmlPath)
+    sensorList.append(demSensor)
 
     if not sensorList:
         print 'Unable to find any sensor data for this date/location!'
@@ -448,7 +466,7 @@ def main(argsIn):
         
     print 'Converting coordinates to KML'
     kmlPath = os.path.join(outputFolder, 'floodCoords.kml')
-    coordListsToKml(allFeatureInfo, kmlPath)
+    coordListsToKml(allFeatureInfo, kmlPath, sensorList)
         
         
     return 0

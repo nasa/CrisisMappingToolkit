@@ -315,7 +315,7 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
             if len(band_names) == 3:
                 break
             
-    if len(band_names) >= 3:
+    if len(band_names) > 3:
         raise Exception('Images with more than three channels are not supported!')
     
     # Handle selected visualization parameters
