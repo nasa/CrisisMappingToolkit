@@ -558,7 +558,8 @@ def sar_martinis2(domain):
     addToMap(blobSizes, {'min':   0, 'max': maxBlobSize, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'blobs',  False)
 
     # Get DEM information
-    dem        = domain.get_dem().image
+    dem = domain.get_dem().image
+    dem = ee.Image(0).where(dem, dem).select(['constant'], ['elevation']) # Fill in DEM holes with zero elevation
     slopeImage = ee.Terrain.slope(dem)
     addToMap(slopeImage, {'min':   0, 'max': 30, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'slope',  False)
     
