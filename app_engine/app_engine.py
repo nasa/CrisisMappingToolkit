@@ -60,6 +60,8 @@ PAGE_HTML = """\
 MAP_HTML = """\
     <div id="map"></div>
     <strong>[MAP_TITLE]</strong>
+    <br>
+    Sensors: [SENSOR_LIST]
     <script>
       function initMap() {
         var mapDiv = document.getElementById('map');
@@ -153,7 +155,7 @@ def getKmlUrlsForKey(key):
 def extractInfoFromKmlUrl(url):
     '''Extract the information encoded in the KML filename into a dictionary.'''
     
-    # Format is: 'STUFF/results_location_%05f_%05f.kml'
+    # Format is: 'STUFF/results_location_SENSORS_%05f_%05f.kml'
 
     # Get just the kml name    
     rslash = url.rfind('/')
@@ -163,19 +165,32 @@ def extractInfoFromKmlUrl(url):
         filename = url
 
     # Split up the kml name
-    parts    = filename.split('_')
-    parts[3] = parts[3].replace('.kml','')
+    parts     = filename.split('_')
+    parts[-1] = parts[-1].replace('.kml','')
 
     location = parts[1]
-    lon = float(parts[2])
-    lat = float(parts[3])
+    if len(parts) == 5:
+        sensors = parts[2]
+    else:
+        sensors = ''
+    lon = float(parts[-2])
+    lat = float(parts[-1])
     
     # Pack the results into a dictionary
-    return {'location':location, 'lon':lon, 'lat':lat}
+    return {'location':location, 'sensors':sensors, 'lon':lon, 'lat':lat}
 
 
-
-
+def expandSensorsList(sensors):
+    '''Expand the abbreviated sensor list to full sensor names'''
+    
+    string = ''
+    pairs = [('Modis', 'M'), ('Landsat', 'L'), ('Sentinel-1', 'S')]
+    for pair in pairs:
+        if pair[1] in sensors:
+            string += (' ' + pair[0])
+    if not string:
+        string = 'Error: Sensor list "'+sensors+'" not parsed!'
+    return string
 
 class MainPage(webapp2.RequestHandler):
     '''The splash page that the user sees when they access the site'''
@@ -228,12 +243,14 @@ class MapPage(webapp2.RequestHandler):
             newText = dateLocString 
         else:
             # Prepare the map HTML with the data we found
-            kmlUrl  = kmlUrls[0]
-            info    = extractInfoFromKmlUrl(kmlUrl)
-            newText = renderHtml(MAP_HTML, [('[MAP_TITLE]', dateLocString),
-                                            ('[KML_URL]',   kmlUrl), 
-                                            ('[LAT]',       str(info['lat'])), 
-                                            ('[LON]',       str(info['lon']))])
+            kmlUrl     = kmlUrls[0]
+            info       = extractInfoFromKmlUrl(kmlUrl)
+            sensorList = expandSensorsList(info['sensors'])
+            newText = renderHtml(MAP_HTML, [('[MAP_TITLE]',   dateLocString),
+                                            ('[KML_URL]',     kmlUrl), 
+                                            ('[SENSOR_LIST]', sensorList), 
+                                            ('[LAT]',         str(info['lat'])), 
+                                            ('[LON]',         str(info['lon']))])
 
         #newText = 'You selected: <pre>'+ cgi.escape(date) +'</pre>'
         #newText = MAP_HTML
