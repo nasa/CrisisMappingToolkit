@@ -92,26 +92,39 @@ def detect_flood(domain):
     '''Run flood detection using the available sensors'''
 
     # Currently we run the sensors in order of preference, but we should use everything available.
+
+    # TODO: Use cloud input for MODIS data
+
+    cloudCover = ee.Image(0)
+    result     = None
     
     try:
         domain.get_radar()
         print 'Running RADAR-only flood detection...'
-        return cmt.radar.flood_algorithms.detect_flood(domain, cmt.radar.flood_algorithms.MARTINIS_2)[1]
+        result = cmt.radar.flood_algorithms.detect_flood(domain, cmt.radar.flood_algorithms.MARTINIS_2)[1]
     except LookupError:
         pass        
 
     try:
-        domain.get_landsat()
-        print 'Running LANDSAT-only flood detection...'
-        return cmt.util.landsat_functions.detect_water(domain.get_landsat().image)
+        cloudCover = cmt.util.landsat_functions.detect_clouds(domain.get_landsat().image).Or(cloudCover)
+        if not result:
+            print 'Running LANDSAT-only flood detection...'
+            result = cmt.util.landsat_functions.detect_water(domain.get_landsat().image)
     except LookupError:
         pass
-    
+   
     if domain.has_sensor('modis'):
-        print 'Running ADABOOST flood detection...'
-        return cmt.modis.flood_algorithms.detect_flood(domain, cmt.modis.flood_algorithms.ADABOOST)[1]
+        cloudCover = cmt.modis.modis_utilities.getModisBadPixelMask(domain.modis.image).Or(cloudCover)
+        if not result:
+            print 'Running ADABOOST flood detection...'
+            result = cmt.modis.flood_algorithms.detect_flood(domain, cmt.modis.flood_algorithms.ADABOOST)[1]
 
-    raise Exception('No data available to detect a flood!')
+    if not result:
+        raise Exception('No data available to detect a flood!')
+
+    return result, cloudCover
+
+    
 
 def getPolygonArea(vertices):
     '''Returns the area of an N-sided polygon'''
@@ -172,33 +185,47 @@ def clean_coordinates(coordList, height=2000):
         output.append((coord[0], coord[1], height))
     return output
 
-def coordListsToKml(allFeatureInfo, kmlPath, sensorList):
-    '''Converts a local coordinate list to KML'''
-    
-    MIN_REGION_SIZE = 0.000001
-    
-    # Initialize kml document
-    kml = simplekml.Kml()
-    kml.document.name = 'ASP CMT flood detections - DATE'
-    s = " ".join([sensor.sensor_name for sensor in sensorList])
-    kml.document.description = s
-    
-    
-    kml.hint = 'target=earth'
 
-    height = 2000
+def addPoly(kmlObject, coordList, height, isWater, color):
+    '''Add a polygon to a simplekml object'''
+    
+    # Separate the outer and inner coordinate lists that were passed in
+    outerBounds = clean_coordinates(coordList[0], height)
+    innerBounds = []
+    for i in range(1,len(coordList)):
+        innerBounds.append(clean_coordinates(coordList[i], height))
+
+    # Make a polygon with the provided borders    
+    poly = kmlObject.newpolygon(outerboundaryis=outerBounds,
+                                innerboundaryis=innerBounds)
+
+    poly.altitudemode = simplekml.AltitudeMode.relativetoground
+    poly.extrude=1
+    poly.style.linestyle.color = simplekml.Color.blue
+    poly.style.polystyle.color = color 
+
+    if isWater:
+        poly.style.polystyle.fill  = 1
+    else:
+        poly.style.polystyle.fill  = 0
 
 
-
-    for featureInfo in allFeatureInfo:
+def addFeatureSet(kmlObject, featureInfo, activeColor):
+    '''Adds a set of features to a KML object'''
+    
+    height = 1000 # For better Google Earth display
+    
+    for f in featureInfo:
        
-        #print featureInfo['geometry']['type']
-        #print featureInfo['properties']['area']
+        isWater = f['properties']['label']
+        coords  = f['geometry']['coordinates']
         
-        isWater = featureInfo['properties']['label']
-        coords  = featureInfo['geometry']['coordinates']
+        if isWater:
+            color = activeColor
+        else:
+            color = '00FFFFFF' # Translucent white
         
-        if featureInfo['geometry']['type'] == 'MultiPolygon':
+        if f['geometry']['type'] == 'MultiPolygon':
 
             # Multipolygons are basically just multiple polygons, not sure
             #  why they are grouped up.
@@ -206,55 +233,91 @@ def coordListsToKml(allFeatureInfo, kmlPath, sensorList):
             #print 'MULTIPOLYGON: ' + str(len(coords))
             #print 'area = ' + str(featureInfo['properties']['area'])
             
-            multipoly = kml.newmultigeometry()
+            multipoly = kmlObject.newmultigeometry()
             
             for entry in coords:
-            
-                # Separate the outer and inner coordinate lists that were passed in
-                outerBounds = clean_coordinates(entry[0], height)
-                innerBounds = []
-                for i in range(1,len(entry)):
-                    innerBounds.append(clean_coordinates(entry[i], height))
-                    
-                poly = multipoly.newpolygon(outerboundaryis=outerBounds,
-                                     innerboundaryis=innerBounds)
-
-                poly.altitudemode = simplekml.AltitudeMode.relativetoground
-                poly.extrude=1
-                if isWater:
-                    poly.style.linestyle.color = simplekml.Color.blue
-                    #poly.style.polystyle.color = '37F0E614' # Translucent teal
-                    poly.style.polystyle.color = 'FFF0E614' # Solid teal
-                    poly.style.polystyle.fill  = 1
+                addPoly(multipoly, entry, height, isWater, color)
                 
         else: # Regular polygon
+            addPoly(kmlObject, coords, height, isWater, color)
+    return kmlObject
             
-            # TODO: Put in a function!
-            
-            # Separate the outer and inner coordinate lists that were passed in
-            outerBounds = clean_coordinates(coords[0], height)
-            innerBounds = []
-            for i in range(1,len(coords)):
-                innerBounds.append(clean_coordinates(coords[i], height))
-      
-            # Make a polygon with the provided borders    
-            poly = kml.newpolygon(outerboundaryis=outerBounds,
-                                  innerboundaryis=innerBounds)
 
-            poly.altitudemode = simplekml.AltitudeMode.relativetoground
-            poly.extrude=1
-            if isWater:
-                poly.style.linestyle.color = simplekml.Color.blue
-                #poly.style.polystyle.color = '37F0E614' # Translucent teal
-                poly.style.polystyle.color = 'FFF0E614' # Solid teal
-                poly.style.polystyle.fill  = 1
-    
-    
-        #height += 100
+def coordListsToKml(resultFeatureInfo, cloudFeatureInfo, kmlPath, sensorList):
+    '''Converts a local coordinate list to KML'''
+       
+    # Initialize kml document
+    kml = simplekml.Kml()
+    kml.document.name = 'ASP CMT flood detections - DATE'
+    s = " ".join([sensor.sensor_name for sensor in sensorList])
+    kml.document.description = s
+    kml.hint = 'target=earth'
+
+    WATER_COLOR = 'FFF0E614' # Solid teal
+    CLOUD_COLOR = 'FFFFFFFF' # Solid white
+    addFeatureSet(kml, cloudFeatureInfo,  CLOUD_COLOR)
+    addFeatureSet(kml, resultFeatureInfo, WATER_COLOR)
     
     # Save kml document
+    print 'Saving: ' + kmlPath
     kml.save(kmlPath)
 
+
+def getBinaryFeatures(binaryImage, bounds, outputResolution):
+    '''From a binary image, vectorize to features and call getInfo()'''
+    
+    print 'Converting to vectors...'
+    featureCollection = binaryImage.reduceToVectors(geometry=bounds, scale=outputResolution, eightConnected=False);
+    print '\n---Retrieving info---\n'
+
+    # If too many features were detected, keep the N largest ones.
+    #MAX_POLYGONS = 100
+    MAX_POLYGONS = 1000
+    MIN_POLYGONS = 2 # If less than this, must be bad!
+    #MIN_AREA = 500000
+    MIN_AREA = 0
+    
+    numFeatures = featureCollection.size().getInfo()
+    print 'Detected ' +str(numFeatures)+ ' polygons.'
+    if numFeatures < MIN_POLYGONS:
+        return 0
+
+    # Compute the size of each feature
+    def addPolySize(feature):
+        MAX_ERROR = 100
+        return ee.Feature(feature).set({'area':feature.area(MAX_ERROR)})
+    featureCollection = featureCollection.map(addPolySize, True)
+    
+    # Throw out features below a certain size
+    featureCollection = featureCollection.filterMetadata('area', 'greater_than', MIN_AREA)
+    numFeatures = featureCollection.size().getInfo()
+
+    print 'Reduced to ' +str(numFeatures)+ ' polygons.'
+    if numFeatures < MIN_POLYGONS:
+        return 0
+
+    # Get a list of the features with simplified geometry
+    def simplifyFeature(feature):
+        MAX_ERROR = 100
+        return ee.Feature(feature).simplify(MAX_ERROR)
+        
+    fList = featureCollection.toList(MAX_POLYGONS) # Limit total number of polygons
+    fList = fList.map(simplifyFeature)
+    numFeatures = fList.size().getInfo()
+
+    # Quit now if we did not find anything
+    if numFeatures == 0:
+        return 0
+
+    print 'Grabbing polygon info...'
+    allFeatureInfo = fList.getInfo()
+    print '...done'
+    
+    print 'Restricted to ' +str(numFeatures)+ ' polygons.'
+    
+    return allFeatureInfo
+    
+    
 
 # --------------------------------------------------------------
 def main(argsIn):
@@ -366,8 +429,6 @@ def main(argsIn):
     domain.load_sensor_observations(domainName, [minLon, minLat, maxLon, maxLat], sensorList)
 
     print 'Successfully loaded the domain!'
-    print str(domain)
-    # TODO: Check the domain loading!
 
     outputResolution = 100#getBestResolution(domain)
     outputVisParams  = {'min': 0, 'max': 1} # Binary image data
@@ -397,112 +458,37 @@ def main(argsIn):
     # #cmt.modis.adaboost.adaboost_dem_learn(None) # Adaboost DEM stats collection
     # raise Exception('DEBUG')
 
-    print 'Running flood detection!'
-    result = detect_flood(domain)
 
+    print 'Running flood detection!'
+    (result, cloudCover) = detect_flood(domain)
+    print result.getInfo()
+    
     resultPath = os.path.join(outputFolder, 'flood_detect_result.tif')
-    cmt.util.miscUtilities.safeEeImageDownload(result, eeBounds, 150, resultPath, outputVisParams)
+    cmt.util.miscUtilities.safeEeImageDownload(result, eeBounds, outputResolution, resultPath, outputVisParams)
+    
+    print '/nclouds...'
+    print cloudCover.getInfo()
+    cloudPath = os.path.join(outputFolder, 'cloudCover.tif')
+    cmt.util.miscUtilities.safeEeImageDownload(cloudCover, eeBounds, outputResolution, cloudPath, outputVisParams)
 
     # Perform an erosion followed by a dilation to clean up small specks of detection
     print 'Filtering result...'
-    circle   = ee.Kernel.circle(radius=1);
-    filtered = result.focal_min(kernel=circle, iterations=2).focal_max(kernel=circle, iterations=2);
+    circle     = ee.Kernel.circle(radius=1);
+    a     = result.focal_min(kernel=circle, iterations=2).focal_max(kernel=circle, iterations=2);
+    cloudCover = cloudCover.focal_min(kernel=circle, iterations=2).focal_max(kernel=circle, iterations=2);
 
     # Vectorize the binary result image
-    print 'Converting to vectors...'
-    featureCollection = filtered.reduceToVectors(geometry=eeBounds, scale=outputResolution, eightConnected=False);
-    print '\n---Retrieving info---\n'
-
-    # If too many features were detected, keep the N largest ones.
-    #MAX_POLYGONS = 100
-    MAX_POLYGONS = 1000
-    MIN_POLYGONS = 2 # If less than this, must be bad!
-    #MIN_AREA = 500000
-    MIN_AREA = 0
-    
-    numFeatures = featureCollection.size().getInfo()
-    print 'Detected ' +str(numFeatures)+ ' polygons.'
-    if numFeatures < MIN_POLYGONS:
-        return 0
-
-    # Compute the size of each feature
-    def addPolySize(feature):
-        MAX_ERROR = 100
-        return ee.Feature(feature).set({'area':feature.area(MAX_ERROR)})
-    featureCollection = featureCollection.map(addPolySize, True)
-    
-    # Throw out features below a certain size
-    featureCollection = featureCollection.filterMetadata('area', 'greater_than', MIN_AREA)
-    numFeatures = featureCollection.size().getInfo()
-
-    print 'Reduced to ' +str(numFeatures)+ ' polygons.'
-    if numFeatures < MIN_POLYGONS:
-        return 0
-
-    #if numFeatures > MAX_POLYGONS:
-    #    print 'Sorting by area'
-    #    featureCollection = featuresWithSize.sort('area', False)    
-
-    # Get a list of the features with simplified geometry
-    def simplifyFeature(feature):
-        MAX_ERROR = 100
-        return ee.Feature(feature).simplify(MAX_ERROR)
-        
-    fList = featureCollection.toList(MAX_POLYGONS) # Limit total number of polygons
-    fList = fList.map(simplifyFeature)
-    numFeatures = fList.size().getInfo()
-
-    # Quit now if we did not find anything
-    if numFeatures == 0:
-        return 0
-
-    print 'Grabbing polygon info...'
-    allFeatureInfo = fList.getInfo()
-    print '...done'
-    
-
-    print 'Restricted to ' +str(numFeatures)+ ' polygons.'
-
+    print 'Extracting flood features...'
+    resultFeatureInfo = getBinaryFeatures(a,     eeBounds, outputResolution)
+    print 'Extracting cloud features...'
+    cloudFeatureInfo  = getBinaryFeatures(cloudCover, eeBounds, outputResolution)
         
     print 'Converting coordinates to KML'
     kmlPath = os.path.join(outputFolder, 'floodCoords.kml')
-    coordListsToKml(allFeatureInfo, kmlPath, sensorList)
+    coordListsToKml(resultFeatureInfo, cloudFeatureInfo, kmlPath, sensorList)
         
         
     return 0
-    
-    # Code attempting to use EE to do the polygon work...
-    
-    featureInfo = features.getInfo()
-    try:
-        print dir(feature)
-    except:
-        pass
-    print 'Found ' + str(len(featureInfo)) + ' features.'
-    for feature in featureInfo:
-        print '- Found ' + str(len(feature)) + ' subfeatures.'
-        print dir(feature)
-
-    raise Exception('DEBUG')
-
-    # For each of the algorithms
-    for a in range(len(ALGORITHMS)):
-        # Run the algorithm on the data and get the results
-        try:
-            (alg, result) = cmt.modis.flood_algorithms.detect_flood(domain, ALGORITHMS[a])
-            if result is None:
-                logger.warn('Did not get result for algorithm ' + alg)
-                continue
-            
-            thisFileName = alg + '-result.tif'
-            resultPath   = os.path.join(resultFolder, thisFileName)
-            
-            # Record the result to disk
-            cmt.util.miscUtilities.downloadEeImage(result, eeBounds, outputResolution, resultPath, outputVisParams)
-                    
-        except Exception, e:
-            print('Caught exception running algorithm: ' + get_algorithm_name(ALGORITHMS[a]) + '\n' +
-                  str(e) + '\n')
 
 
 # Call main() when run from command line

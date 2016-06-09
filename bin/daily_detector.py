@@ -221,7 +221,7 @@ if __name__ == "__main__":
         newKmlPath = os.path.join(outputFolder, newKmlName)
         shutil.move(kmlPath, newKmlPath)
 
-        raise Exception('DEBUG')
+        #raise Exception('DEBUG')
 
         archiveResult(newKmlPath, dateString)
         

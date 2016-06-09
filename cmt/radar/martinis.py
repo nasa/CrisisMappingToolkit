@@ -445,7 +445,7 @@ def sar_martinis2(domain):
 
     # Set up the grid sizes we will use
     # TODO: Compute these based on the region size and input resolution!
-    BASE_RES = 40; # Input meters per pixel
+    BASE_RES = 80; # Input meters per pixel
     S2_DS    = 32; # Size of the smaller grid S-
     S1_DS    = 64; # Size of the larger grid S+
     S1_WIDTH_METERS = BASE_RES*S1_DS;
