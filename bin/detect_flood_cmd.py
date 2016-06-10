@@ -32,6 +32,7 @@ import sys
 import os
 import ee
 import optparse
+import traceback
 import simplekml
 
 import cmt.domain
@@ -46,25 +47,10 @@ from cmt.util.imageRetrievalFunctions import getCloudFreeModis, getCloudFreeLand
 Command line flood detection tool
 '''
 
-#  --------------------------------------------------------------
-# Configuration
-
-# TODO: Load from a config file
-
-#ALGORITHMS = [DIFFERENCE, EVI, XIAO]
-ALGORITHMS = []
-
-
 
 # --------------------------------------------------------------
 # Functions
 
-#def getOutputFolder(domain):
-#    '''Get a folder to save output results to'''
-#    dateString = getDate(domain)
-#    folder     = os.path.join(OUTPUT_FOLDER, dateString)
-#    return folder
-        
 
 def getBestResolution(domain):
     '''Determines the output resolution of our detection algorithm
@@ -103,7 +89,10 @@ def detect_flood(domain):
         print 'Running RADAR-only flood detection...'
         result = cmt.radar.flood_algorithms.detect_flood(domain, cmt.radar.flood_algorithms.MARTINIS_2)[1]
     except LookupError:
-        pass        
+        pass
+    except Exception as e:
+        print 'Caught exception using RADAR, skipping it:'
+        traceback.print_exc()
 
     try:
         cloudCover = cmt.util.landsat_functions.detect_clouds(domain.get_landsat().image).Or(cloudCover)
@@ -112,12 +101,22 @@ def detect_flood(domain):
             result = cmt.util.landsat_functions.detect_water(domain.get_landsat().image)
     except LookupError:
         pass
+    except Exception as e:
+        print 'Caught exception using LANDSAT, skipping it:'
+        traceback.print_exc()
    
-    if domain.has_sensor('modis'):
+
+    try:
         cloudCover = cmt.modis.modis_utilities.getModisBadPixelMask(domain.modis.image).Or(cloudCover)
         if not result:
             print 'Running ADABOOST flood detection...'
             result = cmt.modis.flood_algorithms.detect_flood(domain, cmt.modis.flood_algorithms.ADABOOST)[1]
+    except LookupError:
+        pass
+    except Exception as e:
+        print 'Caught exception using MODIS, skipping it:'
+        traceback.print_exc()
+    
 
     if not result:
         raise Exception('No data available to detect a flood!')
@@ -273,14 +272,14 @@ def getBinaryFeatures(binaryImage, bounds, outputResolution):
     # If too many features were detected, keep the N largest ones.
     #MAX_POLYGONS = 100
     MAX_POLYGONS = 1000
-    MIN_POLYGONS = 2 # If less than this, must be bad!
+    MIN_POLYGONS = 1 # If less than this, must be bad!
     #MIN_AREA = 500000
     MIN_AREA = 0
     
     numFeatures = featureCollection.size().getInfo()
     print 'Detected ' +str(numFeatures)+ ' polygons.'
     if numFeatures < MIN_POLYGONS:
-        return 0
+        raise Exception('Unsufficient polygons detected!')
 
     # Compute the size of each feature
     def addPolySize(feature):
@@ -294,7 +293,7 @@ def getBinaryFeatures(binaryImage, bounds, outputResolution):
 
     print 'Reduced to ' +str(numFeatures)+ ' polygons.'
     if numFeatures < MIN_POLYGONS:
-        return 0
+        raise Exception('Unsufficient polygons detected!')
 
     # Get a list of the features with simplified geometry
     def simplifyFeature(feature):
@@ -307,7 +306,7 @@ def getBinaryFeatures(binaryImage, bounds, outputResolution):
 
     # Quit now if we did not find anything
     if numFeatures == 0:
-        return 0
+        raise Exception('Unsufficient features detected!')
 
     print 'Grabbing polygon info...'
     allFeatureInfo = fList.getInfo()
@@ -461,32 +460,30 @@ def main(argsIn):
 
     print 'Running flood detection!'
     (result, cloudCover) = detect_flood(domain)
-    print result.getInfo()
-    
+    #print result.getInfo()
+
     resultPath = os.path.join(outputFolder, 'flood_detect_result.tif')
     cmt.util.miscUtilities.safeEeImageDownload(result, eeBounds, outputResolution, resultPath, outputVisParams)
     
-    print '/nclouds...'
-    print cloudCover.getInfo()
+    #print '/nclouds...'
+    #print cloudCover.getInfo()
     cloudPath = os.path.join(outputFolder, 'cloudCover.tif')
     cmt.util.miscUtilities.safeEeImageDownload(cloudCover, eeBounds, outputResolution, cloudPath, outputVisParams)
 
     # Perform an erosion followed by a dilation to clean up small specks of detection
-    print 'Filtering result...'
     circle     = ee.Kernel.circle(radius=1);
-    a     = result.focal_min(kernel=circle, iterations=2).focal_max(kernel=circle, iterations=2);
+    result     = result.focal_min(    kernel=circle, iterations=2).focal_max(kernel=circle, iterations=2);
     cloudCover = cloudCover.focal_min(kernel=circle, iterations=2).focal_max(kernel=circle, iterations=2);
 
     # Vectorize the binary result image
     print 'Extracting flood features...'
-    resultFeatureInfo = getBinaryFeatures(a,     eeBounds, outputResolution)
-    print 'Extracting cloud features...'
+    resultFeatureInfo = getBinaryFeatures(result,     eeBounds, outputResolution)
+    print '\nExtracting cloud features...'
     cloudFeatureInfo  = getBinaryFeatures(cloudCover, eeBounds, outputResolution)
-        
+       
     print 'Converting coordinates to KML'
     kmlPath = os.path.join(outputFolder, 'floodCoords.kml')
     coordListsToKml(resultFeatureInfo, cloudFeatureInfo, kmlPath, sensorList)
-        
         
     return 0
 

@@ -59,9 +59,25 @@ PAGE_HTML = """\
 
 MAP_HTML = """\
     <div id="map"></div>
+
+    <table width="60" style="border: 1px solid #000" rules="all">
+    <tr>
+
+    <td>
     <strong>[MAP_TITLE]</strong>
     <br>
     Sensors: [SENSOR_LIST]
+    </td>
+
+    <td>
+    <table width="60" style="border: 1px solid #000" rules="all">
+    <tr><td>Water</td><td>Clouds</td></tr>
+    <tr height="50" ><td bgcolor="00ffff"></td><td bgcolor="ffffff"></td></tr>
+    </table>
+    </td>
+
+    </tr>
+
     <script>
       function initMap() {
         var mapDiv = document.getElementById('map');

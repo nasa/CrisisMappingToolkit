@@ -439,13 +439,20 @@ def fuzzMemS(x, a, b):
     output = ee.Image(1.0).where(x.lt(ee.Image(b)), case2).where(x.lt(ee.Image(c)), case1).where(x.lt(ee.Image(a)), ee.Image(0.0))
     return output
 
+def rescaleNumber(num, currMin, currMax, newMin, newMax):
+    '''Changes the scaling of a number from one range to a new one.'''
+    currRange = currMax - currMin
+    newRange  = newMax - newMin
+    scaled    = (num - currMin) / currRange
+    output    = scaled*newRange + newMin
+    return output
 
 def sar_martinis2(domain):
-    ''''''
+    '''Main function of algorithm from "A fully automated TerraSAR-X based flood service"'''
 
     # Set up the grid sizes we will use
     # TODO: Compute these based on the region size and input resolution!
-    BASE_RES = 80; # Input meters per pixel
+    BASE_RES = 40; # Input meters per pixel
     S2_DS    = 32; # Size of the smaller grid S-
     S1_DS    = 64; # Size of the larger grid S+
     S1_WIDTH_METERS = BASE_RES*S1_DS;
@@ -457,19 +464,21 @@ def sar_martinis2(domain):
         channelName = domain.algorithm_params['water_detect_radar_channel']
     else: # Just use the first radar channel
         channelName = sensor.band_names[0]   
-    
+
+    # Get the channel and specify higher quality image resampling method    
     rawImage = sensor.image.select(channelName)
 
     # EE does most of the same preprocessing as the paper but we still need to
     #  duplicate the 0 to 400 scale they used.
-    MIN_VAL =   0.0
-    MAX_VAL = 400.0
+    PROC_MIN_VAL =   0.0
+    PROC_MAX_VAL = 400.0
     minmax = rawImage.reduceRegion(ee.Reducer.minMax(), domain.bounds, scale=BASE_RES).getInfo();
     minVal = [value for key, value in minmax.items() if 'min' in key.lower()][0]
     maxVal = [value for key, value in minmax.items() if 'max' in key.lower()][0]
-    radarImage = rawImage.unitScale(minVal, maxVal).multiply(MAX_VAL)
+    radarImage = rawImage.unitScale(minVal, maxVal).multiply(PROC_MAX_VAL)
+    # Also implement the median filter used in the paper
+    radarImage = radarImage.focal_median(kernelType='square')
 
-    # TODO: Blur base before resampling!
     # - Because we can only call reduceResolution on 64x64 tiles,
     #  downsample the input images to get the correct size.
     gray     = radarImage.reproject(radarImage.projection(), scale=BASE_RES);
@@ -479,19 +488,18 @@ def sar_martinis2(domain):
     s2Mean   = gray.reduceResolution(  ee.Reducer.mean(),   True).reproject(grayProj.scale(S2_DS, S2_DS));
     s1StdDev = s2Mean.reduceResolution(ee.Reducer.stdDev(), True).reproject(grayProj.scale(S1_DS, S1_DS));
 
-    #addToMap(gray,     {'min': MIN_VAL, 'max': MAX_VAL, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'gray',      False)
-    #addToMap(s2Mean,   {'min': MIN_VAL, 'max': MAX_VAL, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 's2Mean',    False)
-    #addToMap(s1StdDev, {'min':   0, 'max': 5, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 's1StdDev',  False)
+    #addToMap(gray,     {'min': PROC_MIN_VAL, 'max': PROC_MAX_VAL, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 'gray',   False)
+    #addToMap(s2Mean,   {'min': PROC_MIN_VAL, 'max': PROC_MAX_VAL, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 's2Mean', False)
+    #addToMap(s1StdDev, {'min':   PROC_MIN_VAL, 'max': PROC_MAX_VAL, 'opacity': 1.0, 'palette': GRAY_PALETTE}, 's1StdDev',  False)
 
-    # TODO: Make sure threshold is above the global mean.
     # Pick the highest STD grid locations
-    p = s1StdDev.reduceRegion(ee.Reducer.percentile([95]), domain.bounds); # TODO 95
+    p = s1StdDev.reduceRegion(ee.Reducer.percentile([95]), domain.bounds);
     if not p:
         raise Exception('Failed to find high STD tiles!')
     thresh = ee.Number(p.getInfo().values()[0]);
     print 'Computed 95% std threshold: ' + str(thresh.getInfo())
     kept = s1StdDev.gt(ee.Image(thresh));
-    #addToMap(kept, {'min':   0, 'max': 1, 'opacity': 0.5, 'palette': GREEN_PALETTE}, 'top_std_dev',  False)
+    #addToMap(kept, {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': GREEN_PALETTE}, 'top_std_dev',  False)
 
     # Add lonlat bands to the tile STD values and get a nice list of kept
     #  tile STD values with the center coordinate of the tile.
@@ -526,23 +534,51 @@ def sar_martinis2(domain):
     tileThresholds = []
     #print('\n\n======= HistProc ========\n')
     #histProc = hists.map(histCheck)
-    histData = hists.getInfo()['features']
+    histData  = hists.getInfo()['features']
+    mergeHist = []
     for feature in histData:
-        # TODO: Quality of fit score
-        # TODO: Plot the histograms to make sure the splitter works well
+        # TODO: Improve/test the splitter?
         hist     = feature['properties']['histogram']
         splitVal = histogram.splitHistogramKittlerIllingworth(hist['histogram'], hist['bucketMeans'])
-        print 'Computed split value: ' + str(splitVal)
+        
+        # Display these values in the original unscaled units.
+        splitValDb = rescaleNumber(splitVal, PROC_MIN_VAL, PROC_MAX_VAL, minVal, maxVal)        
+        print 'Computed split value (DB): ' + str(splitValDb)
         tileThresholds.append(splitVal)
     #print('\n\n----------------------\n')
 
-    # TODO: Discard outliers!    
+    print 'Range: ' + str((PROC_MIN_VAL, PROC_MAX_VAL, minVal, maxVal))
+    print tileThresholds
+
+    # If the standard deviation of the local thresholds in DB are greater than this,
+    #  the result is probably bad (number from the paper)
+    MAX_STD_DB = 5.0
+
+    # The maximum allowed value, from the paper.
+    MAX_THRESHOLD_DB = 10.0
+
+    # TODO: Some method do discard outliers
     threshMean = numpy.mean(tileThresholds)
-    threshStd  = numpy.std(tileThresholds)
-    print 'Mean of tile thresholds: ' + str(threshMean)
-    print 'STD  of tile thresholds: ' + str(threshStd)
+    threshStd  = numpy.std(tileThresholds, ddof=1)
     
-    # TODO: Compute thresh stats, use backup method from the paper.
+    # Recompute these values in the original DB units.
+    tileThresholdsDb = [rescaleNumber(x, PROC_MIN_VAL, PROC_MAX_VAL, minVal, maxVal) for x in tileThresholds]
+    threshMeanDb = numpy.mean(tileThresholdsDb)
+    threshStdDb  = numpy.std(tileThresholdsDb, ddof=1)
+
+    # TODO: Use an alternate method of computing the threshold like they do in the paper!
+    if threshStdDb > MAX_STD_DB:
+        raise Exception('Failed to compute a good incidence angle! STD = ' + str(threshStdDb))
+
+    #print 'Mean of tile thresholds: ' + str(threshMean)
+    #print 'STD  of tile thresholds: ' + str(threshStd)
+    print 'Mean of tile thresholds (DB): ' + str(threshMeanDb)
+    print 'STD  of tile thresholds (DB): ' + str(threshStdDb)
+
+    if threshMeanDb > MAX_THRESHOLD_DB:
+        threshMean = rescaleNumber(MAX_THRESHOLD_DB, minVal, maxVal, PROC_MIN_VAL, PROC_MAX_VAL)
+        print 'Saturating the computed threshold at 10 DB!'
+    
     initialThresh = threshMean
 
     rawWater = radarImage.lte(initialThresh)

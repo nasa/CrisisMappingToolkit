@@ -154,7 +154,7 @@ def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.
     else:
         searchIndices = range(numFound-1, -1, -1)
     for i in searchIndices:
-        thisImage       = ee.Image(imageList.get(i))
+        thisImage       = ee.Image(imageList.get(i)).resample('bicubic')
         cloudPercentage = cmt.modis.modis_utilities.getCloudPercentage(thisImage, bounds)
         print 'Detected MODIS cloud percentage: ' + str(cloudPercentage)
         if cloudPercentage < maxCloudPercentage:
@@ -195,7 +195,7 @@ def getCloudFreeLandsat(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=
         else:
             searchIndices = range(numFound-1, -1, -1)
         for i in searchIndices:
-            thisImage       = ee.Image(imageList.get(i))
+            thisImage       = ee.Image(imageList.get(i)).resample('bicubic')
             cloudPercentage = cmt.util.landsat_functions.getCloudPercentage(thisImage, bounds)
             print 'Detected Landsat cloud percentage: ' + str(cloudPercentage)
             if cloudPercentage < maxCloudPercentage:
@@ -232,11 +232,11 @@ def getNearestSentinel1(bounds, targetDate, maxRangeDays=10, searchMethod='spira
     # Grab the middle image, it should be the closest to the date.
     if searchMethod == 'spiral':
         center = int(len(imageInfo) / 2)
-        return ee.Image(imageList.get(center))
+        return ee.Image(imageList.get(center)).resample('bicubic')
     elif searchMethod == 'increasing':
-        return ee.Image(imageList.get(0))
+        return ee.Image(imageList.get(0)).resample('bicubic')
     else:
-        return ee.Image(imageList.get(len(imageInfo)-1))
+        return ee.Image(imageList.get(len(imageInfo)-1)).resample('bicubic')
     
 
 

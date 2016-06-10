@@ -183,13 +183,16 @@ if __name__ == "__main__":
         
         outputFolder = os.path.join(dateFolder, label)
         #try:
-        detect_flood_cmd.main(['--search-days', '10', 
-                               '--max-cloud-percentage', '0.20', 
-                               #'--save-inputs', 
-                               '--',
-                               outputFolder, dateString, 
-                               str(region[0]), str(region[1]), 
-                               str(region[2]), str(region[3])])
+        params = ['--search-days', '10', 
+                  '--max-cloud-percentage', '0.20', 
+                  #'--save-inputs', 
+                  '--',
+                  outputFolder, dateString, 
+                  str(region[0]), str(region[1]), 
+                  str(region[2]), str(region[3])]
+        print 'Params = '
+        print params
+        detect_flood_cmd.main(params)
         centerPoint = ( (region[0] + region[2])/2.0, 
                         (region[1] + region[3])/2.0 )
                         
@@ -221,7 +224,7 @@ if __name__ == "__main__":
         newKmlPath = os.path.join(outputFolder, newKmlName)
         shutil.move(kmlPath, newKmlPath)
 
-        #raise Exception('DEBUG')
+        raise Exception('DEBUG')
 
         archiveResult(newKmlPath, dateString)
         
