@@ -62,4 +62,4 @@ cmt.mapclient_qt.gui_type = cmt.util.production_gui.ProductionGui
 # main()
 
 # util/production_gui.py does all the work!
-cmt.mapclient_qt.addEmptyGui()
+cmt.mapclient_qt.run()

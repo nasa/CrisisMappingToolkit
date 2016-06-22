@@ -27,7 +27,7 @@ though TileManager tries to track this.
 Supports mouse-based pan and zoom as well as tile upsampling while waiting
 for new tiles to load.  The map to display is specified by a TileManager, and
 added to the GUI on creation or manually using addOverlay()
-    gui = GuiThreadWrapper(MakeTileManager(mapid))
+    gui = GuiWrapper(MakeTileManager(mapid))
 
 Tiles are referenced using a key of (level, x, y) throughout.
 
@@ -884,19 +884,17 @@ def MakeTileManager(mapid, baseurl=BASE_URL):
     return TileManager(url)
 
 
-class QtGuiThreadWrapper(threading.Thread):
-    '''This class is created as a singleton and wraps the QT GUI in a thread.
+class QtGuiWrapper(object):
+    '''This class is created as a singleton and wraps the QT GUI.
         It offers a few interface functions for manipulating the map.
         
         The class is initalized with the TYPE of GUI class it will wrap.'''
         
     def __init__(self, guiClass):
         '''Initialize the class with the type of QT GUI to run'''
-        threading.Thread.__init__(self)
         self.guiClass = guiClass # Record the class type
         self.gui      = None     # The GUI is not initialized yet
         self.ready    = False
-        self.start()
 
     def run(self):
         app        = QtGui.QApplication(sys.argv) # Do required QT init
@@ -977,7 +975,7 @@ class GenericMapGui(QtGui.QMainWindow):
 # - These are common operations and every GUI needs to support them.
 # - These interfaces match an old deprecated version of the Earth Engine interface.
 
-# A global GuiThreadWrapper instance for addToMap convenience.
+# A global GuiWrapper instance for addToMap convenience.
 map_instance = None
 
 # This is the type of GUI the functions below will create.
@@ -990,8 +988,12 @@ def addEmptyGui():
     # This just requires map_instance to be constructed
     global map_instance
     if not map_instance:
-        map_instance = QtGuiThreadWrapper(gui_type)
+        map_instance = QtGuiWrapper(gui_type)
 
+def run():
+    ''' Runs the GUI thread (blocking). '''
+    addEmptyGui()
+    map_instance.run()
 
 def addToMap(eeobject, vis_params=None, name="", show=True):
     """Adds a layer to the default map instance.
