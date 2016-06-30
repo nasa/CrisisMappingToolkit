@@ -95,6 +95,7 @@ class Lake_Level_App(QtGui.QMainWindow, Ui_Lake_Level_UI):
         self.startDate.dateChanged[QtCore.QDate].connect(self.startHandle)
         self.faiState = False
         self.ndtiState = False
+        self.completedSignal.connect(self.completeLakeThread, QtCore.Qt.QueuedConnection)
 
     def selectLakeHandle(self, text):
         self.selected_lake = str(text)
@@ -104,6 +105,15 @@ class Lake_Level_App(QtGui.QMainWindow, Ui_Lake_Level_UI):
 
     def endHandle(self, date):
         self.end_date = str(date.toString('yyyy-MM-dd'))
+
+    completedSignal = QtCore.pyqtSignal()
+    @QtCore.pyqtSlot()
+    def completeLakeThread(self):
+        if self.tableCheckbox.isChecked():
+            table_water_level(self.selected_lake, self.start_date, self.end_date, result_dir='results', output_file=self.table_output_file)
+        if self.graphCheckbox.isChecked():
+            plot_water_level(self.selected_lake, self.start_date, self.end_date, result_dir='results')
+        self.popup.close()
 
     def okHandle(self):
 
@@ -120,18 +130,15 @@ class Lake_Level_App(QtGui.QMainWindow, Ui_Lake_Level_UI):
         # Heat map checkbox is not functioning. Add under here:
         # if self.lake_areaCheckbox.isChecked():
 
+        if self.tableCheckbox.isChecked():
+            self.table_output_file = QtGui.QFileDialog.getSaveFileName(self, 'Choose Output File', 'results/' + self.selected_lake + '.csv', 'CSV File (*.csv *.txt)')
         self.popup = ProgressPopup(Lake_Level_Cancel)
         self.lake_thread = Thread(target=Lake_Level_Run, args=(self.selected_lake, self.start_date, self.end_date, \
-                       'results', self.faiState, self.ndtiState, self.popup.update_function, self.popup.close))
+                       'results', self.faiState, self.ndtiState, self.popup.update_function, self.completedSignal.emit))
         self.popup.show()
         self.lake_thread.start()
 
         # CHANGE THIS. NEED TO MAKE THESE PARTS WAIT UNTIL LAKE_THREAD IS FINISHED.
-        if self.tableCheckbox.isChecked():
-            table_water_level(self.selected_lake, self.start_date, self.end_date, result_dir='results')
-
-        if self.graphCheckbox.isChecked():
-            plot_water_level(self.selected_lake, self.start_date, self.end_date, result_dir='results')
 
 def main():
     app = QtGui.QApplication(sys.argv)  # A new instance of QApplication

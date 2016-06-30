@@ -25,8 +25,6 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import numpy
 import csv
-import Tkinter
-import tkFileDialog
 from itertools import izip
 
 '''
@@ -51,7 +49,6 @@ def parse_lake_results(name, startdate, enddate):
 
     f.readline()
     parts = f.readline().split(',')
-    print name
     names = parts[0]
     country = parts[1]
     # Dynamic cloud pixel thresholding.
@@ -184,7 +181,7 @@ def load_ground_truth(filename):
     return (dates, levels)
 
 # --- Main script ---
-def table_water_level(lake, startdate, enddate, result_dir):
+def table_water_level(lake, startdate, enddate, result_dir, output_file=None):
     # Grabs lake names from .txt files in the results folder.
     lakes = [i.split('.')[0] for i in glob.glob1(result_dir,'*txt')]
 
@@ -198,21 +195,10 @@ def table_water_level(lake, startdate, enddate, result_dir):
             print "No good data points found in selected date range. Please try a larger date range and retry."
         # Table creating and saving block:
         else:
-            root = Tkinter.Tk()
-            root.withdraw() # use to hide tkinter window
-
-            # CHANGE THIS. Prompts Windows Explorer window to choose save directory. Needs to be changed to select file,
-            # not directory.
-            currdir = os.getcwd()
-            tempdir = tkFileDialog.askdirectory(parent=root, initialdir=currdir, title='Please select a directory to save table.')
-
             # Error catching for invalid directories.
-            if len(tempdir) > 0:
-                directory = tempdir
-            else:
-                print "Invalid directory. Table will be saved in the results folder."
-                directory = 'results'
-            with open(directory + '/' + lake + '.csv', 'wb') as f:
+            if output_file == None:
+                output_file = result_dir + '/' + lake + '.csv'
+            with open(output_file, 'wb') as f:
                 writer = csv.writer(f)
                 writer.writerow(["Date", "Area (km^2)"])
                 writer.writerows(izip(dates, water))
