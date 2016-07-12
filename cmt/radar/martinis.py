@@ -543,12 +543,12 @@ def sar_martinis2(domain):
         
         # Display these values in the original unscaled units.
         splitValDb = rescaleNumber(splitVal, PROC_MIN_VAL, PROC_MAX_VAL, minVal, maxVal)        
-        print 'Computed split value (DB): ' + str(splitValDb)
+        #print 'Computed split value (DB): ' + str(splitValDb)
         tileThresholds.append(splitVal)
     #print('\n\n----------------------\n')
 
-    print 'Range: ' + str((PROC_MIN_VAL, PROC_MAX_VAL, minVal, maxVal))
-    print tileThresholds
+    #print 'Range: ' + str((PROC_MIN_VAL, PROC_MAX_VAL, minVal, maxVal))
+    #print tileThresholds
 
     # If the standard deviation of the local thresholds in DB are greater than this,
     #  the result is probably bad (number from the paper)
@@ -566,14 +566,14 @@ def sar_martinis2(domain):
     threshMeanDb = numpy.mean(tileThresholdsDb)
     threshStdDb  = numpy.std(tileThresholdsDb, ddof=1)
 
-    # TODO: Use an alternate method of computing the threshold like they do in the paper!
-    if threshStdDb > MAX_STD_DB:
-        raise Exception('Failed to compute a good incidence angle! STD = ' + str(threshStdDb))
-
     #print 'Mean of tile thresholds: ' + str(threshMean)
     #print 'STD  of tile thresholds: ' + str(threshStd)
     print 'Mean of tile thresholds (DB): ' + str(threshMeanDb)
     print 'STD  of tile thresholds (DB): ' + str(threshStdDb)
+
+    # TODO: Use an alternate method of computing the threshold like they do in the paper!
+    if threshStdDb > MAX_STD_DB:
+        raise Exception('Failed to compute a good threshold! STD = ' + str(threshStdDb))
 
     if threshMeanDb > MAX_THRESHOLD_DB:
         threshMean = rescaleNumber(MAX_THRESHOLD_DB, minVal, maxVal, PROC_MIN_VAL, PROC_MAX_VAL)

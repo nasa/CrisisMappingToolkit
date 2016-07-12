@@ -34,6 +34,7 @@ import ee
 import optparse
 import traceback
 import simplekml
+import json
 
 import cmt.domain
 import cmt.modis.flood_algorithms
@@ -77,15 +78,14 @@ def getBestResolution(domain):
 def detect_flood(domain):
     '''Run flood detection using the available sensors'''
 
-    # Currently we run the sensors in order of preference, but we should use everything available.
-
-    # TODO: Use cloud input for MODIS data
+    # Currently we run the sensors in order of preference.  Given the rarity of having multiple
+    # good sensors at a single date, this should usually be fine.
 
     cloudCover = ee.Image(0)
     result     = None
     
     try:
-        domain.get_radar()
+        domain.get_radar() # Catch an exception here if we don't have radar
         print 'Running RADAR-only flood detection...'
         result = cmt.radar.flood_algorithms.detect_flood(domain, cmt.radar.flood_algorithms.MARTINIS_2)[1]
     except LookupError:
@@ -104,7 +104,6 @@ def detect_flood(domain):
     except Exception as e:
         print 'Caught exception using LANDSAT, skipping it:'
         traceback.print_exc()
-   
 
     try:
         cloudCover = cmt.modis.modis_utilities.getModisBadPixelMask(domain.modis.image).Or(cloudCover)
@@ -114,8 +113,11 @@ def detect_flood(domain):
     except LookupError:
         pass
     except Exception as e:
-        print 'Caught exception using MODIS, skipping it:'
-        traceback.print_exc()
+        if str(e) != "'Domain' object has no attribute 'modis'":
+            print 'Caught exception using MODIS, skipping it:'
+            traceback.print_exc()
+        else:
+            print 'No MODIS data found for this date/location!'
     
 
     if not result:
@@ -242,14 +244,36 @@ def addFeatureSet(kmlObject, featureInfo, activeColor):
     return kmlObject
             
 
-def coordListsToKml(resultFeatureInfo, cloudFeatureInfo, kmlPath, sensorList):
+def parseKmlDescription(line):
+    '''Parses the description line of the output KML into a dictionary'''
+    if not ('<description>' in line):
+        raise Exception('Incorrect description line passed in: ' + line)
+        
+    line   = line.replace('&quot;', '"') # Sometimes quotes get written out like this
+    start  = line.find('>')
+    end    = line.rfind('<')
+    s      = line[start+1:end] # Extract the information
+    output = json.loads(s) # Parse
+    
+    return output
+
+    
+def writeKmlDescription(floodInfo):
+    '''Generate the description line for the KML file containing flood information'''
+
+    #s = " ".join([sensor.sensor_name for sensor in sensorList])
+    s = json.dumps(floodInfo)
+    return s
+
+
+
+def coordListsToKml(resultFeatureInfo, cloudFeatureInfo, kmlPath, floodInfo):
     '''Converts a local coordinate list to KML'''
        
     # Initialize kml document
     kml = simplekml.Kml()
     kml.document.name = 'ASP CMT flood detections - DATE'
-    s = " ".join([sensor.sensor_name for sensor in sensorList])
-    kml.document.description = s
+    kml.document.description = writeKmlDescription(floodInfo)
     kml.hint = 'target=earth'
 
     WATER_COLOR = 'FFF0E614' # Solid teal
@@ -321,7 +345,7 @@ def getBinaryFeatures(binaryImage, bounds, outputResolution):
 # --------------------------------------------------------------
 def main(argsIn):
 
-    logger = logging.getLogger()
+    #logger = logging.getLogger() TODO: Switch to using a logger!
 
     # Be careful passing in negative number arguments!
 
@@ -337,6 +361,9 @@ def main(argsIn):
 
           parser.add_option("--max-cloud-percentage", dest="maxCloudPercentage",  default=0.05, type="float",
                           help="Only allow images with this percentage of cloud cover.")
+
+          parser.add_option("--min-sensor-coverage", dest="minCoverage",  default=0.80, type="float",
+                          help="Only use sensor images that cover this percentage of the target region.")
           
           (options, args) = parser.parse_args(argsIn)
 
@@ -362,66 +389,71 @@ def main(argsIn):
     if not os.path.exists(outputFolder):
         os.mkdir(outputFolder)
 
-    # TODO: Make sure our algorithms can use these input formats!
+    # Set up this information which will be written to the output KML file
+    floodInfo = {'min_lon': minLon, 'max_lon': maxLon,
+                 'min_lat': minLat, 'max_lat': maxLat,
+                 'target_date': dateString}
 
     # Try to load an image from each of the sensors and wrap it in
     #  a SensorObservation object that we can feed into a domain
-  
     print 'Loading sensors...'
     modisSensor     = None
     landsatSensor   = None
     sentinel1Sensor = None
     sensorList = []
-    
     try:
         #print 'Fetching MODIS data...'
-        modisImage  = getCloudFreeModis(eeBounds, eeDate, options.searchRangeDays, options.maxCloudPercentage)
+        modisImage  = getCloudFreeModis(eeBounds, eeDate, options.searchRangeDays, 
+                                        options.maxCloudPercentage, options.minCoverage)
         modisSensor = cmt.domain.SensorObservation()
         modisSensor.init_from_image(modisImage, 'modis')
         sensorList.append(modisSensor)
-        #print modisSensor   
-        #print 'Loaded MODIS sensor observation!'
+        floodInfo['modis_date'] = cmt.util.miscUtilities.getDateFromImageInfo(modisImage.getInfo())
+        print 'Loaded MODIS sensor observation!'
     except Exception as e:
         print 'Unable to load a MODIS image in this date range!'
         print str(e)
     try:
         #print 'Fetching Landsat data...'
-        landsatImage  = getCloudFreeLandsat(eeBounds, eeDate, options.searchRangeDays, options.maxCloudPercentage)
+        landsatImage  = getCloudFreeLandsat(eeBounds, eeDate, options.searchRangeDays, 
+                                            options.maxCloudPercentage, options.minCoverage)
         landsatName   = cmt.util.landsat_functions.get_landsat_name(landsatImage)
         landsatSensor = cmt.domain.SensorObservation()
         landsatSensor.init_from_image(landsatImage, landsatName)
         sensorList.append(landsatSensor)
-        #print landsatSensor
-        #print 'Loaded Landsat sensor observation!'
+        floodInfo['landsat_date'] = cmt.util.miscUtilities.getDateFromImageInfo(landsatImage.getInfo())
+        print 'Loaded Landsat sensor observation!'
     except Exception as e:
         print 'Unable to load a Landsat image in this date range!'
         print str(e)
     try:
         #print 'Fetching Sentinel1 data...'
-        sentinel1Image  = getNearestSentinel1(eeBounds, eeDate, options.searchRangeDays)
+        sentinel1Image  = getNearestSentinel1(eeBounds, eeDate, options.searchRangeDays, options.minCoverage)
         sentinel1Sensor = cmt.domain.SensorObservation()
         sentinel1Sensor.init_from_image(sentinel1Image, 'sentinel1')
         sensorList.append(sentinel1Sensor)
-        #print 'Loaded Sentinel1 sensor observation!'
+        floodInfo['sentinel1_date'] = cmt.util.miscUtilities.getDateFromImageInfo(sentinel1Image.getInfo())       
+        print 'Loaded Sentinel1 sensor observation!'
     except Exception as e:
         print 'Unable to load a Sentinel1 image in this date range!'
         print str(e)
+
+    if not sensorList:
+        print 'Unable to find any sensor data for this date/location!'
+        return -1
 
     # Add DEM data
     # - TODO: Should this be a function?
     demSensor = cmt.domain.SensorObservation()
     if cmt.util.miscUtilities.regionIsInUnitedStates(eeBounds):
         demName = 'ned13.xml'
+        floodInfo['dem_used'] = 'NED13'
     else:
         demName = 'srtm90.xml'
-    xmlPath = xmlPath = os.path.join(cmt.domain.SENSOR_SOURCE_DIR, demName)
+        floodInfo['dem_used'] = 'SRTM90'
+    xmlPath = os.path.join(cmt.domain.SENSOR_SOURCE_DIR, demName)
     demSensor.init_from_xml(xmlPath)
     sensorList.append(demSensor)
-
-    if not sensorList:
-        print 'Unable to find any sensor data for this date/location!'
-        return -1
-
 
     domainName = 'domain_' + dateString
     domain = cmt.domain.Domain()
@@ -483,7 +515,7 @@ def main(argsIn):
        
     print 'Converting coordinates to KML'
     kmlPath = os.path.join(outputFolder, 'floodCoords.kml')
-    coordListsToKml(resultFeatureInfo, cloudFeatureInfo, kmlPath, sensorList)
+    coordListsToKml(resultFeatureInfo, cloudFeatureInfo, kmlPath, floodInfo)
         
     return 0
 

@@ -59,7 +59,6 @@ def get_image_collection_modis(region, start_date, end_date):
     lowResModis  = ee.ImageCollection('MOD09GA').filterDate(start_date, end_date) \
                                  .filterBounds(points[0]).filterBounds(points[1]) \
                                  .filterBounds(points[2]).filterBounds(points[3])
-    
 
 
     # This set of code is needed to merge the low and high res MODIS bands
@@ -127,7 +126,7 @@ def get_image_collection_sentinel1(bounds, start_date, end_date, min_images=1):
 # A set of functions to find a cloud free image near a date
 
 def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.05,
-                      searchMethod='spiral'):
+                      minCoverage=0.8, searchMethod='spiral'):
     '''Search for the closest cloud-free MODIS image near the target date.
        The result preference is determined by searchMethod and can be  set to:
        spiral, increasing, or decreasing'''
@@ -145,7 +144,12 @@ def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.
     imageList       = imageCollection.toList(100)
     imageInfo       = imageList.getInfo()
     
-    # Find the first image with a low cloud percentage
+    #print 'Modis dates:'
+    #print dateStart.format().getInfo()
+    #print dateEnd.format().getInfo()
+    #print imageInfo
+    
+    # Find the first image that meets the requirements
     numFound = len(imageInfo)
     if searchMethod == 'spiral':
         searchIndices = miscUtilities.getExpandingIndices(numFound)
@@ -153,8 +157,14 @@ def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.
         searchIndices = range(0,numFound)
     else:
         searchIndices = range(numFound-1, -1, -1)
+    #print searchIndices
     for i in searchIndices:
+        COVERAGE_RES = 250
         thisImage       = ee.Image(imageList.get(i)).resample('bicubic')
+        percentCoverage = thisImage.mask().reduceRegion(ee.Reducer.mean(), bounds, COVERAGE_RES).getInfo().values()[0]
+        #print 'percentCoverage = ' + str(percentCoverage)
+        if percentCoverage < minCoverage: # MODIS has high coverage, but there are gaps.
+            continue
         cloudPercentage = cmt.modis.modis_utilities.getCloudPercentage(thisImage, bounds)
         print 'Detected MODIS cloud percentage: ' + str(cloudPercentage)
         if cloudPercentage < maxCloudPercentage:
@@ -164,7 +174,7 @@ def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.
 
 
 def getCloudFreeLandsat(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.05,
-                        searchMethod='spiral'):
+                        minCoverage=0.8, searchMethod='spiral'):
     '''Search for the closest cloud-free Landsat image near the target date.
        The result preference is determined by searchMethod and can be  set to:
        spiral, increasing, or decreasing'''
@@ -186,7 +196,7 @@ def getCloudFreeLandsat(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=
         imageList       = imageCollection.toList(100)
         imageInfo       = imageList.getInfo()
         
-        # Find the first image with a low cloud percentage
+        # Find the first image that meets the requirements
         numFound = len(imageInfo)
         if searchMethod == 'spiral':
             searchIndices = miscUtilities.getExpandingIndices(numFound)
@@ -194,8 +204,13 @@ def getCloudFreeLandsat(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=
             searchIndices = range(0,numFound)
         else:
             searchIndices = range(numFound-1, -1, -1)
+            
         for i in searchIndices:
+            COVERAGE_RES = 60
             thisImage       = ee.Image(imageList.get(i)).resample('bicubic')
+            percentCoverage = thisImage.mask().reduceRegion(ee.Reducer.mean(), bounds, COVERAGE_RES).getInfo().values()[0]
+            if percentCoverage < minCoverage:
+                continue
             cloudPercentage = cmt.util.landsat_functions.getCloudPercentage(thisImage, bounds)
             print 'Detected Landsat cloud percentage: ' + str(cloudPercentage)
             if cloudPercentage < maxCloudPercentage:
@@ -205,7 +220,7 @@ def getCloudFreeLandsat(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=
     raise Exception('Could not find a nearby cloud-free Landsat image for date ' + str(targetDate.getInfo()))
 
 
-def getNearestSentinel1(bounds, targetDate, maxRangeDays=10, searchMethod='spiral'):
+def getNearestSentinel1(bounds, targetDate, maxRangeDays=10, minCoverage=0.8, searchMethod='spiral'):
     '''Search for the closest Sentinel1 image near the target date.
        Sentinel1 images are radar and see through clouds!
        The result preference is determined by searchMethod and can be  set to:
@@ -229,19 +244,24 @@ def getNearestSentinel1(bounds, targetDate, maxRangeDays=10, searchMethod='spira
     if len(imageInfo) == 0:
         raise Exception('Could not find a nearby Sentinel1 image for date ' + str(targetDate.getInfo()))
   
-    # Grab the middle image, it should be the closest to the date.
+    # Find the first image that meets the requirements
+    numFound = len(imageInfo)
     if searchMethod == 'spiral':
-        center = int(len(imageInfo) / 2)
-        return ee.Image(imageList.get(center)).resample('bicubic')
+        searchIndices = miscUtilities.getExpandingIndices(numFound)
     elif searchMethod == 'increasing':
-        return ee.Image(imageList.get(0)).resample('bicubic')
+        searchIndices = range(0,numFound)
     else:
-        return ee.Image(imageList.get(len(imageInfo)-1)).resample('bicubic')
-    
+        searchIndices = range(numFound-1, -1, -1)
 
+    for i in searchIndices:
+        COVERAGE_RES = 30
+        thisImage       = ee.Image(imageList.get(i)).resample('bicubic')
+        percentCoverage = thisImage.mask().reduceRegion(ee.Reducer.mean(), bounds, COVERAGE_RES).getInfo().values()[0]
+        print 'S1 Coverage = ' + str(percentCoverage)
+        if percentCoverage >= minCoverage: # MODIS has high coverage, but there are gaps.
+            return thisImage
 
-
-
+    raise Exception('Could not find a nearby Sentinel image with coverage for date ' + str(targetDate.getInfo()))
 
 
 

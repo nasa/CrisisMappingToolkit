@@ -1,9 +1,10 @@
 
-import os, sys
+import os, sys, optparse
 from bs4 import BeautifulSoup
 import urllib2
 import datetime
 import shutil
+import subprocess
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
@@ -73,16 +74,43 @@ def getKmlUrlsForDate(dateString):
     return kmlList
 
 
+def monthToNum(shortMonth):
+    '''Convert abbreviated month name to integer'''
+    return{
+            'Jan' : 1,
+            'Feb' : 2,
+            'Mar' : 3,
+            'Apr' : 4,
+            'May' : 5,
+            'Jun' : 6,
+            'Jul' : 7,
+            'Aug' : 8,
+            'Sep' : 9, 
+            'Oct' : 10,
+            'Nov' : 11,
+            'Dec' : 12
+    }[shortMonth]
+
+
 def grabGdacsResults(startDate, endDate):
     '''Get a list of flood locations from GDACS.
        Dates are in the format YYYY-MM-DD'''
 
     BASE_URL = "http://www.gdacs.org/rss.gdacs.aspx?profile=ARCHIVE&alertlevel=&country=&eventtype=FL"
-    dateString = '&from='+startDate+'&to='+endDate
+       
+    startDateString = ('%d-%02d-%02d' % (startDate.year, startDate.month, startDate.day)) 
+    endDateString   = ('%d-%02d-%02d' % (endDate.year,   endDate.month,   endDate.day  )) 
+    dateString = '&from='+startDateString+'&to='+endDateString
+    #url = BASE_URL + dateString
+   
+    # GDACS turned off their nice flood interface, so we are restricted to the last seven days!
+    url = 'http://www.gdacs.org/xml/rss_fl_7d.xml'
     
-    url = BASE_URL + dateString
-    print url
-    parsedPage = BeautifulSoup(urllib2.urlopen((url)).read(), 'html.parser')    
+    print 'Looking up GDACS url: ' + url
+    rawPage    = urllib2.urlopen((url)).read()
+    print 'Done fetching page'
+    parsedPage = BeautifulSoup(rawPage, 'html.parser')    
+    print 'Done parsing page'
 
     centers = []
     for line in parsedPage.findAll('georss:point'):
@@ -94,12 +122,27 @@ def grabGdacsResults(startDate, endDate):
     for line in parsedPage.findAll('gdacs:country'):
         labels.append(line.string)
 
-    # TODO: Set up logging
-    if len(labels) != len(centers):
-        print 'RSS parsing code failed to properly extract names!'
-        labels = ['' for i in centers]
+    toDates  = []
+    for line in parsedPage.findAll('gdacs:todate'):
+        parts = line.string.split() 
+        year  = int(parts[3])
+        month = monthToNum(parts[2])
+        day   = int(parts[1])
+        date  = datetime.datetime(year, month, day)
+        toDates.append(date)
 
-    # Unsure that none of the labels are duplicates
+    if len(labels) != len(centers):
+        raise Exception('RSS parsing code failed to properly extract names!')
+
+    # Filter out dates older than specified
+    kept = []
+    for x in zip(centers, labels, toDates):
+        if (x[2] >= startDate) and (x[2] <=endDate):
+            kept.append((x[0],x[1]))
+    centers, labels = zip(*kept)
+    print centers, labels
+
+    # Ensure that none of the labels are duplicates
     for i in range(0,len(labels)):
         label = labels[i]
         count = labels.count(label)
@@ -125,14 +168,12 @@ def getSearchRegions(date):
     DAY_SPAN = 10
 
     # Search this far around the center point in degrees
-    REGION_SIZE = 0.3
+    REGION_SIZE = 0.5
 
     timeDelta = datetime.timedelta(days=DAY_SPAN)
     startDate = date - timeDelta
-    startDateString = ('%d-%02d-%02d' % (startDate.year, startDate.month, startDate.day)) 
-    endDateString   = ('%d-%02d-%02d' % (date.year, date.month, date.day)) 
-    
-    (centers, labels) = grabGdacsResults(startDateString, endDateString)
+   
+    (centers, labels) = grabGdacsResults(startDate, date)
 
     regions = []
     for coord in centers:
@@ -144,11 +185,28 @@ def getSearchRegions(date):
 
 
 
-if __name__ == "__main__":
+
+# --------------------------------------------------------------
+def main(argsIn):
+
+    #logger = logging.getLogger() TODO: Switch to using a logger!
+
+    try:
+          usage = "usage: daily_detector.py [--help]\n  "
+          parser = optparse.OptionParser(usage=usage)
+
+          parser.add_option("--archive-results", dest="archiveResults", action="store_true", default=False,
+                  help="Archive results so they can be found by the web API.")
+          
+          (options, args) = parser.parse_args(argsIn)
+
+    except optparse.OptionError, msg:
+        raise Usage(msg)
 
     print '---=== Starting daily flood detection process ===---'
 
     date = datetime.datetime.now()
+    #date = datetime.date(2016, 6, 1) # DEBUG date!
     dateString = ('%d-%02d-%02d' % (date.year, date.month, date.day))
         
     # Get a list of search regions for today
@@ -176,25 +234,40 @@ if __name__ == "__main__":
     for (region, label) in zip(searchRegions, labels):
         print '---------------------------------------------'
         
-        #if label in ['Rwanda', 'China', 'Dominican_Republic']: #DEBUG
-        #    continue
+        if label in ['Sudan']: #DEBUG
+            continue
+        
+        centerPoint = ( (region[0] + region[2])/2.0, 
+                        (region[1] + region[3])/2.0 )
         
         print 'Detecting floods in '+label+': ' + str(region)
         
         outputFolder = os.path.join(dateFolder, label)
+        if not os.path.exists(outputFolder):
+            os.mkdir(outputFolder)
         #try:
-        params = ['--search-days', '10', 
-                  '--max-cloud-percentage', '0.20', 
-                  #'--save-inputs', 
-                  '--',
-                  outputFolder, dateString, 
-                  str(region[0]), str(region[1]), 
-                  str(region[2]), str(region[3])]
-        print 'Params = '
-        print params
-        detect_flood_cmd.main(params)
-        centerPoint = ( (region[0] + region[2])/2.0, 
-                        (region[1] + region[3])/2.0 )
+        
+        # Run this command as a subprocess so we can capture all the output for a log file
+        cmd = ['python', os.path.join(os.path.dirname(os.path.realpath(__file__)),'detect_flood_cmd.py'), 
+               '--search-days', '2', 
+               '--max-cloud-percentage', '0.20', 
+               #'--save-inputs', 
+               '--',
+               outputFolder, dateString, 
+               str(region[0]), str(region[1]), 
+               str(region[2]), str(region[3])]
+        print ' '.join(cmd)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        textOutput, err = p.communicate()
+        print textOutput
+       
+        # Log the program output to disk
+        logPath = os.path.join(outputFolder, 'log.txt')
+        with open(logPath, 'w') as f:
+            f.write(str(cmd))
+            f.write('\n============================================\n')
+            f.write(textOutput)
+        
                         
         # Check if we successfully generated a kml output file
         kmlPath = os.path.join(outputFolder, 'floodCoords.kml')
@@ -202,19 +275,20 @@ if __name__ == "__main__":
             continue
         
         # Read the sensors we used from the file and add them to the title
+        floodInfo = None
         with open(kmlPath) as f:
             for line in f:
                 if '<description>' in line:
-                    start = line.find('>')
-                    end   = line.rfind('<')
-                    s     = line[start+1:end]
-                    sensorList = s.split()
+                    floodInfo = detect_flood_cmd.parseKmlDescription(line)
                     break
+        if not floodInfo:
+            raise Exception('Failed to load flood information!')
 
         pairs = [('modis', 'M'), ('landsat', 'L'), ('sentinel-1', 'S')]
         sensorCode = '' # Will be something like "MLS"
+        # Look for fields in floodInfo indicating the precense of each sensor.
         for pair in pairs:
-            for s in sensorList:
+            for s in floodInfo.keys():
                 if pair[0] in s:
                     sensorCode += pair[1]
                     break
@@ -224,9 +298,8 @@ if __name__ == "__main__":
         newKmlPath = os.path.join(outputFolder, newKmlName)
         shutil.move(kmlPath, newKmlPath)
 
-        raise Exception('DEBUG')
-
-        archiveResult(newKmlPath, dateString)
+        if options.archiveResults:
+           archiveResult(newKmlPath, dateString)
         
         #raise Exception('DEBUG')
         
@@ -236,6 +309,10 @@ if __name__ == "__main__":
         #    print sys.exc_info()[0]
         #    pass
 
+
+# Call main() when run from command line
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
 
 
 

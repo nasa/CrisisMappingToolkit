@@ -147,6 +147,8 @@ def getDateFromSentinel1Info(info):
     # The string should look something like this:
     # COPERNICUS/S1_GRD/S1A_IW_GRDH_1SDV_20151112T003149_20151112T003214_008564_00C241_135A
     parts = idString.split('_')
+    if len(parts) < 6:
+        return None
     dateString = parts[5]
     #year  = int(dateString[0:4])
     #month = int(dateString[4:6])
