@@ -44,8 +44,27 @@ import cmt.util.miscUtilities
 
 from cmt.util.imageRetrievalFunctions import getCloudFreeModis, getCloudFreeLandsat, getNearestSentinel1
 
-'''
-Command line flood detection tool
+manual='''---=== detect_flood_cmd.py ===---
+A command line flood detection tool.
+Given a date, location, and options, attempts to generate a flood map of
+the requested location.
+
+Three sensors are used: MODIS, Landsat, and Sentinel-1 (radar).  MODIS
+is usually available but the other two sensors are usually not available.
+MODIS and Landsat are also affected by clouds.  Since clouds are common at
+flood locations, there is often no usable data for a given date/location.
+There are separate flood detection algorithms for each sensor and the 
+algorithm for the most accurate available sensor is chosen to generate
+the final flood map.  The order of sensor preference is:
+1) Sentinel-1
+2) Landsat
+3) MODIS
+
+Three outputs are produced: A cloud cover geotiff, a flood map geotiff, and
+a .kml file containing the same information in a form ready to be loaded
+in to Google Earth.  The cloud cover map is generated from MODIS even if
+MODIS is not used to generate the flood map.  Some filtering is done on
+the .kml output to reduce polygon complexity and the size of the file.
 '''
 
 
@@ -84,6 +103,8 @@ def detect_flood(domain):
     cloudCover = ee.Image(0)
     result     = None
     
+    # Note that the radar algorithm currently runs at lower than possible resolution to
+    #  ensure that Earth Engine can complete the calculations without failing.
     try:
         domain.get_radar() # Catch an exception here if we don't have radar
         print 'Running RADAR-only flood detection...'
@@ -146,7 +167,7 @@ def getPolygonArea(vertices):
     return 0.5*abs(total)
 
 
-# TODO: EE implementation works ok, just use that.
+# Unused, the EE method works fine!
 def filter_coordinates(coordList, height=2000, maxError = 0.000004):
     '''Reduces the number of vertices in a polygon without changing the area more than maxError.
        The height is used to insert an elevation for each 2D coordinate.'''
@@ -354,18 +375,21 @@ def main(argsIn):
           parser = optparse.OptionParser(usage=usage)
 
           parser.add_option("--save-inputs", dest="saveInputs", action="store_true", default=False,
-                  help="Save the input images to disk for debugging.")
-          
+                            help="Save the input images to disk for debugging.")
           parser.add_option("--search-days", dest="searchRangeDays",  default=5, type="int",
-                          help="The number of days around the requested date so search for input images.")
-
+                            help="The number of days around the requested date so search for input images.")
           parser.add_option("--max-cloud-percentage", dest="maxCloudPercentage",  default=0.05, type="float",
-                          help="Only allow images with this percentage of cloud cover.")
-
+                            help="Only allow images with this percentage of cloud cover.")
           parser.add_option("--min-sensor-coverage", dest="minCoverage",  default=0.80, type="float",
-                          help="Only use sensor images that cover this percentage of the target region.")
+                           help="Only use sensor images that cover this percentage of the target region.")         
+          parser.add_option("--manual", dest="showManual", action="store_true", default=False,
+                            help="Display more usage information about the tool.")
           
           (options, args) = parser.parse_args(argsIn)
+
+          if options.showManual:
+              print manual
+              return 0
 
           if len(args) < 5:
               print usage
@@ -461,6 +485,8 @@ def main(argsIn):
 
     print 'Successfully loaded the domain!'
 
+    # This resolution is currently hard coded to strike a balance between the image appearance
+    #  and the odds of successfully processing the region.
     outputResolution = 100#getBestResolution(domain)
     outputVisParams  = {'min': 0, 'max': 1} # Binary image data
     print 'Best output resolution = ' + str(outputResolution)
@@ -480,15 +506,6 @@ def main(argsIn):
         if sentinel1Sensor:
             (rgbImage, visParams, name, show) = domain.sentinel1.visualize()
             cmt.util.miscUtilities.safeEeImageDownload(rgbImage, eeBounds, 90, inputPathSentinel1, visParams)        
-
-
-    # TODO: Adaboost train command or separate tool?
-    #
-    # import cmt.modis.adaboost
-    # cmt.modis.adaboost.adaboost_learn()         # Adaboost training
-    # #cmt.modis.adaboost.adaboost_dem_learn(None) # Adaboost DEM stats collection
-    # raise Exception('DEBUG')
-
 
     print 'Running flood detection!'
     (result, cloudCover) = detect_flood(domain)

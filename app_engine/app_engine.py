@@ -18,6 +18,8 @@ from bs4 import BeautifulSoup
 # TODO: Move this!
 STORAGE_URL = 'http://byss.arc.nasa.gov/smcmich1/cmt_detections/'    
 
+feed_url = STORAGE_URL + 'daily_flood_detect_feed.kml'
+
 # This is the HTML used to draw each of the web pages.
 # - Normally this would be use with web template rendering software 
 #   like Django or Jinja but we are keeping the complexity down.
@@ -43,6 +45,7 @@ PAGE_HTML = """\
       </select>
       <div><input type="submit" value="Fetch Map"></div>
     </form>
+    <a href='"""+feed_url+"""'>Daily feed kml file</a>
     
   </body>
 </html>

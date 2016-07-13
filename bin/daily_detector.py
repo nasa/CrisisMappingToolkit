@@ -10,39 +10,109 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
 import detect_flood_cmd
 
+
+manual='''---=== daily_detector.py ===---
+This is a dedicated tool intended to process available image data from
+currently active flood regions and record the results.  It relies on
+the GDACS website to obtain flood alerts and Earth Engine to fetch and
+process the flood data.  The results can be uploaded to a server where they
+can be accessed with a Google App Engine tool.
+
+This tool uses "detect_flood_cmd.py" to process each date/location
+found on the GDACS website.  See the documentation for that tool for
+information about how flood detection is performed.
+
+Currently this tool is hard-coded to upload files to a location
+on our server but this could be easily modified.  The "app_engine"
+folder in our contains the Google App Engine tool which is 
+designed to display the results created by this tool.
 '''
-Script to process multiple regions across the globe to detect floods.
-- Intended to be run daily with a cron task.
-'''
+
 
 
 STORAGE_URL = 'http://byss.arc.nasa.gov/smcmich1/cmt_detections/'
 
-def archiveResult(kmlPath, dateString):
-    '''Archives completed flood detection results'''
+# Currently they are stored in our web share on byss
+SERVER_STORAGE_PATH = '/byss/docroot/smcmich1/cmt_detections/'
 
-    # Currently they are stored in our web share on byss
-    DEST_BASE = '/byss/docroot/smcmich1/cmt_detections/'
+def archiveResult(kmlPath, dateString):
+    '''Archives completed flood detection results.
+       Call updateArchiveFolder once all individual results are archived.'''
 
     dateFolder = os.path.join(DEST_BASE, dateString)
-    cmd = 'mkdir '+dateFolder
-    print cmd
-    os.system(cmd)
+    os.system('mkdir '+dateFolder)
 
+    # Write the output file
     filename = os.path.split(kmlPath)[1]
     destinationPath = os.path.join(dateFolder, filename)
     cmd = 'cp ' +kmlPath+ ' '+destinationPath
-    print cmd
     os.system(cmd)
 
     # Update the HTML indices
-    cmd = 'python ~/makeHtmlIndex.py ' + DEST_BASE
-    print cmd
-    os.system(cmd)
-    cmd = 'python ~/makeHtmlIndex.py ' + dateFolder
+    # - TODO: Include this tool!
+    cmd = 'python $HOME/makeHtmlIndex.py ' + dateFolder
     print cmd
     os.system(cmd)
 
+
+def updateArchiveFolder():
+    '''Does the final updates needed at the top level storage folder.'''
+    cmd = 'python $HOME/makeHtmlIndex.py ' + SERVER_STORAGE_PATH
+    print cmd
+    os.system(cmd)
+
+    generateCompositeKmlFile(SERVER_STORAGE_PATH)
+
+
+def generateCompositeKmlFile(topFolder):
+    '''Create a single KML file in the top folder that includes
+       network links to all of the other folders.'''
+       
+    # Get output path and make sure it is clear
+    outputPath = os.path.join(topFolder, 'composite.kml')
+    if os.path.exists(outputPath):
+        os.remove(outputPath)
+    
+    # Start writing the file  
+    f = open(outputPath, 'w')
+    f.write('''<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document>''')
+
+    # Add all the subfolders    
+    topLevelItems = os.listdir(topFolder)
+    for item in topLevelItems:
+        # Skip everything except for the date sub folders
+        dateFolder = os.path.join(topFolder, item)
+        if not os.path.isdir(dateFolder):
+            continue
+
+        # Get the files in the date folder            
+        dateString = item
+        dateFiles = os.listdir(dateFolder)
+        for d in dateFiles:
+            # Skip everything except for kml files
+            if '.kml' not in d:
+                continue
+                
+            # Add a link to this file to the output kml file
+            parts  = d.split('_')
+            place  = parts[1]
+            name   = dateString +'_'+ place
+            string = '''<NetworkLink>
+	<name>'''+name+'''</name>
+	<Link><href>'''+dateString+'/'+d+'''</href></Link>
+</NetworkLink>'''
+            f.write(string)
+    
+    # Clean up
+    f.write('''</Document>
+</kml>''')
+    f.close()
+    return outputPath
+       
+
+# TODO: We are not currently using these functions!
 
 def fetchArchivedDateList():
     '''Fetches the list of dates we have archived data for.'''
@@ -101,6 +171,7 @@ def grabGdacsResults(startDate, endDate):
     startDateString = ('%d-%02d-%02d' % (startDate.year, startDate.month, startDate.day)) 
     endDateString   = ('%d-%02d-%02d' % (endDate.year,   endDate.month,   endDate.day  )) 
     dateString = '&from='+startDateString+'&to='+endDateString
+    print dateString
     #url = BASE_URL + dateString
    
     # GDACS turned off their nice flood interface, so we are restricted to the last seven days!
@@ -131,6 +202,9 @@ def grabGdacsResults(startDate, endDate):
         date  = datetime.datetime(year, month, day)
         toDates.append(date)
 
+    if not centers: # Quit early if no data found
+        return ([], [])
+
     if len(labels) != len(centers):
         raise Exception('RSS parsing code failed to properly extract names!')
 
@@ -139,6 +213,8 @@ def grabGdacsResults(startDate, endDate):
     for x in zip(centers, labels, toDates):
         if (x[2] >= startDate) and (x[2] <=endDate):
             kept.append((x[0],x[1]))
+    if not kept: # Quit early if no data found
+        return ([], [])
     centers, labels = zip(*kept)
     print centers, labels
 
@@ -160,25 +236,19 @@ def grabGdacsResults(startDate, endDate):
 
     return (centers, labels)
 
-def getSearchRegions(date):
+def getSearchRegions(date, daySpan, regionSize):
     '''Gets the search regions for today.
        Each region is (minLon, minLat, maxLon, maxLat)'''
 
-    # Look at flood alerts this many days old
-    DAY_SPAN = 10
-
-    # Search this far around the center point in degrees
-    REGION_SIZE = 0.5
-
-    timeDelta = datetime.timedelta(days=DAY_SPAN)
+    timeDelta = datetime.timedelta(days=daySpan)
     startDate = date - timeDelta
    
     (centers, labels) = grabGdacsResults(startDate, date)
 
     regions = []
     for coord in centers:
-        region = (coord[0]-REGION_SIZE, coord[1]-REGION_SIZE,
-                  coord[0]+REGION_SIZE, coord[1]+REGION_SIZE)
+        region = (coord[0]-regionSize, coord[1]-regionSize,
+                  coord[0]+regionSize, coord[1]+regionSize)
         regions.append(region)
     
     return (regions, labels)
@@ -196,9 +266,14 @@ def main(argsIn):
           parser = optparse.OptionParser(usage=usage)
 
           parser.add_option("--archive-results", dest="archiveResults", action="store_true", default=False,
-                  help="Archive results so they can be found by the web API.")
-          
+                            help="Archive results so they can be found by the web API.")
+          parser.add_option("--manual", dest="showManual", action="store_true", default=False,
+                            help="Display more usage information about the tool.")
           (options, args) = parser.parse_args(argsIn)
+
+          if options.showManual:
+              print manual
+              return 0
 
     except optparse.OptionError, msg:
         raise Usage(msg)
@@ -206,36 +281,41 @@ def main(argsIn):
     print '---=== Starting daily flood detection process ===---'
 
     date = datetime.datetime.now()
-    #date = datetime.date(2016, 6, 1) # DEBUG date!
     dateString = ('%d-%02d-%02d' % (date.year, date.month, date.day))
+
+    # Store outputs here before they are archived
+    BASE_OUTPUT_FOLDER = '/home/smcmich1/data/Floods/auto_detect'
+
+    # Look at flood alerts this many days old
+    DAY_SPAN = 7
+
+    # Search this far around the center point in degrees
+    # - If it is too large Earth Engine will time out during processing!
+    REGION_SIZE = 0.5
+
+    # How many days around each flood alert to look for images
+    MAX_SEARCH_DAYS      = '2'
+    MAX_CLOUD_PERCENTAGE = '0.20'
+    RECORD_INPUTS        = False # Save the processing inputs?
         
     # Get a list of search regions for today
-    (searchRegions, labels) = getSearchRegions(date)
-    #searchRegions =  [(8.868, 41.291000000000004, 9.668000000000001, 42.091), 
-    #                  (-11.954, 33.422000000000004, -11.154, 34.222), 
-    #                  (8.766, 45.448, 9.566, 46.248), 
-    #                  (-31.543, -58.623999999999995, -30.743000000000002, -57.824), 
-    #                  (32.654, 71.37899999999999, 33.454, 72.179)]
+    (searchRegions, labels) = getSearchRegions(date, DAY_SPAN, REGION_SIZE)
                       
     print 'Detected ' + str(len(searchRegions)) + ' candidate flood regions.'
 
-    # TODO: Launch multiple processes to detect these floods
-
-    BASE_OUTPUT_FOLDER = '/home/smcmich1/data/Floods/auto_detect'
+    recordString = ''
+    if RECORD_INPUTS:
+        recordString = '--save-inputs'
 
     dateFolder = os.path.join(BASE_OUTPUT_FOLDER, dateString)
     if not os.path.exists(dateFolder):
         os.mkdir(dateFolder)
 
-    #searchRegions = [searchRegions[2]]
-    #labels = ['debug']
-    
-
     for (region, label) in zip(searchRegions, labels):
         print '---------------------------------------------'
         
-        if label in ['Sudan']: #DEBUG
-            continue
+        #if label in ['Sudan']: #DEBUG
+        #    continue
         
         centerPoint = ( (region[0] + region[2])/2.0, 
                         (region[1] + region[3])/2.0 )
@@ -249,9 +329,9 @@ def main(argsIn):
         
         # Run this command as a subprocess so we can capture all the output for a log file
         cmd = ['python', os.path.join(os.path.dirname(os.path.realpath(__file__)),'detect_flood_cmd.py'), 
-               '--search-days', '2', 
-               '--max-cloud-percentage', '0.20', 
-               #'--save-inputs', 
+               '--search-days', MAX_SEARCH_DAYS, 
+               '--max-cloud-percentage', MAX_CLOUD_PERCENTAGE, 
+               recordString, 
                '--',
                outputFolder, dateString, 
                str(region[0]), str(region[1]), 
@@ -309,6 +389,10 @@ def main(argsIn):
         #    print sys.exc_info()[0]
         #    pass
 
+    if options.archiveResults:
+        print 'Finalizing archive folder...'
+        updateArchiveFolder()
+    print 'Done!'
 
 # Call main() when run from command line
 if __name__ == "__main__":
