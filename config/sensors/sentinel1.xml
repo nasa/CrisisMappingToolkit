@@ -5,23 +5,11 @@
         <source><collection>COPERNICUS/S1_GRD</collection></source>
         <band>
             <name>vv</name>
-            <source><name>VV</name></source>
-            <distribution name="water">
-                <mode><range>
-                    <minimum>30</minimum>
-                    <maximum>90</maximum>
-                </range></mode>
-            </distribution>
+            <source><name>vv</name></source>
         </band>
         <band>
             <name>vh</name>
-            <source><name>VH</name></source>
-            <distribution name="water">
-                <mode><range>
-                    <minimum>30</minimum>
-                    <maximum>50</maximum>
-                </range></mode>
-            </distribution>
+            <source><name>vh</name></source>
         </band>
         
         <resolution>10</resolution>

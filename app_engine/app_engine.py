@@ -77,6 +77,7 @@ MAP_HTML = """\
     <tr><td>Water</td><td>Clouds</td></tr>
     <tr height="50" ><td bgcolor="00ffff"></td><td bgcolor="ffffff"></td></tr>
     </table>
+    <a href='[KML_URL]'>Download this kml file</a>
     </td>
 
     </tr>

@@ -577,7 +577,6 @@ class Domain(object):
             safe_name = sensor.sensor_name.replace('-','')
             self.__dict__[safe_name] = sensor
 
-
     def load_xml(self, xml_file, is_training=False):
         '''Load an xml file representing a domain or a sensor'''
         #print 'Reading file: ' + xml_file
