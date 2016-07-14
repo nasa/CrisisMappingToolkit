@@ -448,7 +448,11 @@ def rescaleNumber(num, currMin, currMax, newMin, newMax):
     return output
 
 def sar_martinis2(domain):
-    '''Main function of algorithm from "A fully automated TerraSAR-X based flood service"'''
+    '''Main function of algorithm from:
+          Martinis, Sandro, Jens Kersten, and André Twele. 
+          "A fully automated TerraSAR-X based flood service." 
+          ISPRS Journal of Photogrammetry and Remote Sensing 104 (2015): 203-212.
+'''
 
     # Set up the grid sizes we will use
     # TODO: Compute these based on the region size and input resolution!

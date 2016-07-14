@@ -1,0 +1,71 @@
+
+====== Crisis Mapping App Engine Documentation  ======
+
+--- Overview ---
+
+The goal of this application is to demonstrate a prototype web-based tool
+that provides daily flood detection results with no human intervention
+required.  The tool operates using the following processing flow:
+
+1) Use the GDACS website (http://www.gdacs.org/) to obtain a list of currently 
+active flood alerts.  Each alert has an associated location which we use to 
+center our flood search.
+
+2) For each active flood, run our flood detection software on the region.
+The flood detection algorithms are implemented using Google's Earth Engine
+software and make use of available Sentinel-1, Landsat, or MODIS satellite 
+imagery.
+
+3) Upload successful flood detection results to a web accessible server.
+
+4) Use a Google App Engine based web tool to fetch results from the server
+and display them to the user.
+
+
+--- Using the web tool ---
+
+The web tool, located at http://ames-crisis-mapping.appspot.com/ 
+is designed to be simple and easy to use. Drop down lists allow 
+the user to select dates and locations of floods, and Google map 
+overlays display the results.
+
+Under the hood, the app engine based tool is very simple.  We host the 
+.kml files containing flood detection results on our server and all the
+website does is fetch the list of files and display the selected
+kml files on a map using the Google Maps web API.
+
+--- Using the command line tools  ---
+
+Two command line tools from the Crisis Mapping Toolkit are used to
+generate the daily flood detection results.  The first of these is 
+"detect_flood_cmd.py".  This tool accepts a date and a location and
+attempts to generate a flood detection map from the best available
+satellite image data.  The second tool is "daily_detector.py" which
+fetches the list of floods from the GDACS website, runs the flood
+detection tool for each one, and uploads all of the results to a server.
+More extensive documentation for each tool is available by running the
+tool with the "--manual" or "--help" arguments.  To generate daily 
+updates, just run daily_detector.py in a daily cron job.
+
+--- Flood detection algorithms ---
+
+detect_flood_cmd.py chooses the best available sensor for flood detection
+and uses only that sensor for flood detection.  Though it is possible to
+get better results using multiple sensors it is actually quite rare to get
+more than one good observation of a particular flood so this is not a 
+significant handicap.
+
+The algorithms used by this tool are all borrowed from other parts of the
+Crisis Mapping Toolkit.  In the order of preferred use, they are:
+
+1) Sentinel-1 ==> The SAR algorithm from the paper
+                  "A fully automated TerraSAR-X based flood service."
+2) Landsat    ==> Detection algorithm from the LLAMA tool in the CMT.
+3) MODIS      ==> The Adaboost algorithm from the paper
+                  "Automatic boosted flood mapping from satellite data"
+
+
+
+
+
+
