@@ -1,0 +1,32 @@
+
+    <!-- Everything here is intended to be pasted in to the index.html content when used. -->
+
+    <table width="60" style="border: 1px solid #000" rules="all">
+    <tr>
+
+    <td>
+    <strong>[MAP_TITLE]</strong>
+    <br>
+    Sensors: [SENSOR_LIST]
+    </td>
+
+    <td>
+    <table width="60" style="border: 1px solid #000" rules="all">
+    <tr><td>Water</td><td>Clouds</td></tr>
+    <tr height="50" ><td bgcolor="00ffff"></td><td bgcolor="ffffff"></td></tr>
+    </table>
+    <a href='[KML_URL]'>Download this kml file</a>
+    </td>
+
+    </tr>
+
+
+    <div id="map" style="width: 640px; height: 480px;"></div>
+        
+    <!-- Boot our application once the body loads. -->
+    <script> initialize('[EE_MAPID]', '[EE_TOKEN]'); </script>  
+        
+    <br><br>
+
+
+

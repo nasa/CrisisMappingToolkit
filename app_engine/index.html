@@ -1,0 +1,31 @@
+<html>
+
+  <head>
+    <style>
+    </style>
+    
+
+    <!-- Load the Google Maps API. -->
+    <script src="https://maps.google.com/maps/api/js?key=[API_KEY]"></script>    
+    
+
+    <!-- Load our JavaScript file. -->
+    <script src="/static/script.js"></script>
+
+
+  </head>
+
+  <body>
+  
+    [OUTPUT_SECTION]
+  
+    <form action="/selected" method="post">
+      <select name="date_select">
+        [OPTION_SECTION]
+      </select>
+      <div><input type="submit" value="Fetch Map"></div>
+    </form>
+    <a href='[FEED_URL]'>Daily feed kml file</a>
+    
+  </body>
+</html>

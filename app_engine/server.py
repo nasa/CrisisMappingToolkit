@@ -22,146 +22,14 @@ STORAGE_URL = 'http://byss.arc.nasa.gov/smcmich1/cmt_detections/'
 
 feed_url = STORAGE_URL + 'daily_flood_detect_feed.kml'
 
-# TODO: Move javascript to another file!
+# Go ahead and load the HTML files for later use.
 
-# This is the HTML used to draw each of the web pages.
-# - Normally this would be use with web template rendering software 
-#   like Django or Jinja but we are keeping the complexity down.
-PAGE_HTML = """\
-<html>
-
-  <head>
-    <style>
-    </style>
-    
-
-    <!-- Load the Google Maps API. -->
-    <script src="https://maps.google.com/maps/api/js?key=[API_KEY]"></script>    
-    
+with open('index.html', 'r') as f:
+    PAGE_HTML = f.read()
+with open('map.html', 'r') as f:
+    MAP_HTML = f.read()
 
 
-  </head>
-
-  <body>
-  
-    [OUTPUT_SECTION]
-  
-    <form action="/selected" method="post">
-      <select name="date_select">
-        [OPTION_SECTION]
-      </select>
-      <div><input type="submit" value="Fetch Map"></div>
-    </form>
-    <a href='"""+feed_url+"""'>Daily feed kml file</a>
-    
-    
-    
-    
-    
-  </body>
-</html>
-"""
-
-# DEBUG url
-# center: {lat: 41.876, lng: -87.624},
-# url: 'http://googlemaps.github.io/js-v2-samples/ggeoxml/cta.kml',
-
-# DEBUG url from us
-# center: {lat: 28.6, lng: 70.0},
-#           url: 'http://byss.arc.nasa.gov/smcmich1/cmt_detections/2010-08-13detections-2010-08-13-kashmore.kml',
-
-
-MAP_HTML = """\
-    
-
-    <table width="60" style="border: 1px solid #000" rules="all">
-    <tr>
-
-    <td>
-    <strong>[MAP_TITLE]</strong>
-    <br>
-    Sensors: [SENSOR_LIST]
-    </td>
-
-    <td>
-    <table width="60" style="border: 1px solid #000" rules="all">
-    <tr><td>Water</td><td>Clouds</td></tr>
-    <tr height="50" ><td bgcolor="00ffff"></td><td bgcolor="ffffff"></td></tr>
-    </table>
-    <a href='[KML_URL]'>Download this kml file</a>
-    </td>
-
-    </tr>
-
-
-    <div id="map" style="width: 640px; height: 480px;"></div>
-
-
-
-
-    <script>
-      //function initMap() {
-      //  var mapDiv = document.getElementById('map');
-      //  var map = new google.maps.Map(mapDiv, {
-      //              center: {lat: [LAT], lng: [LON]},
-      //              zoom: 11
-      //            });
-      //  //var ctaLayer = new google.maps.KmlLayer({
-      //  //                 url: '[KML_URL]',
-      //  //                 map: map
-      //  //               });
-      //}
-
-      // Initialize the Google Map and add our custom layer overlay.
-      var initialize = function(mapId, token) {
-        var eeMapOptions = {
-          getTileUrl: function(tile, zoom) {
-            var baseUrl = 'https://earthengine.googleapis.com/map';
-            var url = [baseUrl, mapId, zoom, tile.x, tile.y].join('/');
-            url += '?token=' + token;
-            return url;
-          },
-          tileSize: new google.maps.Size(256, 256)
-        };
-
-        // Create the map type.
-        var mapType = new google.maps.ImageMapType(eeMapOptions);
-
-        var myLatLng = new google.maps.LatLng(-34.397, 150.644);
-        var mapOptions = {
-          center: myLatLng,
-          zoom: 8,
-          maxZoom: 10,
-          streetViewControl: false
-        };
-
-        // Create the base Google Map.
-        var map = new google.maps.Map(
-            document.getElementById('map'), mapOptions);
-
-        // Add the EE layer to the map.
-        map.overlayMapTypes.push(mapType);
-        
-        var ctaLayer = new google.maps.KmlLayer({
-                         url: '[KML_URL]',
-                         map: map
-                       });
-      };
-    
-    
-    </script>
-
-    
-    <!-- <script src="https://maps.googleapis.com/maps/api/js?callback=initMap?key=[API_KEY]"
-        async defer></script> -->
-        
-        
-    <!-- Boot our application once the body loads. -->
-    <script> initialize('[EE_MAPID]', '[EE_TOKEN]'); </script>  
-        
-        
-    <br><br>
-"""
 
 def renderHtml(html, pairList):
     '''Simple alternative to html template rendering software'''
@@ -289,7 +157,8 @@ class MainPage(webapp2.RequestHandler):
         
         # Insert the option section, leave the output section empty.
         self._htmlText = renderHtml(PAGE_HTML, [('[OPTION_SECTION]', optionText), 
-                                                ('[OUTPUT_SECTION]', '')])
+                                                ('[OUTPUT_SECTION]', ''),
+                                                ('[FEED_URL]', feed_url)])
         
         # Write the output    
         self.response.write(self._htmlText)
@@ -314,7 +183,8 @@ class MapPage(webapp2.RequestHandler):
 
         # Insert the options section
         self._htmlText = renderHtml(PAGE_HTML, [('[OPTION_SECTION]', optionText),
-                          ('[API_KEY]', 'AIzaSyAlcB6oaJeUdTz3I97cL47tFLIQfSu4j58')])
+                          ('[API_KEY]', 'AIzaSyAlcB6oaJeUdTz3I97cL47tFLIQfSu4j58'),
+                          ('[FEED_URL]', feed_url)])
 
         # Fetch user selection    
         dateLocString = self.request.get('date_select', 'default_date!')
