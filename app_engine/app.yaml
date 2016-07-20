@@ -1,11 +1,19 @@
+application: ames-crisis-mapping
+version: 1
 runtime: python27
 api_version: 1
 threadsafe: true
 
 handlers:
+- url: /static/
+  static_dir: static
+- url: /oauth2callback
+  script: oauth2client.appengine.application
 - url: /.*
-  script: app_engine.app
-  
+  script: server.app
+
 libraries:
 - name: webapp2
-  version: latest
+  version: "2.5.2"
+- name: pycrypto
+  version: "2.6"

@@ -65,6 +65,15 @@ a .kml file containing the same information in a form ready to be loaded
 in to Google Earth.  The cloud cover map is generated from MODIS even if
 MODIS is not used to generate the flood map.  Some filtering is done on
 the .kml output to reduce polygon complexity and the size of the file.
+
+The algorithms used by this tool are all available in other parts of the
+Crisis Mapping Toolkit.  They are:
+- Sentinel-1 ==> The SAR algorithm from the paper
+                 "A fully automated TerraSAR-X based flood service."
+- Landsat    ==> Detection algorithm from the LLAMA tool in the CMT.
+- MODIS      ==> The Adaboost algorithm from the paper
+                 "Automatic boosted flood mapping from satellite data"
+
 '''
 
 
@@ -430,6 +439,7 @@ def main(argsIn):
         modisImage  = getCloudFreeModis(eeBounds, eeDate, options.searchRangeDays, 
                                         options.maxCloudPercentage, options.minCoverage)
         modisSensor = cmt.domain.SensorObservation()
+        print modisImage.getInfo()
         modisSensor.init_from_image(modisImage, 'modis')
         sensorList.append(modisSensor)
         floodInfo['modis_date'] = cmt.util.miscUtilities.getDateFromImageInfo(modisImage.getInfo())

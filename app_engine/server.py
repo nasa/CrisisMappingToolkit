@@ -4,6 +4,8 @@ import os
 import cgi
 import webapp2
 import urllib2
+import ee
+import config
 
 # Libraries that we need to provide ourselves in the libs folder
 
@@ -20,6 +22,8 @@ STORAGE_URL = 'http://byss.arc.nasa.gov/smcmich1/cmt_detections/'
 
 feed_url = STORAGE_URL + 'daily_flood_detect_feed.kml'
 
+# TODO: Move javascript to another file!
+
 # This is the HTML used to draw each of the web pages.
 # - Normally this would be use with web template rendering software 
 #   like Django or Jinja but we are keeping the complexity down.
@@ -28,11 +32,14 @@ PAGE_HTML = """\
 
   <head>
     <style>
-      #map {
-        width: 500px;
-        height: 400px;
-      }
     </style>
+    
+
+    <!-- Load the Google Maps API. -->
+    <script src="https://maps.google.com/maps/api/js?key=[API_KEY]"></script>    
+    
+
+
   </head>
 
   <body>
@@ -46,6 +53,10 @@ PAGE_HTML = """\
       <div><input type="submit" value="Fetch Map"></div>
     </form>
     <a href='"""+feed_url+"""'>Daily feed kml file</a>
+    
+    
+    
+    
     
   </body>
 </html>
@@ -61,7 +72,7 @@ PAGE_HTML = """\
 
 
 MAP_HTML = """\
-    <div id="map"></div>
+    
 
     <table width="60" style="border: 1px solid #000" rules="all">
     <tr>
@@ -82,22 +93,73 @@ MAP_HTML = """\
 
     </tr>
 
+
+    <div id="map" style="width: 640px; height: 480px;"></div>
+
+
+
+
     <script>
-      function initMap() {
-        var mapDiv = document.getElementById('map');
-        var map = new google.maps.Map(mapDiv, {
-          center: {lat: [LAT], lng: [LON]},
-          zoom: 11
-        });
-      var ctaLayer = new google.maps.KmlLayer({
-          url: '[KML_URL]',
-          map: map
-        });
-      }
-      
+      //function initMap() {
+      //  var mapDiv = document.getElementById('map');
+      //  var map = new google.maps.Map(mapDiv, {
+      //              center: {lat: [LAT], lng: [LON]},
+      //              zoom: 11
+      //            });
+      //  //var ctaLayer = new google.maps.KmlLayer({
+      //  //                 url: '[KML_URL]',
+      //  //                 map: map
+      //  //               });
+      //}
+
+      // Initialize the Google Map and add our custom layer overlay.
+      var initialize = function(mapId, token) {
+        var eeMapOptions = {
+          getTileUrl: function(tile, zoom) {
+            var baseUrl = 'https://earthengine.googleapis.com/map';
+            var url = [baseUrl, mapId, zoom, tile.x, tile.y].join('/');
+            url += '?token=' + token;
+            return url;
+          },
+          tileSize: new google.maps.Size(256, 256)
+        };
+
+        // Create the map type.
+        var mapType = new google.maps.ImageMapType(eeMapOptions);
+
+        var myLatLng = new google.maps.LatLng(-34.397, 150.644);
+        var mapOptions = {
+          center: myLatLng,
+          zoom: 8,
+          maxZoom: 10,
+          streetViewControl: false
+        };
+
+        // Create the base Google Map.
+        var map = new google.maps.Map(
+            document.getElementById('map'), mapOptions);
+
+        // Add the EE layer to the map.
+        map.overlayMapTypes.push(mapType);
+        
+        var ctaLayer = new google.maps.KmlLayer({
+                         url: '[KML_URL]',
+                         map: map
+                       });
+      };
+    
+    
     </script>
-    <script src="https://maps.googleapis.com/maps/api/js?callback=initMap"
-        async defer></script>
+
+    
+    <!-- <script src="https://maps.googleapis.com/maps/api/js?callback=initMap?key=[API_KEY]"
+        async defer></script> -->
+        
+        
+    <!-- Boot our application once the body loads. -->
+    <script> initialize('[EE_MAPID]', '[EE_TOKEN]'); </script>  
+        
+        
     <br><br>
 """
 
@@ -238,6 +300,10 @@ class MapPage(webapp2.RequestHandler):
 
     def post(self):
 
+        # Init demo ee image
+        ee.Initialize(config.EE_CREDENTIALS)
+        mapid = ee.Image('srtm90_v4').getMapId({'min': 0, 'max': 1000})
+
         # Grab all dates where data is available
         self._dateList = fetchDateList()
         
@@ -247,7 +313,8 @@ class MapPage(webapp2.RequestHandler):
             optionText += '<option>'+dateString.replace('_',' ')+'</option>'
 
         # Insert the options section
-        self._htmlText = renderHtml(PAGE_HTML, [('[OPTION_SECTION]', optionText)])
+        self._htmlText = renderHtml(PAGE_HTML, [('[OPTION_SECTION]', optionText),
+                          ('[API_KEY]', 'AIzaSyAlcB6oaJeUdTz3I97cL47tFLIQfSu4j58')])
 
         # Fetch user selection    
         dateLocString = self.request.get('date_select', 'default_date!')
@@ -266,7 +333,9 @@ class MapPage(webapp2.RequestHandler):
             kmlUrl     = kmlUrls[0]
             info       = extractInfoFromKmlUrl(kmlUrl)
             sensorList = expandSensorsList(info['sensors'])
-            newText = renderHtml(MAP_HTML, [('[MAP_TITLE]',   dateLocString),
+            newText = renderHtml(MAP_HTML, [('[EE_MAPID]',    mapid['mapid']),
+                                            ('[EE_TOKEN]',    mapid['token']),
+                                            ('[MAP_TITLE]',   dateLocString),
                                             ('[KML_URL]',     kmlUrl), 
                                             ('[SENSOR_LIST]', sensorList), 
                                             ('[LAT]',         str(info['lat'])), 
