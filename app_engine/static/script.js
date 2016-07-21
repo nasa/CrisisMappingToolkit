@@ -2,7 +2,7 @@
 
 // Basic options for the Google Map.
 var mapOptions = {
-  center: new google.maps.LatLng(31.1, 31.1),
+  center: new google.maps.LatLng(0.0, 0.0),
   zoom: 8,
   streetViewControl: false
 };
@@ -10,26 +10,14 @@ var mapOptions = {
 // Create the base Google Map, set up a drawing manager and listen for updates
 var map = new google.maps.Map(document.getElementById('map'), mapOptions);
 
-// TODO: Make the base layer (plain map + KML) show up before clicks happen.
-// --> Should include all the layers, but turned off.
-
-
-
 // Initialize the Google Map and add our custom layer overlay.
-//var initialize = function(mapId, token, layers) {
+var addKml = function(kmlUrl) {
 
-  //// Create the map type.
-  //var mapType = new google.maps.ImageMapType(eeMapOptions);
-
-  
-  //// Add the EE layer to the map.
-  //map.overlayMapTypes.push(mapType);
-  
-  //var ctaLayer = new google.maps.KmlLayer({
-  //                 url: '[KML_URL]',
-  //                 map: map
-  //               });
-//};
+  var ctaLayer = new google.maps.KmlLayer({
+                   url: kmlUrl,
+                   map: map
+                 });
+};
 
 var imageNames = []
 

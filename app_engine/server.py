@@ -270,6 +270,7 @@ class MapPage(webapp2.RequestHandler):
             sensorList = expandSensorsList(info['sensors'])
             newText = renderHtml(MAP_HTML, [('[EE_MAPID]',    mapid['mapid']),
                                             ('[EE_TOKEN]',    mapid['token']),
+                                            ('[API_KEY]', 'AIzaSyAlcB6oaJeUdTz3I97cL47tFLIQfSu4j58'),
                                             ('[MAP_TITLE]',   dateLocString),
                                             ('[KML_URL]',     kmlUrl), 
                                             ('[SENSOR_LIST]', sensorList), 

@@ -1,6 +1,9 @@
 
 <!-- Everything here is intended to be pasted in to the index.html content when used. -->
 
+<!-- Load the Google Maps API. -->
+    <script src="https://maps.google.com/maps/api/js?key=[API_KEY]"></script> 
+
 <table width="60" style="border: 1px solid #000" rules="all">
 <tr>
 
@@ -17,14 +20,12 @@ Sensors: [SENSOR_LIST]
 </table>
 <a href='[KML_URL]'>Download this kml file</a>
 </td>
-
 </tr>
 
-
+<table>
+<tr><td>
 <div id="map" style="width: 640px; height: 480px;"></div>
-    
-<!-- Boot our application once the body loads. 
-<script> initialize('[EE_MAPID]', '[EE_TOKEN]'); </script>  -->
+</td><td>
 
 <!-- Form to choose which images are displayed in the background. -->
 <form id="image_select_form" action="">
@@ -32,8 +33,17 @@ Sensors: [SENSOR_LIST]
   <input type="radio" name="image" value="MODIS landcover"> MODIS<br>
   <input type="radio" name="image" value="Landsat composite"> Landsat<br>
 </form>
-    
+</td></tr>
+</table>    
+
 <br><br>
 
+
+<!-- Load our JavaScript file. -->
+<script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+<script src="/static/script.js"></script>
+
+<!-- Boot our application once the body loads. -->
+<script> addKml('[KML_URL]'); </script>  
 
 
