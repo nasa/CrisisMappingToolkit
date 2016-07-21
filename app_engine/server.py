@@ -6,6 +6,7 @@ import webapp2
 import urllib2
 import ee
 import config
+import json
 
 # Libraries that we need to provide ourselves in the libs folder
 
@@ -142,6 +143,70 @@ def expandSensorsList(sensors):
         string = 'Error: Sensor list "'+sensors+'" not parsed!'
     return string
 
+
+
+class GetMapData(webapp2.RequestHandler):
+    """Retrieves EE data on request."""
+
+    def get(self):
+
+        ee.Initialize(config.EE_CREDENTIALS)
+        
+        layers = [] # We will fill this up with EE layer information
+
+        # Use the MCD12 land-cover as training data.
+        modis_landcover = ee.Image('MCD12Q1/MCD12Q1_005_2001_01_01').select('Land_Cover_Type_1')
+
+        # A pallete to use for visualizing landcover images.
+        modis_landcover_palette = ','.join([
+            'aec3d4',  # water
+            '152106', '225129', '369b47', '30eb5b', '387242',  # forest
+            '6a2325', 'c3aa69', 'b76031', 'd9903d', '91af40',  # shrub, grass and
+                                                               # savanah
+            '111149',  # wetlands
+            '8dc33b',  # croplands
+            'cc0013',  # urban
+            '6ca80d',  # crop mosaic
+            'd7cdcc',  # snow and ice
+            'f7e084',  # barren
+            '6f6f6f'   # tundra
+        ])
+
+        # A set of visualization parameters using the landcover palette.
+        modis_landcover_visualization_options = {
+            'palette': modis_landcover_palette,
+            'min': 0,
+            'max': 17,
+            'format': 'png'
+        }
+
+        # Add the MODIS landcover image.
+        modis_landcover_visualization = modis_landcover.getMapId(modis_landcover_visualization_options)
+        layers.append({
+            'mapid': modis_landcover_visualization['mapid'],
+            'label': 'MODIS landcover',
+            'token': modis_landcover_visualization['token']
+        })
+
+        # Add the Landsat composite, visualizing just the [30, 20, 10] bands.
+        landsat_composite = ee.Image('L7_TOA_1YEAR_2000')
+        landsat_composite_visualization = landsat_composite.getMapId({
+            'min': 0,
+            'max': 100,
+            'bands': ','.join(['30', '20', '10'])
+        })
+        layers.append({
+            'mapid': landsat_composite_visualization['mapid'],
+            'label': 'Landsat composite',
+            'token': landsat_composite_visualization['token']
+        })
+
+        text = json.dumps(layers)
+        print text
+        self.response.out.write(text)
+
+
+
 class MainPage(webapp2.RequestHandler):
     '''The splash page that the user sees when they access the site'''
 
@@ -223,6 +288,7 @@ class MapPage(webapp2.RequestHandler):
 app = webapp2.WSGIApplication([
     ('/',         MainPage),
     ('/selected', MapPage),
+    ('/getmapdata', GetMapData)
 ], debug=True)
 
 
