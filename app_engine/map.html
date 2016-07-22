@@ -30,8 +30,9 @@ Sensors: [SENSOR_LIST]
 <!-- Form to choose which images are displayed in the background. -->
 <form id="image_select_form" action="">
   <input type="radio" name="image" value="basemap" checked> Map<br>
-  <input type="radio" name="image" value="MODIS landcover"> MODIS<br>
-  <input type="radio" name="image" value="Landsat composite"> Landsat<br>
+  <input type="radio" name="image" value="modis"> MODIS<br>
+  <input type="radio" name="image" value="landsat"> Landsat<br>
+  <input type="radio" name="image" value="sentinel1"> Sentinel-1<br>
 </form>
 </td></tr>
 </table>    
@@ -42,6 +43,10 @@ Sensors: [SENSOR_LIST]
 <!-- Load our JavaScript file. -->
 <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
 <script src="/static/script.js"></script>
+
+<!-- Load the images to overlay on the map. 
+<script> loadMapImages2('[MODIS_ID]'); </script>  -->
+<script> loadMapImages('[MAP_JSON_TEXT]'); </script>  
 
 <!-- Boot our application once the body loads. -->
 <script> addKml('[KML_URL]'); </script>  

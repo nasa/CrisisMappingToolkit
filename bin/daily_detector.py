@@ -311,18 +311,14 @@ def main(argsIn):
     REGION_SIZE = 0.5
 
     # How many days around each flood alert to look for images
-    MAX_SEARCH_DAYS      = '2'
-    MAX_CLOUD_PERCENTAGE = '0.20'
+    MAX_SEARCH_DAYS      = '7'
+    MAX_CLOUD_PERCENTAGE = '0.50'
     RECORD_INPUTS        = False # Save the processing inputs?
         
     # Get a list of search regions for today
     (searchRegions, labels) = getSearchRegions(date, DAY_SPAN, REGION_SIZE)
                       
     print 'Detected ' + str(len(searchRegions)) + ' candidate flood regions.'
-
-    recordString = ''
-    if RECORD_INPUTS:
-        recordString = '--save-inputs'
 
     dateFolder = os.path.join(BASE_OUTPUT_FOLDER, dateString)
     if not os.path.exists(dateFolder):
@@ -347,10 +343,11 @@ def main(argsIn):
         # Run this command as a subprocess so we can capture all the output for a log file
         cmd = ['python', os.path.join(os.path.dirname(os.path.realpath(__file__)),'detect_flood_cmd.py'), 
                '--search-days', MAX_SEARCH_DAYS, 
-               '--max-cloud-percentage', MAX_CLOUD_PERCENTAGE, 
-               recordString, 
-               '--',
-               outputFolder, dateString, 
+               '--max-cloud-percentage', MAX_CLOUD_PERCENTAGE]
+              # '--',
+        if RECORD_INPUTS:
+            cmd.append('--save-inputs')
+        cmd += ['--', outputFolder, dateString, 
                str(region[0]), str(region[1]), 
                str(region[2]), str(region[3])]
         print ' '.join(cmd)
@@ -369,6 +366,7 @@ def main(argsIn):
         # Check if we successfully generated a kml output file
         kmlPath = os.path.join(outputFolder, 'floodCoords.kml')
         if not os.path.exists(kmlPath):
+            #raise Exception('DEBUG')
             continue
         
         # Read the sensors we used from the file and add them to the title

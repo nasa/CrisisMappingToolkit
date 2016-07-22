@@ -40,7 +40,8 @@ def get_image_collection_landsat(bounds, start_date, end_date, collectionName='L
                                     .filterBounds(bounds.centroid())
                                     
     # Select and rename the bands we want
-    return cmt.util.landsat_functions.rename_landsat_bands(collection, collectionName)
+    temp = cmt.util.landsat_functions.rename_landsat_bands(collection, collectionName)
+    return temp.sort('system:time_start')
     
 
 
@@ -53,32 +54,46 @@ def get_image_collection_modis(region, start_date, end_date):
     ee_points    = ee.List(region.bounds().coordinates().get(0))
     points       = ee_points.getInfo()
     points       = map(functools.partial(apply, ee.Geometry.Point), points)
-    highResModis = ee.ImageCollection('MOD09GQ').filterDate(start_date, end_date) \
+    highResModisTerra = ee.ImageCollection('MOD09GQ').filterDate(start_date, end_date) \
                                  .filterBounds(points[0]).filterBounds(points[1]) \
                                  .filterBounds(points[2]).filterBounds(points[3])
-    lowResModis  = ee.ImageCollection('MOD09GA').filterDate(start_date, end_date) \
+    lowResModisTerra  = ee.ImageCollection('MOD09GA').filterDate(start_date, end_date) \
                                  .filterBounds(points[0]).filterBounds(points[1]) \
                                  .filterBounds(points[2]).filterBounds(points[3])
-
+    highResModisAqua = ee.ImageCollection('MYD09GQ').filterDate(start_date, end_date) \
+                                 .filterBounds(points[0]).filterBounds(points[1]) \
+                                 .filterBounds(points[2]).filterBounds(points[3])
+    lowResModisAqua  = ee.ImageCollection('MYD09GA').filterDate(start_date, end_date) \
+                                 .filterBounds(points[0]).filterBounds(points[1]) \
+                                 .filterBounds(points[2]).filterBounds(points[3])
 
     # This set of code is needed to merge the low and high res MODIS bands
     def merge_bands(element):
         # A function to merge the bands together.
         # After a join, results are in 'primary' and 'secondary' properties.       
         return ee.Image.cat(element.get('primary'), element.get('secondary'))
-    join          = ee.Join.inner()
-    f             = ee.Filter.equals('system:time_start', None, 'system:time_start')
-    modisJoined   = ee.ImageCollection(join.apply(lowResModis, highResModis, f));
-    roughJoined   = modisJoined.map(merge_bands);
-    # Clean up the joined band names
-    band_names_in = ['num_observations_1km','state_1km','SensorZenith','SensorAzimuth','Range','SolarZenith','SolarAzimuth','gflags','orbit_pnt',
-                     'num_observations_500m','sur_refl_b03','sur_refl_b04','sur_refl_b05','sur_refl_b06','sur_refl_b07',
-                     'QC_500m','obscov_500m','iobs_res','q_scan','num_observations', 'sur_refl_b01_1','sur_refl_b02_1','QC_250m','obscov']
-    band_names_out = ['num_observations_1km','state_1km','SensorZenith','SensorAzimuth','Range','SolarZenith','SolarAzimuth','gflags','orbit_pnt',
-                      'num_observations_500m','sur_refl_b03','sur_refl_b04','sur_refl_b05','sur_refl_b06','sur_refl_b07',
-                      'QC_500m','obscov_500m','iobs_res','q_scan','num_observations_250m', 'sur_refl_b01','sur_refl_b02','QC_250m','obscov']
-    collection    = roughJoined.select(band_names_in, band_names_out)
-    return collection
+        
+    def merge_and_clean(lowRes, highRes):
+        '''Call merge_bands and clean up the band names'''
+        join          = ee.Join.inner()
+        f             = ee.Filter.equals('system:time_start', None, 'system:time_start')
+        modisJoined   = ee.ImageCollection(join.apply(lowRes, highRes, f));
+        roughJoined   = modisJoined.map(merge_bands);
+        # Clean up the joined band names
+        band_names_in = ['num_observations_1km','state_1km','SensorZenith','SensorAzimuth','Range','SolarZenith','SolarAzimuth','gflags','orbit_pnt',
+                         'num_observations_500m','sur_refl_b03','sur_refl_b04','sur_refl_b05','sur_refl_b06','sur_refl_b07',
+                         'QC_500m','obscov_500m','iobs_res','q_scan','num_observations', 'sur_refl_b01_1','sur_refl_b02_1','QC_250m','obscov']
+        band_names_out = ['num_observations_1km','state_1km','SensorZenith','SensorAzimuth','Range','SolarZenith','SolarAzimuth','gflags','orbit_pnt',
+                          'num_observations_500m','sur_refl_b03','sur_refl_b04','sur_refl_b05','sur_refl_b06','sur_refl_b07',
+                          'QC_500m','obscov_500m','iobs_res','q_scan','num_observations_250m', 'sur_refl_b01','sur_refl_b02','QC_250m','obscov']
+        collection    = roughJoined.select(band_names_in, band_names_out)
+        return collection
+        
+    modisAqua  = merge_and_clean(lowResModisAqua,  highResModisAqua)
+    modisTerra = merge_and_clean(lowResModisTerra, highResModisTerra)
+    collection = modisAqua.merge(modisTerra)
+        
+    return collection.sort('system:time_start')
 
 
 def get_image_collection_sentinel1(bounds, start_date, end_date, min_images=1):
@@ -116,7 +131,8 @@ def get_image_collection_sentinel1(bounds, start_date, end_date, min_images=1):
             print 'Found ' + str(numFound) + ' images'
             if numFound >= min_images:
                 # Switch band names to lower case to be consistent with domain notation               
-                return cmt.util.miscUtilities.safeRename(collection, ['VV', 'VH'], ['vv', 'vh'])
+                temp = cmt.util.miscUtilities.safeRename(collection, ['VV', 'VH'], ['vv', 'vh'])
+                return temp.sort('system:time_start')
 
                                             
     return collection # Failed to find anything!
@@ -143,15 +159,28 @@ def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.
     imageCollection = get_image_collection_modis(bounds, dateStart, dateEnd)
     imageList       = imageCollection.toList(100)
     imageInfo       = imageList.getInfo()
+    numFound        = len(imageInfo)
     
-    #print 'Modis dates:'
+    print 'Modis dates:'
     #print dateStart.format().getInfo()
     #print dateEnd.format().getInfo()
+    print 'Found ' + str(numFound) + ' candidate MODIS images.'
     #print imageInfo
     
+    # TODO: Look replace spiral with nearest!
+    #targetTimeMs = targetDate.millis().getInfo()
+    #print 'Time diffs:'
+    #for i in range(0,numFound):
+    #    thisTime = ee.Image(imageList.get(i)).get('system:time_start').getInfo()
+    #    diff = targetTimeMs - thisTime
+    #    print ee.Image(imageList.get(i)).get('system:index').getInfo()
+    #    print str(thisTime) + ' --> ' + str(diff / (1000 * 60))
+    #print '++++++'
+    
+    
     # Find the first image that meets the requirements
-    numFound = len(imageInfo)
     if searchMethod == 'spiral':
+        # TODO: Properly order the images by distance from the target date!
         searchIndices = miscUtilities.getExpandingIndices(numFound)
     elif searchMethod == 'increasing':
         searchIndices = range(0,numFound)
@@ -162,7 +191,7 @@ def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.
         COVERAGE_RES = 250
         thisImage       = ee.Image(imageList.get(i)).resample('bicubic')
         percentCoverage = thisImage.mask().reduceRegion(ee.Reducer.mean(), bounds, COVERAGE_RES).getInfo().values()[0]
-        #print 'percentCoverage = ' + str(percentCoverage)
+        print 'percentCoverage = ' + str(percentCoverage)
         if percentCoverage < minCoverage: # MODIS has high coverage, but there are gaps.
             continue
         cloudPercentage = cmt.modis.modis_utilities.getCloudPercentage(thisImage, bounds)

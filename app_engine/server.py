@@ -45,7 +45,7 @@ def fetchDateList(datesOnly=False):
     '''Fetches the list of available dates'''
     
     dateList = []
-    parsedIndexPage = BeautifulSoup(urllib2.urlopen((STORAGE_URL)).read(), 'html.parser')
+    parsedIndexPage = BeautifulSoup(urllib2.urlopen(STORAGE_URL).read(), 'html.parser')
     
     for line in parsedIndexPage.findAll('a'):
         dateString = line.string
@@ -130,6 +130,31 @@ def extractInfoFromKmlUrl(url):
     # Pack the results into a dictionary
     return {'location':location, 'sensors':sensors, 'lon':lon, 'lat':lat}
 
+def fetchKmlDescription(url):
+    '''Read the description field from the kml file'''
+    
+    ## If any of these fields are not found, replace with a placeholder.
+    #EXPECTED_FIELDS = ['modis_id', 'landsat_id', 'sentinel1_id']
+    #EMPTY_FIELD_TAG = 'None'
+
+    # Try to read in the description string    
+    kmlText = urllib2.urlopen(url).read()
+    parsedFile = BeautifulSoup(kmlText)
+    for line in parsedFile.findAll('description'):
+        text = line.string
+    
+    # Parse the JSON data if it exists
+    try:
+        info = json.loads(text)
+    except:
+        info = dict()
+    
+    ## Fill in missing fields
+    #for f in EXPECTED_FIELDS:
+    #    if not (f in info):
+    #        info[f] = EMPTY_FIELD_TAG
+            
+    return info
 
 def expandSensorsList(sensors):
     '''Expand the abbreviated sensor list to full sensor names'''
@@ -143,6 +168,56 @@ def expandSensorsList(sensors):
         string = 'Error: Sensor list "'+sensors+'" not parsed!'
     return string
 
+
+def getLayerInfo(kmlInfo):
+    '''Given the parsed KML description object, set up EE layer info'''
+    
+    # TODO: Properly parse this information! In the other code?
+   #1_MYD09GA_005_2016_07_14_MYD09GQ_005_2016_07_14
+    
+    layers = []
+    if True:#kmlInfo['modis_id']:
+        # Add the modis
+        parsedModisId = 'MODIS/MOD09GQ/MOD09GQ_005_2010_04_01' # TODO: Obtain this!
+        modis = ee.Image(parsedModisId)
+        modis_visualization = modis.getMapId({
+            'gain': 0.07, # TODO: Refine these!
+            'gamma': 1.4,
+            'bands': 'sur_refl_b01, sur_refl_b02, sur_refl_b02' # TODO: Incorporate 500m band
+        })
+        layers.append({
+            'mapid': modis_visualization['mapid'],
+            'label': 'modis',
+            'token': modis_visualization['token']
+        })
+   #if kmlInfo['landsat_id']:
+   #   # TODO: Need to handle the L8 bands!
+   #   # Add the Landsat, visualizing just the [30, 20, 10] bands.
+   #   landsat = ee.Image('landsat_id')
+   #   landsat_visualization = landsat.getMapId({
+   #       'min': 0,
+   #       'max': 100,
+   #       'bands': ','.join(['30', '20', '10'])
+   #   })
+   #   layers.append({
+   #       'mapid': landsat_visualization['mapid'],
+   #       'label': 'landsat',
+   #       'token': landsat_visualization['token']
+   #   })
+   #if kmlInfo['sentinel1_id']:
+   #   # Add the modis
+   #   sentinel1 = ee.Image('sentinel1_id')
+   #   sentinel1_visualization = sentinel1.getMapId({
+   #       'min': 0,
+   #       'max': 100, # TODO!!!!!
+   #       'bands': ','.join(['30', '20', '10'])
+   #   })
+   #   layers.append({
+   #       'mapid': sentinel1_visualization['mapid'],
+   #       'label': 'sentinel1',
+   #       'token': sentinel1_visualization['token']
+   #   })
+    return layers
 
 
 class GetMapData(webapp2.RequestHandler):
@@ -236,7 +311,7 @@ class MapPage(webapp2.RequestHandler):
 
         # Init demo ee image
         ee.Initialize(config.EE_CREDENTIALS)
-        mapid = ee.Image('srtm90_v4').getMapId({'min': 0, 'max': 1000})
+        #mapid = ee.Image('srtm90_v4').getMapId({'min': 0, 'max': 1000})
 
         # Grab all dates where data is available
         self._dateList = fetchDateList()
@@ -254,7 +329,7 @@ class MapPage(webapp2.RequestHandler):
         # Fetch user selection    
         dateLocString = self.request.get('date_select', 'default_date!')
 
-        ## This should only return one URL, provided that the location is included in dateLocString
+        # This should only return one URL, provided that the location is included in dateLocString
         try:
             kmlUrls = getKmlUrlsForKey(dateLocString.replace(' ', '__'))
         except:
@@ -265,17 +340,24 @@ class MapPage(webapp2.RequestHandler):
             newText = dateLocString 
         else:
             # Prepare the map HTML with the data we found
-            kmlUrl     = kmlUrls[0]
-            info       = extractInfoFromKmlUrl(kmlUrl)
-            sensorList = expandSensorsList(info['sensors'])
-            newText = renderHtml(MAP_HTML, [('[EE_MAPID]',    mapid['mapid']),
-                                            ('[EE_TOKEN]',    mapid['token']),
+            kmlUrl       = kmlUrls[0]
+            kmlUrlInfo   = extractInfoFromKmlUrl(kmlUrl) # TODO: Clean this up!
+            detailedInfo = fetchKmlDescription(kmlUrl) # TODO: Get all info from here!
+            layerInfo    = getLayerInfo(detailedInfo)
+            sensorList   = expandSensorsList(kmlUrlInfo['sensors'])
+            detailedInfo['layers'] = layerInfo
+            #raise Exception(json.dumps(detailedInfo))
+            newText = renderHtml(MAP_HTML, [#('[EE_MAPID]',    mapid['mapid']),
+                                            #('[EE_TOKEN]',    mapid['token']),
                                             ('[API_KEY]', 'AIzaSyAlcB6oaJeUdTz3I97cL47tFLIQfSu4j58'),
                                             ('[MAP_TITLE]',   dateLocString),
                                             ('[KML_URL]',     kmlUrl), 
+                                            #('[MODIS_ID]',    detailedInfo['modis_id']),
+                                            ('[MAP_JSON_TEXT]', json.dumps(detailedInfo)),
                                             ('[SENSOR_LIST]', sensorList), 
-                                            ('[LAT]',         str(info['lat'])), 
-                                            ('[LON]',         str(info['lon']))])
+                                            ('[LAT]',         str(kmlUrlInfo['lat'])), 
+                                            ('[LON]',         str(kmlUrlInfo['lon']))
+                                           ])
 
         #newText = 'You selected: <pre>'+ cgi.escape(date) +'</pre>'
         #newText = MAP_HTML

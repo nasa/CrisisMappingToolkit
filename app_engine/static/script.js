@@ -21,36 +21,70 @@ var addKml = function(kmlUrl) {
 
 var imageNames = []
 
-// At the start, load up the image data for the map.
-$.getJSON(           // Fetch JSON data from the server
-    '/getmapdata',   // Request it from this URL
-    {},              // Data passed to the server handler
-    function(data) { // Call this function with the data we get back
-      // Clear out any old layers.
-      map.overlayMapTypes.clear();
-      $('#layers').empty();
+var loadMapImages2 = function(modisId) {
+  // At the start, load up the image data for the map.
+  $.getJSON(           // Fetch JSON data from the server
+      '/getmapdata',   // Request it from this URL
+      {},              // Data passed to the server handler
+      function(data) { // Call this function with the data we get back
+        // Clear out any old layers.
+        map.overlayMapTypes.clear();
+        $('#layers').empty();
 
-      data.forEach(function(layer, i) {
-        // Configuration for the image map type. The Google Maps API calls
-        // getTileUrl when it tries to display a map tile. Our method will
-        // provide a valid URL to an Earth Engine map tile based on the mapid and token.
-        var eeMapOptions = {
-          getTileUrl: buildGetTileUrl(layer.mapid, layer.token),
-          tileSize: new google.maps.Size(256, 256)
-        };
+        data.forEach(function(layer, i) {
+          // Configuration for the image map type. The Google Maps API calls
+          // getTileUrl when it tries to display a map tile. Our method will
+          // provide a valid URL to an Earth Engine map tile based on the mapid and token.
+          var eeMapOptions = {
+            getTileUrl: buildGetTileUrl(layer.mapid, layer.token),
+            tileSize: new google.maps.Size(256, 256)
+          };
 
-        // Create the map type.
-        var mapType = new google.maps.ImageMapType(eeMapOptions);
+          // Create the map type.
+          var mapType = new google.maps.ImageMapType(eeMapOptions);
 
-        // Add the EE layer to the map.
-        map.overlayMapTypes.push(mapType);
-        // Record the name for checkbox interaction later
-        imageNames.push(layer.label);
-        // Default all layers to hidden.
-        map.overlayMapTypes.getAt(i).setOpacity(0);
-        
-      }); // end response function call
-    }); // end getJSON function call
+          // Add the EE layer to the map.
+          map.overlayMapTypes.push(mapType);
+          // Record the name for checkbox interaction later
+          imageNames.push(layer.label);
+          // Default all layers to hidden.
+          map.overlayMapTypes.getAt(i).setOpacity(0);
+          
+        }); // end response function call
+      }); // end getJSON function call
+};
+
+
+
+var loadMapImages = function(jsonText) {
+
+  var data = JSON.parse(jsonText)
+  layers = data['layers']
+
+  // Clear out any old layers.
+  map.overlayMapTypes.clear();
+
+  layers.forEach(function(layer, i) {
+    // Configuration for the image map type. The Google Maps API calls
+    // getTileUrl when it tries to display a map tile. Our method will
+    // provide a valid URL to an Earth Engine map tile based on the mapid and token.
+    var eeMapOptions = {
+      getTileUrl: buildGetTileUrl(layer['mapid'], layer['token']),
+      tileSize: new google.maps.Size(256, 256)
+    };
+
+    // Create the map type.
+    var mapType = new google.maps.ImageMapType(eeMapOptions);
+
+    // Add the EE layer to the map.
+    map.overlayMapTypes.push(mapType);
+    // Record the name for checkbox interaction later
+    imageNames.push(layer['label']);
+    // Default all layers to hidden.
+    map.overlayMapTypes.getAt(i).setOpacity(0);
+    
+  }); // end response function call
+};
 
 
 // Function to handle when the radio selector is changed

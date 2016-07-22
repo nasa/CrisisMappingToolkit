@@ -449,7 +449,7 @@ def rescaleNumber(num, currMin, currMax, newMin, newMax):
 
 def sar_martinis2(domain):
     '''Main function of algorithm from:
-          Martinis, Sandro, Jens Kersten, and André Twele. 
+          Martinis, Sandro, Jens Kersten, and Andre Twele. 
           "A fully automated TerraSAR-X based flood service." 
           ISPRS Journal of Photogrammetry and Remote Sensing 104 (2015): 203-212.
 '''

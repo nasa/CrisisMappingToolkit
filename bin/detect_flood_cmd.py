@@ -439,10 +439,11 @@ def main(argsIn):
         modisImage  = getCloudFreeModis(eeBounds, eeDate, options.searchRangeDays, 
                                         options.maxCloudPercentage, options.minCoverage)
         modisSensor = cmt.domain.SensorObservation()
-        print modisImage.getInfo()
+        #print modisImage.getInfo()
         modisSensor.init_from_image(modisImage, 'modis')
         sensorList.append(modisSensor)
         floodInfo['modis_date'] = cmt.util.miscUtilities.getDateFromImageInfo(modisImage.getInfo())
+        floodInfo['modis_id'  ] = modisImage.get('system:index').getInfo()
         print 'Loaded MODIS sensor observation!'
     except Exception as e:
         print 'Unable to load a MODIS image in this date range!'
@@ -456,6 +457,7 @@ def main(argsIn):
         landsatSensor.init_from_image(landsatImage, landsatName)
         sensorList.append(landsatSensor)
         floodInfo['landsat_date'] = cmt.util.miscUtilities.getDateFromImageInfo(landsatImage.getInfo())
+        floodInfo['landsat_id'  ] = landsatImage.get('system:index').getInfo()
         print 'Loaded Landsat sensor observation!'
     except Exception as e:
         print 'Unable to load a Landsat image in this date range!'
@@ -467,6 +469,7 @@ def main(argsIn):
         sentinel1Sensor.init_from_image(sentinel1Image, 'sentinel1')
         sensorList.append(sentinel1Sensor)
         floodInfo['sentinel1_date'] = cmt.util.miscUtilities.getDateFromImageInfo(sentinel1Image.getInfo())       
+        floodInfo['sentinel1_id'  ] = sentinel1Image.get('system:index').getInfo()
         print 'Loaded Sentinel1 sensor observation!'
     except Exception as e:
         print 'Unable to load a Sentinel1 image in this date range!'
