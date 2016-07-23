@@ -172,51 +172,53 @@ def expandSensorsList(sensors):
 def getLayerInfo(kmlInfo):
     '''Given the parsed KML description object, set up EE layer info'''
     
-    # TODO: Properly parse this information! In the other code?
-   #1_MYD09GA_005_2016_07_14_MYD09GQ_005_2016_07_14
+    # The information is already in an easy to use format
+    # TODO: Refine the display parameters?
     
     layers = []
-    if True:#kmlInfo['modis_id']:
-        # Add the modis
-        parsedModisId = 'MODIS/MOD09GQ/MOD09GQ_005_2010_04_01' # TODO: Obtain this!
-        modis = ee.Image(parsedModisId)
+    if 'modis_image_id_A' in kmlInfo:
+        modisA = ee.Image(kmlInfo['modis_image_id_A'])
+        modisQ = ee.Image(kmlInfo['modis_image_id_Q'])
+        modis = modisQ.addBands(modisA, ['sur_refl_b06'])
         modis_visualization = modis.getMapId({
-            'gain': 0.07, # TODO: Refine these!
-            'gamma': 1.4,
-            'bands': 'sur_refl_b01, sur_refl_b02, sur_refl_b02' # TODO: Incorporate 500m band
+            'min': 0,
+            'max': 3000,
+            'bands': 'sur_refl_b01, sur_refl_b02, sur_refl_b06'
         })
         layers.append({
             'mapid': modis_visualization['mapid'],
             'label': 'modis',
             'token': modis_visualization['token']
         })
-   #if kmlInfo['landsat_id']:
-   #   # TODO: Need to handle the L8 bands!
-   #   # Add the Landsat, visualizing just the [30, 20, 10] bands.
-   #   landsat = ee.Image('landsat_id')
-   #   landsat_visualization = landsat.getMapId({
-   #       'min': 0,
-   #       'max': 100,
-   #       'bands': ','.join(['30', '20', '10'])
-   #   })
-   #   layers.append({
-   #       'mapid': landsat_visualization['mapid'],
-   #       'label': 'landsat',
-   #       'token': landsat_visualization['token']
-   #   })
-   #if kmlInfo['sentinel1_id']:
-   #   # Add the modis
-   #   sentinel1 = ee.Image('sentinel1_id')
-   #   sentinel1_visualization = sentinel1.getMapId({
-   #       'min': 0,
-   #       'max': 100, # TODO!!!!!
-   #       'bands': ','.join(['30', '20', '10'])
-   #   })
-   #   layers.append({
-   #       'mapid': sentinel1_visualization['mapid'],
-   #       'label': 'sentinel1',
-   #       'token': sentinel1_visualization['token']
-   #   })
+    if 'landsat_image_id' in kmlInfo:
+        landsat = ee.Image(kmlInfo['landsat_image_id'])
+        # Pick the correct bands for this satellite
+        bands = 'B3, B2, B1'
+        if 'LC8' in kmlInfo['landsat_image_id']:
+            bands = 'B4, B3, B2'
+        
+        landsat_visualization = landsat.getMapId({
+            'min': 0,
+            'max': 0.75,
+            'bands': bands
+        })
+        layers.append({
+            'mapid': landsat_visualization['mapid'],
+            'label': 'landsat',
+            'token': landsat_visualization['token']
+        })
+    if 'sentinel1_image_id' in kmlInfo:
+        sentinel1 = ee.Image(kmlInfo['sentinel1_image_id'])
+        sentinel1_visualization = sentinel1.getMapId({
+            'min': -30,
+            'max': 5,
+            'bands': sentinel1.bandNames().getInfo()[0]
+        })
+        layers.append({
+            'mapid': sentinel1_visualization['mapid'],
+            'label': 'sentinel1',
+            'token': sentinel1_visualization['token']
+        })
     return layers
 
 

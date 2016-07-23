@@ -370,7 +370,47 @@ def getBinaryFeatures(binaryImage, bounds, outputResolution):
     
     return allFeatureInfo
     
+
+def addEarthEngineImageIds(infoDict):
+    '''Takes the ID information from the input dict and adds full, ready-
+    to-use Earth Engine image IDs to the dict.'''
+
+    # MODIS
+    if 'modis_id' in infoDict:
+        # Ex: 1_MYD09GA_005_2016_07_14_MYD09GQ_005_2016_07_14
+        line   = infoDict['modis_id']
+        start1 = line.find('M')
+        start2 = line.rfind('M')
+        nameA  = line[start1:start2-1]
+        nameQ  = line[start2:]
+        if 'Y' in line: # Aqua
+            idA = 'MODIS/MYD09GA/'+nameA
+            idQ = 'MODIS/MYD09GQ/'+nameQ
+        else: # Terra
+            idA = 'MODIS/MOD09GA/'+nameA
+            idQ = 'MODIS/MOD09GQ/'+nameQ
+        infoDict['modis_image_id_A'] = idA
+        infoDict['modis_image_id_Q'] = idQ
+
+    # Landsat
+    if 'landsat_id' in infoDict:
+        if 'LT5' in infoDict['landsat_id']:
+            prefix = 'LT5_L1T_TOA/'
+        if 'LE7' in infoDict['landsat_id']:
+            prefix = 'LE7_L1T_TOA/'
+        if 'LC8' in infoDict['landsat_id']:
+            prefix = 'LC8_L1T_TOA/'
+        infoDict['landsat_image_id'] = prefix + infoDict['landsat_id']    
+
+    # Sentinel-1
+    if 'sentinel1_id' in infoDict:
+        infoDict['sentinel1_image_id'] = 'COPERNICUS/S1_GRD/' + infoDict['sentinel1_id']
+
+    return infoDict
+
     
+
+    return infoDict
 
 # --------------------------------------------------------------
 def main(argsIn):
@@ -491,6 +531,9 @@ def main(argsIn):
     xmlPath = os.path.join(cmt.domain.SENSOR_SOURCE_DIR, demName)
     demSensor.init_from_xml(xmlPath)
     sensorList.append(demSensor)
+    
+    # Add some extra information about the sensor data used
+    floodInfo = addEarthEngineImageIds(floodInfo)
 
     domainName = 'domain_' + dateString
     domain = cmt.domain.Domain()

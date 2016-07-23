@@ -4,13 +4,26 @@
 <!-- Load the Google Maps API. -->
     <script src="https://maps.google.com/maps/api/js?key=[API_KEY]"></script> 
 
+<!--  Table goal:
+
+  Map    Legend
+  
+         Selector buttons
+  
+  Fetch tools (outside table)
+
+ -->
+
 <table width="60" style="border: 1px solid #000" rules="all">
 <tr>
 
+<!-- Start of the legend box -->
 <td>
 <strong>[MAP_TITLE]</strong>
 <br>
 Sensors: [SENSOR_LIST]
+<br>
+<a href='[KML_URL]'>Download this kml file</a>
 </td>
 
 <td>
@@ -18,15 +31,26 @@ Sensors: [SENSOR_LIST]
 <tr><td>Water</td><td>Clouds</td></tr>
 <tr height="50" ><td bgcolor="00ffff"></td><td bgcolor="ffffff"></td></tr>
 </table>
-<a href='[KML_URL]'>Download this kml file</a>
 </td>
 </tr>
+<!-- End of the legend box -->
 
-<table>
+
 <tr><td>
 <div id="map" style="width: 640px; height: 480px;"></div>
-</td><td>
+</td>
 
+
+<!-- Start of controls -->
+<td>
+<table>
+<tr><td>
+<form id="show_kml_form" action="">
+<input type="checkbox" name="kmlButton" value="kmlChecked" checked>Show flood detection results<br>
+</form>
+</td></tr>
+
+<tr><td>
 <!-- Form to choose which images are displayed in the background. -->
 <form id="image_select_form" action="">
   <input type="radio" name="image" value="basemap" checked> Map<br>
@@ -35,7 +59,11 @@ Sensors: [SENSOR_LIST]
   <input type="radio" name="image" value="sentinel1"> Sentinel-1<br>
 </form>
 </td></tr>
-</table>    
+</table>
+<!-- End of controls -->
+
+</td></tr>
+</table>
 
 <br><br>
 

@@ -56,7 +56,7 @@ def archiveResult(kmlPath, dateString):
     '''Archives completed flood detection results.
        Call updateArchiveFolder once all individual results are archived.'''
 
-    dateFolder = os.path.join(DEST_BASE, dateString)
+    dateFolder = os.path.join(SERVER_STORAGE_PATH, dateString)
     os.system('mkdir '+dateFolder)
 
     # Write the output file

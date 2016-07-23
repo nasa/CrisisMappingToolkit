@@ -11,9 +11,10 @@ var mapOptions = {
 var map = new google.maps.Map(document.getElementById('map'), mapOptions);
 
 // Initialize the Google Map and add our custom layer overlay.
+var kmlLayer;
 var addKml = function(kmlUrl) {
 
-  var ctaLayer = new google.maps.KmlLayer({
+  kmlLayer = new google.maps.KmlLayer({
                    url: kmlUrl,
                    map: map
                  });
@@ -29,7 +30,7 @@ var loadMapImages2 = function(modisId) {
       function(data) { // Call this function with the data we get back
         // Clear out any old layers.
         map.overlayMapTypes.clear();
-        $('#layers').empty();
+        //$('#layers').empty();
 
         data.forEach(function(layer, i) {
           // Configuration for the image map type. The Google Maps API calls
@@ -104,6 +105,20 @@ $('input:radio[name="image"]').change(
       }); // end loop through map layers
     } // end if
 });
+
+
+// Function to handle when the kml checkbox is changed
+$('input:checkbox[name="kmlButton"]').change(
+  function(){
+    // Get the selected name, then turn on the map overlay with the same name.
+    // - This requires that the names in HTML and python be synchronized!
+    if ($(this).is(':checked')) {
+      kmlLayer.setMap(map);
+    } else {
+      kmlLayer.setMap(null);
+    }
+});
+
 
 
 // Returns a function that builds a valid tile URL to Earth Engine based on
