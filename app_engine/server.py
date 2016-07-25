@@ -306,6 +306,10 @@ class MainPage(webapp2.RequestHandler):
         self.response.write(self._htmlText)
 
 
+MAP_MODIS_RADIO_SNIPPET     = '<input type="radio" name="image" value="modis"          > MODIS<br>'
+MAP_LANDSAT_RADIO_SNIPPET   = '<input type="radio" name="image" value="landsat"        > Landsat<br>'
+MAP_SENTINEL1_RADIO_SNIPPET = '<input type="radio" name="image" value="sentinel1"      > Sentinel-1<br>'
+
 class MapPage(webapp2.RequestHandler):
     '''Similar to the main page, but with a map displayed.'''
 
@@ -347,6 +351,15 @@ class MapPage(webapp2.RequestHandler):
             detailedInfo = fetchKmlDescription(kmlUrl) # TODO: Get all info from here!
             layerInfo    = getLayerInfo(detailedInfo)
             sensorList   = expandSensorsList(kmlUrlInfo['sensors'])
+            
+            (modisRadioText, landsatRadioText, sentinel1RadioText) = ('', '', '')
+            if 'Modis' in sensorList:
+                modisRadioText     = MAP_MODIS_RADIO_SNIPPET
+            if 'Landsat' in sensorList:
+                landsatRadioText   = MAP_LANDSAT_RADIO_SNIPPET
+            if 'Sentinel-1' in sensorList:
+                sentinel1RadioText = MAP_SENTINEL1_RADIO_SNIPPET
+            
             detailedInfo['layers'] = layerInfo
             #raise Exception(json.dumps(detailedInfo))
             newText = renderHtml(MAP_HTML, [#('[EE_MAPID]',    mapid['mapid']),
@@ -355,6 +368,9 @@ class MapPage(webapp2.RequestHandler):
                                             ('[MAP_TITLE]',   dateLocString),
                                             ('[KML_URL]',     kmlUrl), 
                                             #('[MODIS_ID]',    detailedInfo['modis_id']),
+                                            ('[RADIO_SECTION_MODIS]',     modisRadioText),
+                                            ('[RADIO_SECTION_LANDSAT]',   landsatRadioText),
+                                            ('[RADIO_SECTION_SENTINEL1]', sentinel1RadioText),
                                             ('[MAP_JSON_TEXT]', json.dumps(detailedInfo)),
                                             ('[SENSOR_LIST]', sensorList), 
                                             ('[LAT]',         str(kmlUrlInfo['lat'])), 

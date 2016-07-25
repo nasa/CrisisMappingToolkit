@@ -14,7 +14,7 @@
 
  -->
 
-<table width="60" style="border: 1px solid #000" rules="all">
+<table width="70" style="border: 1px solid #000" rules="all">
 <tr>
 
 <!-- Start of the legend box -->
@@ -27,7 +27,7 @@ Sensors: [SENSOR_LIST]
 </td>
 
 <td>
-<table width="60" style="border: 1px solid #000" rules="all">
+<table width="150" style="border: 1px solid #000" rules="all">
 <tr><td>Water</td><td>Clouds</td></tr>
 <tr height="50" ><td bgcolor="00ffff"></td><td bgcolor="ffffff"></td></tr>
 </table>
@@ -54,9 +54,9 @@ Sensors: [SENSOR_LIST]
 <!-- Form to choose which images are displayed in the background. -->
 <form id="image_select_form" action="">
   <input type="radio" name="image" value="basemap" checked> Map<br>
-  <input type="radio" name="image" value="modis"> MODIS<br>
-  <input type="radio" name="image" value="landsat"> Landsat<br>
-  <input type="radio" name="image" value="sentinel1"> Sentinel-1<br>
+  [RADIO_SECTION_MODIS]
+  [RADIO_SECTION_LANDSAT]
+  [RADIO_SECTION_SENTINEL1]
 </form>
 </td></tr>
 </table>
