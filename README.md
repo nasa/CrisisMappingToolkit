@@ -14,6 +14,7 @@ The CMT currently provides:
   Neighbor Search, and more.
 - Algorithms to determine **flood extent from SAR data**, such as
   histogram thresholding and active contour.
+- Algorithms to detect water and clouds in LANDSAT images.
 - Various helpful utilities, such as:
     - An **improved visualization UI**, with a drop down menu of layers
       similar to the EE javascript playground.
@@ -21,8 +22,9 @@ The CMT currently provides:
       that cannot be done efficiently in EE.
     - A **configurable domain specification** to define problem domains and
       data sources in XML.
+    - Functions for searching image catalogs.
 
-The CMT is under heavy development, so expect frequent changes and additional features.
+The CMT is still under development, so expect changes and additional features.
 Please contact Brian Coltin (brian.j.coltin at nasa dot gov) with any questions.
 
 ## Installation
@@ -74,13 +76,8 @@ is expensive in both time and bandwidth.
 
 ## Data Access
 
-To use the data sources in the config directory, you must join the
-[Crisis Mapping Toolkit Users Google Group](https://groups.google.com/forum/#!forum/crisis-mapping-toolkit-users).
-Joining this group will give you the necessary permissions to view our data.
-
-If you use the Sentinel-1 data, you agree to the [Sentinel-1 Data Use Terms and Conditions](https://scihub.esa.int/userguide/).
-
-To access Skybox data, you must join the [Skybox for Good Google Group](https://groups.google.com/forum/#!forum/skyboxforgood).
-
-Unfortunately, all TerraSAR-X data and the Skybox Malawi image cannot be shared.
+Data used in our examples has been uploaded as Assets in Earth Engine and should be
+accessible without any special effort.  Unfortunately some datasets, such as 
+TerraSAR-X, cannot be uploaded.  If you find any missing data sets, contact the
+project maintainers to see if we can get it uploaded.
 
