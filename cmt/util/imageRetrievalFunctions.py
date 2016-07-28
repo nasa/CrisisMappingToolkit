@@ -141,14 +141,40 @@ def get_image_collection_sentinel1(bounds, start_date, end_date, min_images=1):
 #=================================================================================
 # A set of functions to find a cloud free image near a date
 
+
+def getIndicesSortedByNearestDate(imageList, targetDate):
+    '''Sort an EE image list by distance from a target date.
+       Got a weird error trying to return a list, so returning indices instead.'''
+
+    numFound = imageList.length().getInfo()
+
+    # Compute the time dists from 
+    targetTimeMs = targetDate.millis().getInfo()
+    dists = []
+    for i in range(0,numFound):
+        thisTime = ee.Image(imageList.get(i)).get('system:time_start').getInfo()
+        diff = abs(targetTimeMs - thisTime)
+        dists.append( (i, diff) )
+
+    # Sort the indices based on the time diffs
+    def getKey(item):  # Fetches the time from a pair
+        return item[1]
+    sortedVals = sorted(dists, key=getKey)
+
+    sortedIndexList = []
+    for (index, diff) in sortedVals:
+        sortedIndexList.append(index)
+    
+    return sortedIndexList
+
 def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.05,
-                      minCoverage=0.8, searchMethod='spiral'):
+                      minCoverage=0.8, searchMethod='nearest'):
     '''Search for the closest cloud-free MODIS image near the target date.
        The result preference is determined by searchMethod and can be  set to:
-       spiral, increasing, or decreasing'''
+       nearest, increasing, or decreasing'''
     
     # Get the date range to search
-    if searchMethod == 'spiral':
+    if searchMethod == 'nearest':
         dateStart = targetDate.advance(-1*maxRangeDays, 'day')
         dateEnd   = targetDate.advance(   maxRangeDays, 'day')
     else:
@@ -161,27 +187,15 @@ def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.
     imageInfo       = imageList.getInfo()
     numFound        = len(imageInfo)
     
-    print 'Modis dates:'
+    #print 'Modis dates:'
     #print dateStart.format().getInfo()
     #print dateEnd.format().getInfo()
-    print 'Found ' + str(numFound) + ' candidate MODIS images.'
-    #print imageInfo
-    
-    # TODO: Look replace spiral with nearest!
-    #targetTimeMs = targetDate.millis().getInfo()
-    #print 'Time diffs:'
-    #for i in range(0,numFound):
-    #    thisTime = ee.Image(imageList.get(i)).get('system:time_start').getInfo()
-    #    diff = targetTimeMs - thisTime
-    #    print ee.Image(imageList.get(i)).get('system:index').getInfo()
-    #    print str(thisTime) + ' --> ' + str(diff / (1000 * 60))
-    #print '++++++'
-    
-    
+    print 'Found ' + str(numFound) + ' candidate MODIS images.'   
+
     # Find the first image that meets the requirements
-    if searchMethod == 'spiral':
-        # TODO: Properly order the images by distance from the target date!
-        searchIndices = miscUtilities.getExpandingIndices(numFound)
+    if searchMethod == 'nearest':
+        # The images start sorted by time, change to sort by distance from target.
+        searchIndices = getIndicesSortedByNearestDate(imageList, targetDate)
     elif searchMethod == 'increasing':
         searchIndices = range(0,numFound)
     else:
@@ -203,13 +217,13 @@ def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.
 
 
 def getCloudFreeLandsat(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.05,
-                        minCoverage=0.8, searchMethod='spiral'):
+                        minCoverage=0.8, searchMethod='nearest'):
     '''Search for the closest cloud-free Landsat image near the target date.
        The result preference is determined by searchMethod and can be  set to:
-       spiral, increasing, or decreasing'''
+       nearest, increasing, or decreasing'''
 
     # Get the date range to search
-    if searchMethod == 'spiral':
+    if searchMethod == 'nearest':
         dateStart = targetDate.advance(-1*maxRangeDays, 'day')
         dateEnd   = targetDate.advance(   maxRangeDays, 'day')
     else:
@@ -227,8 +241,9 @@ def getCloudFreeLandsat(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=
         
         # Find the first image that meets the requirements
         numFound = len(imageInfo)
-        if searchMethod == 'spiral':
-            searchIndices = miscUtilities.getExpandingIndices(numFound)
+        if searchMethod == 'nearest':
+            # The images start sorted by time, change to sort by distance from target.
+            searchIndices = getIndicesSortedByNearestDate(imageList, targetDate)
         elif searchMethod == 'increasing':
             searchIndices = range(0,numFound)
         else:
@@ -249,16 +264,16 @@ def getCloudFreeLandsat(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=
     raise Exception('Could not find a nearby cloud-free Landsat image for date ' + str(targetDate.getInfo()))
 
 
-def getNearestSentinel1(bounds, targetDate, maxRangeDays=10, minCoverage=0.8, searchMethod='spiral'):
+def getNearestSentinel1(bounds, targetDate, maxRangeDays=10, minCoverage=0.8, searchMethod='nearest'):
     '''Search for the closest Sentinel1 image near the target date.
        Sentinel1 images are radar and see through clouds!
        The result preference is determined by searchMethod and can be  set to:
-       spiral, increasing, or decreasing'''
+       nearest, increasing, or decreasing'''
 
     # TODO: Some options to balance nearness and resolution preferences?
 
     # Get the date range to search
-    if searchMethod == 'spiral':
+    if searchMethod == 'nearest':
         dateStart = targetDate.advance(-1*maxRangeDays, 'day')
         dateEnd   = targetDate.advance(   maxRangeDays, 'day')
     else:
@@ -275,8 +290,9 @@ def getNearestSentinel1(bounds, targetDate, maxRangeDays=10, minCoverage=0.8, se
   
     # Find the first image that meets the requirements
     numFound = len(imageInfo)
-    if searchMethod == 'spiral':
-        searchIndices = miscUtilities.getExpandingIndices(numFound)
+    if searchMethod == 'nearest':
+        # The images start sorted by time, change to sort by distance from target.
+        searchIndices = getIndicesSortedByNearestDate(imageList, targetDate)
     elif searchMethod == 'increasing':
         searchIndices = range(0,numFound)
     else:

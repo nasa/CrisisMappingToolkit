@@ -27,12 +27,20 @@ and display them to the user.
 The web tool, located at http://ames-crisis-mapping.appspot.com/ 
 is designed to be simple and easy to use. Drop down lists allow 
 the user to select dates and locations of floods, and Google map 
-overlays display the results.
+overlays display the results.  On the side of the map, toggle 
+buttons allow the user to toggle the display of the detection
+results and the image data used to perform flood detection.
+There are also links on the site to download the detection KML file
+for that day and to download a KML file containing a feed of detection
+results to date.
 
-Under the hood, the app engine based tool is very simple.  We host the 
-.kml files containing flood detection results on our server and all the
-website does is fetch the list of files and display the selected
-kml files on a map using the Google Maps web API.
+Under the hood, the app engine based tool is fairly simple.  We host the 
+KML files containing flood detection results on our server and the
+website uses this list to populate the list of maps and to 
+set up the display for each map.  The maps use the the Google Maps 
+and Earth Engine web APIs to display the detection results and the
+input images used by the detector.  Each KML file must contain 
+metadata about the input images for the web tool to display them.
 
 --- Using the command line tools  ---
 
