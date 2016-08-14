@@ -14,8 +14,10 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 # -----------------------------------------------------------------------------
-
-from cmt.local_ee_image import LocalEEImage
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
+from local_ee_image import LocalEEImage
 
 import ee
 

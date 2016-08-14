@@ -84,7 +84,7 @@ except ImportError:
         """
     raise
 
-import cmt.util.miscUtilities
+import util.miscUtilities
 
 # The default URL to fetch tiles from.  We could pull this from the EE library,
 # however this doesn't have any other dependencies on that yet, so let's not.
@@ -183,7 +183,7 @@ class MapViewOverlayInfoWidget(QtGui.QWidget):
             except: # features throw ee exception, ignore
                 return None
 
-        self.pixel_loader = cmt.util.miscUtilities.waitForEeResult(get_pixel, self.set_pixel_value)
+        self.pixel_loader = util.miscUtilities.waitForEeResult(get_pixel, self.set_pixel_value)
 
         # Set up all the components in a horizontal box layout
         hbox = QtGui.QHBoxLayout()
@@ -460,7 +460,7 @@ class MapViewWidget(QtGui.QWidget):
         #saveName = overlayToSave.name.replace(' ', '_').replace('/', '-')
         
         #print overlayToSave.eeobject.getInfo()
-        cmt.util.miscUtilities.downloadEeImage(overlayToSave.eeobject, current_view_bbox, scale, file_path, overlayToSave.vis_params)
+        util.miscUtilities.downloadEeImage(overlayToSave.eeobject, current_view_bbox, scale, file_path, overlayToSave.vis_params)
 
     def contextMenuEvent(self, event):
     
@@ -664,7 +664,7 @@ class MapViewWidget(QtGui.QWidget):
             return result
 
         with self.thread_lock:
-            self.executing_threads.append(cmt.util.miscUtilities.waitForEeResult(functools.partial(execute_thread, list(self.executing_threads)),
+            self.executing_threads.append(util.miscUtilities.waitForEeResult(functools.partial(execute_thread, list(self.executing_threads)),
                         lambda a : self.addOverlay(MakeTileManager(a), eeobject, name, show, vis_params)))
 
 

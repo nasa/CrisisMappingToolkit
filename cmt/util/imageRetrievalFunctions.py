@@ -18,8 +18,11 @@
 import ee
 import os
 import functools
-import cmt.modis.modis_utilities
-import cmt.util.landsat_functions
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
+import modis.modis_utilities
+import util.landsat_functions
 import miscUtilities
 
 
@@ -131,6 +134,7 @@ def get_image_collection_sentinel1(bounds, start_date, end_date, min_images=1):
             print 'Found ' + str(numFound) + ' images'
             if numFound >= min_images:
                 # Switch band names to lower case to be consistent with domain notation               
+
                 temp = cmt.util.miscUtilities.safeRename(collection, ['VV', 'VH'], ['vv', 'vh'])
                 return temp.sort('system:time_start')
 
@@ -307,6 +311,8 @@ def getNearestSentinel1(bounds, targetDate, maxRangeDays=10, minCoverage=0.8, se
             return thisImage
 
     raise Exception('Could not find a nearby Sentinel image with coverage for date ' + str(targetDate.getInfo()))
+
+
 
 
 

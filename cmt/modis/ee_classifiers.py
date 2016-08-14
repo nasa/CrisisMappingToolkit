@@ -17,10 +17,13 @@
 
 import ee
 import math
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
-from cmt.mapclient_qt import addToMap
-from cmt.util.miscUtilities import safe_get_info
-from cmt.modis.simple_modis_algorithms import *
+from mapclient_qt import addToMap
+from util.miscUtilities import safe_get_info
+from modis.simple_modis_algorithms import *
 from modis_utilities import *
 
 '''

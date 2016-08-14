@@ -19,12 +19,14 @@ import learned_adaboost
 
 import ee
 import math
-
-from cmt.domain import Domain
-from cmt.modis.simple_modis_algorithms import *
-from cmt.mapclient_qt import addToMap
-from cmt.util.miscUtilities import safe_get_info
-import cmt.modis.modis_utilities
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
+from domain import Domain
+from modis.simple_modis_algorithms import *
+from mapclient_qt import addToMap
+from util.miscUtilities import safe_get_info
+import modis.modis_utilities
 
 """
    Contains functions needed to implement an Adaboost algorithm using several of the

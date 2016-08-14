@@ -1,0 +1,3722 @@
+1,Caspian Sea
+2,Lake Superior
+3,Lake Victoria
+4,Aral Sea
+5,Lake Huron
+6,Lake Michigan
+7,Tanganyika
+8,Baikal
+9,Great Bear
+10,Malawi
+11,Great Slave
+12,Lake Erie
+13,Winnipeg
+14,Chad
+15,Lake Ontario
+16,Ladoga
+17,Balkhash
+18,Onegh
+19,Itaparica
+20,Titicaca
+21,Nicaragua
+22,Turkana
+23,Athabasca
+24,Volta
+25,Issyk-kul
+26,Great Salt Lake
+27,Smallwood
+28,Reindeer
+29,Vanern
+30,Albert
+31,Winnipegosis
+32,Nettiling
+33,Kuybyshevskoye
+34,Urmia
+35,Kariba
+36,Mweru
+37,Manitoba
+38,Nipigon
+39,Bratskoye
+40,Zaysan
+41,Qinghai
+42,Cabora  Bassa
+43,Taymyr
+44,Lake of the Woods
+45,Khanka
+46,No_Name
+47,Rybinkskoye
+48,Nasser
+49,Dubawnt
+50,Peipus
+51,Van
+52,Tucurui
+53,Uvs
+54,Grande
+55,Tana
+56,Amadjuak
+57,Cedar
+58,Alakol
+59,Hovs Gol
+60,No_Name
+61,Volgogradskoye
+62,Iliamna Lake
+63,Grande
+64,Boeng Tonle Chhma
+65,Itaipu
+66,Tai
+67,Kivu
+68,Wollaston
+69,Edward
+70,No_Name
+71,Tsimlyanskoye
+72,Southern Indian
+73,No_Name
+74,No_Name
+75,Hulun
+76,Mistassini
+77,Buhayrat ath Tharthar
+78,Poyang
+79,Kakhovskoye
+80,Vilyuyskoye
+81,Bangweulu
+82,Manicouagan
+83,Nueltin
+84,Chiquita
+85,Sivash
+86,Rukwa
+87,Kremenshugskoye
+88,Zeyskoye
+89,Ijsselmeer
+90,Mai-Ndombe
+91,Na-Mu
+92,Chany
+93,Krasnoyarskoye
+94,Buenos Aires
+95,Vattern
+96,No_Name
+97,Baker
+98,Argyle
+99,Kyoga
+100,Martre
+101,No_Name
+102,Ust-Ilimskoye
+103,Williston
+104,Kamskoye
+105,Se-lin
+106,Blommesteinmeer WJ Van
+107,Seul
+108,Kossou
+109,Hongze
+110,Lakes Sakakawea Audubon
+111,Saimmaa
+112,Khantayskoye
+113,No_Name
+114,Lake Okeechobee
+115,No_Name
+116,Kainji
+117,Argentina
+118,Gouin
+119,Chishi
+120,No_Name
+121,Hyargas
+122,Lake Oahe
+123,Brokopondo
+124,Kasba
+125,Claire
+126,Yathkyed
+127,Ronge
+128,Leau Claire
+129,Repressa de Jupia
+130,Rainy Lake
+131,KapchagayskoyeVodo
+132,Negro
+133,Poopo
+134,No_Name
+135,Sevan
+136,Vygozero
+137,Cree
+138,Sayano-shushenskoye
+139,No_Name
+140,Limfjorden
+141,Kaghasuk Lake
+142,Har us
+143,No_Name
+144,Inarinjarvi
+145,Becharof Lake
+146,Lake Saint Clair
+147,Lesser Slave
+148,No_Name
+149,Eskimo
+150,Danau Toba
+151,Red Lake (Upper and Lower)
+152,Aberdeen
+153,Chapala
+154,Caroni
+155,Bienville
+156,Eyasi
+157,Paijanne
+158,St Jean
+159,Low
+160,Beloye
+161,Grande
+162,Contwoyto
+163,Granfjarden
+164,Puruvesi
+165,Lake Champlain
+166,Abaya
+167,San Martin
+168,Caniapiscau
+169,Wholdia
+170,Selawik Lake
+171,Viedma
+172,Gods
+173,Bahr al Milh
+174,Island
+175,No_Name
+176,Managua
+177,Imandra
+178,Napaktuluk
+179,Cha-jih nan-mu-tso
+180,Kafue
+181,Bosten
+182,No_Name
+183,Bariri
+184,MacKay
+185,Tuz
+186,Topozero
+187,Orivesi
+188,Repressa Tres Marias
+189,Hottah
+190,Novosibirskoye
+191,No_Name
+192,IlMen
+193,Gorkovskoye
+194,Salton Sea
+195,Pjelinen
+196,Salada
+197,Kara-Bogaz-Gol
+198,Nipissing
+199,Iepe
+200,Abitibi
+201,Fort Peck Lake
+202,Oulujarvi
+203,No_Name
+204,No_Name
+205,Bay
+206,No_Name
+207,No_Name
+208,No_Name
+209,Lianquihui
+210,No_Name
+211,Nonacho
+212,Teshekpuk Lake
+213,Playgreen
+214,Haukivesi
+215,Tang-je yung-tso
+216,No_Name
+217,No_Name
+218,No_Name
+219,Colhue Huapi
+220,Chocon
+221,Hamun-E Saberi
+222,Peter Pond
+223,Pipmuacan
+224,Minto
+225,South Moose
+226,Aylmer
+227,Garry (Lower and Upper)
+228,Segozero
+229,Barun-Torey
+230,No_Name
+231,Mangueira
+232,No_Name
+233,Chao
+234,Angostura
+235,No_Name
+236,Simcoe
+237,Votkinskoye
+238,No_Name
+239,Ulungar
+240,Pyasino
+241,Sarykamyshskoye
+242,Kovdozero
+243,Toledo Bend Reservoir
+244,Dead Sea
+245,Izabal
+246,Kamininak
+247,Sasykkol
+248,Outardes Quatre
+249,Hirakud
+250,Manych oudilo
+251,Cross
+252,Gras
+253,No_Name
+254,Ennadai
+255,Tumba
+256,Chilwa
+257,No_Name
+258,Paduskoye More
+259,No_Name
+260,No_Name
+261,Yang-Cho-Yung
+262,Kulundinskoye
+263,No_Name
+264,Kamilukuak
+265,No_Name
+266,Inhernillo
+267,Beysehir
+268,Biwa-ko
+269,Tulemalu
+270,Evans
+271,No_Name
+272,No_Name
+273,Pyaozero
+274,Er Rosieres
+275,Clinton-Colden
+276,Lake Powell
+277,Coari
+278,Lake Mead
+279,Assad
+280,Big Trout
+281,Dore
+282,Sakami
+283,No_Name
+284,No_Name
+285,St Joseph
+286,Murray
+287,Gaoyou
+288,No_Name
+289,No_Name
+290,Ossokamanuan
+291,Buyr
+292,Selwyn
+293,No_Name
+294,Har
+295,Taupo
+296,Chardarinskoye
+297,Ai-pi
+298,Kentucky Lake
+299,Buffalo
+300,Ngoring
+301,Sipiwesk
+302,Har
+303,North Moose
+304,Fagnano
+305,No_Name
+306,No_Name
+307,Colorados
+308,No_Name
+309,No_Name
+310,Balaton
+311,Atlin
+312,Ayakkum
+313,Scott
+314,Upemba
+315,Ferguson
+316,Tathlina
+317,No_Name
+318,Keban Baraji
+319,South Henik
+320,Kaminuriak
+321,Rogoaguado
+322,Natron
+323,Churchill
+324,Angikuni
+325,Kwania
+326,Deschambault
+327,Geneva
+328,Mingechaurskoye
+329,Salines Grandes
+330,No_Name
+331,Labaz
+332,Danau Towuti
+333,Black
+334,Artillery
+335,No_Name
+336,Gyaring
+337,Stephens
+338,Nerpichye
+339,No_Name
+340,Lake Winnebago
+341,No_Name
+342,Itarare
+343,Nahuel Huapi
+344,No_Name
+345,Ashuanipi
+346,Keitele
+347,Gandhi
+348,No_Name
+349,No_Name
+350,Malheur Lake
+351,Dauphin
+352,Bodensee
+353,Payne
+354,Ang-la jen
+355,Faguibine
+356,Sandy
+357,No_Name
+358,Razelm
+359,No_Name
+360,Barra Bonita
+361,No_Name
+362,Sam Rayburn Reservoir
+363,Granville
+364,No_Name
+365,Snowbird
+366,Mille Lacs Lake
+367,Trout
+368,Manquane
+369,Nasijarvi
+370,No_Name
+371,Tehek
+372,Barkal
+373,Tebesjuak
+374,Ootsa
+375,Flathead Lake
+376,Lokan Terkojarvi
+377,Naknek Lake
+378,Sevier
+379,Cerros Colorados
+380,Lake Tahoe
+381,No_Name
+382,Ko-jen
+383,Ta-jo
+384,Babine
+385,No_Name
+386,No_Name
+387,Hjalmaren
+388,No_Name
+389,Hall
+390,Egridir
+391,Ile-a-la-Crosse
+392,Cabonga
+393,Storsjon
+394,Dozois
+395,Princess Mary
+396,McAlpine Lane
+397,Manyara
+398,No_Name
+399,Grand
+400,Bois
+401,No_Name
+402,Diefenbaker
+403,Markakol
+404,No_Name
+405,Montreal
+406,No_Name
+407,Sai li-mu
+408,Hammar
+409,Primrose
+410,Solenoye
+411,Pyramid Lake
+412,No_Name
+413,Mallery
+414,No_Name
+415,No_Name
+416,Ranco
+417,Bluenose
+418,No_Name
+419,Atikonak
+420,Mills
+421,Joseph
+422,Onkivesi
+423,St Peter
+424,Erichsen
+425,Ubinskoye
+426,Colville
+427,Vozhe
+428,Dall Lake
+429,Tasik Kenyir
+430,Faber
+431,No_Name
+432,Albaniel
+433,Keta
+434,Kubenskoye
+435,Pekulneyskoye
+436,Kiyevskoye
+437,No_Name
+438,Schultz
+439,Ma-pang yung-tso
+440,No_Name
+441,Eufaula Lake
+442,Govind Ballabah Pant
+443,Cardiel
+444,Ang-tzu
+445,Ziway
+446,No_Name
+447,Kluane
+448,Musters
+449,Wharton
+450,Leech Lake
+451,No_Name
+452,Miguel Aleman
+453,No_Name
+454,Molson
+455,No_Name
+456,No_Name
+457,Panama
+458,Bistcho
+459,No_Name
+460,Hendrik Verwoerd
+461,Kayrakkumskoye
+462,No_Name
+463,Pulicat
+464,Goose Lake
+465,Keller
+466,No_Name
+467,Couture
+468,Kootenay
+469,Netsilik
+470,Karakul
+471,No_Name
+472,Sredneye Kuyto
+473,No_Name
+474,Pinehouse
+475,No_Name
+476,No_Name
+477,Malpaso
+478,No_Name
+479,Rogagua
+480,Chlew Larn
+481,Neagh
+482,No_Name
+483,Chukchagirskoye
+484,No_Name
+485,No_Name
+486,Trout
+487,Danau Poso
+488,Scutari
+489,Dorsoidong
+490,Teslin
+491,Aubry
+492,No_Name
+493,Matagami
+494,No_Name
+495,Portnyagino
+496,No_Name
+497,No_Name
+498,Nagarjuna
+499,Pool Malebo
+500,Udyl
+501,Stuart
+502,Bolon
+503,Nejanilini
+504,Naococane
+505,Garda
+506,No_Name
+507,No_Name
+508,Cold
+509,Dnestrovskyi
+510,Grajau
+511,Aqqikkol
+512,White Fish
+513,No_Name
+514,Tazin
+515,Valencia
+516,North Caribou
+517,Pletipi
+518,Mhisa
+519,Yamba
+520,Migriggyangzham
+521,No_Name
+522,Vodlozero
+523,Utah Lake
+524,Lano
+525,Niangay
+526,Ohrid
+527,Abhe Bid
+528,Tungabhadra
+529,Oxford
+530,Puulavesi
+531,Liangzi
+532,Te Anau
+533,Lacha
+534,Lake Livingston
+535,No_Name
+536,Bangong
+537,IstIfanos
+538,St Martin
+539,Longgan
+540,Maunoir
+541,No_Name
+542,No_Name
+543,Dagze
+544,Nichicun
+545,Cormorant
+546,Lake Pend Oreille
+547,No_Name
+548,Umbozero
+549,Dorgon
+550,Kushmurun
+551,No_Name
+552,Aksehir
+553,No_Name
+554,Lake Clark
+555,Simard
+556,Lake Marion
+557,No_Name
+558,No_Name
+559,Upper Klamath Lake
+560,Biarini
+561,Lama
+562,Vaaldam
+563,Vambanad
+564,No_Name
+565,Okanagan
+566,Amisk
+567,Falcon Reservoir
+568,No_Name
+569,No_Name
+570,Goeland
+571,Lake Francis Case
+572,Yellowstone Lake
+573,Meeplaeg
+574,MBakaou
+575,Lady Melville
+576,No_Name
+577,No_Name
+578,Presidente Rios
+579,ChAmo
+580,Eagle
+581,Split
+582,Shuswap
+583,No_Name
+584,Lakes Nuyakuk Tikchik Chauekuktuli
+585,No_Name
+586,Malombe
+587,Hardish
+588,Cochrane
+589,Lake Texoma
+590,Cuitzeo
+591,Wabush
+592,Lumajangdong
+593,No_Name
+594,Tornetrask
+595,Wakatipu
+596,Han Shui
+597,No_Name
+598,J Strom Thurmond Lake
+599,No_Name
+600,No_Name
+601,Tshchikskoye
+602,No_Name
+603,Ubolratna
+604,Shala
+605,San Luis
+606,No_Name
+607,No_Name
+608,Orel
+609,Hoh Xil
+610,Franklin D Roosevelt Lake
+611,Sirikit
+612,No_Name
+613,Retenue de la Lufira
+614,No_Name
+615,Ford
+616,Fincha
+617,Moosehead Lake
+618,St Lucia
+619,Tadouie
+620,Dongting
+621,Baskatong
+622,Beas
+623,Daguan
+624,Swan
+625,No_Name
+626,Lake of the Ozarks
+627,Dian Chi
+628,No_Name
+629,Dabsan
+630,Achit
+631,No_Name
+632,Tustumena Lake
+633,Timiskaming
+634,Iznik
+635,Belot
+636,No_Name
+637,Hondo
+638,Tiete
+639,Xijir Ulan
+640,Mosquito
+641,Lake Barkley
+642,No_Name
+643,Hicks
+644,No_Name
+645,Boon Tsagaan
+646,Clearwater
+647,Firedrake
+648,No_Name
+649,Pu-mo-tso
+650,Nantais
+651,Umtreville
+652,No_Name
+653,No_Name
+654,Siljan
+655,Iriklinskoye
+656,Gauer
+657,Rijkavesi
+658,No_Name
+659,Bull Shoals Lake
+660,No_Name
+661,No_Name
+662,Zeta
+663,Lakes Wheeler Wilson
+664,Manas
+665,No_Name
+666,No_Name
+667,Sitidgi
+668,No_Name
+669,Utikuma
+670,No_Name
+671,Kungasalakh
+672,Smoothstone
+673,Mogotoyeyo
+674,Kisale
+675,No_Name
+676,La-ang
+677,Bear Lake
+678,Gordon
+679,Vortis-Jarv
+680,Guntersville Lake
+681,Ngoin
+682,Nowleye
+683,No_Name
+684,Kiskittogisu
+685,Pei-ku tso
+686,Lam Pao
+687,George
+688,Song-kel
+689,No_Name
+690,Prespa
+691,No_Name
+692,No_Name
+693,Aggikani
+694,No_Name
+695,No_Name
+696,No_Name
+697,Pangong
+698,No_Name
+699,Pavylon
+700,Sturgeon
+701,No_Name
+702,St Francis
+703,Hartwell Lake
+704,No_Name
+705,Minindee
+706,Beysugskty
+707,Nzilo
+708,Hong
+709,North Henik
+710,Uddjaur
+711,Big Sand
+712,No_Name
+713,Tobin
+714,Yam
+715,Suvasvesi
+716,Eutsuk
+717,Peribonca
+718,Gozha
+719,Mille Lacs
+720,No_Name
+721,Surrey
+722,No_Name
+723,Enriquillo
+724,No_Name
+725,Dogai Coring
+726,Marais de Toumbos
+727,No_Name
+728,Red Deer
+729,Toktogulskoye
+730,No_Name
+731,Zapatosa
+732,Zonag
+733,Kiskitto
+734,No_Name
+735,Pitz
+736,Hoh Sai
+737,No_Name
+738,Habbaniyah
+739,Harrison
+740,Natalkuz
+741,Onangue
+742,Tyrrell
+743,Tarbela
+744,Ta-tse
+745,Quesnel
+746,Lake Maurepas
+747,Ujjani
+748,Calcasieu Lake
+749,No_Name
+750,No_Name
+751,Yli -Kitka
+752,No_Name
+753,No_Name
+754,Cumberland
+755,Cha-pu-yeh cha-ka
+756,Kronotskoye
+757,Washburn
+758,Hornavan
+759,No_Name
+760,Grandin
+761,Lake Winnibigoshish
+762,Bustakh
+763,Bloemhofdam
+764,Carey
+765,Walmsley
+766,Grand Lake
+767,Erh
+768,Brochet
+769,No_Name
+770,Adjuntas
+771,Turnor
+772,Takla
+773,Orog
+774,No_Name
+775,No_Name
+776,Vivi
+777,No_Name
+778,Yessey
+779,Wapawekka
+780,Pedder
+781,No_Name
+782,Pasfield
+783,No_Name
+784,No_Name
+785,Debo
+786,Faribault
+787,No_Name
+788,Amistad Reservoir
+789,Waskaiowaka
+790,Wu-liang-su
+791,Shijiu
+792,Nerpichye
+793,No_Name
+794,Saitlan
+795,Burton
+796,No_Name
+797,Red Sucker
+798,No_Name
+799,No_Name
+800,Corangamite
+801,Feia
+802,No_Name
+803,No_Name
+804,Sachigo
+805,Biche
+806,Qarun
+807,Pyhajarvi
+808,No_Name
+809,No_Name
+810,Plonge
+811,Stora Lullevaten
+812,LixiOidain
+813,Petit Manicouagan
+814,No_Name
+815,No_Name
+816,Manic Trois
+817,Great Bitter
+818,Taal
+819,Donggi Cona
+820,No_Name
+821,Temagam
+822,Mingo
+823,No_Name
+824,Lake Moultrie
+825,Tikshe
+826,Badajos
+827,Dalai
+828,No_Name
+829,Abiyata
+830,No_Name
+831,Rupanco
+832,Wanaka
+833,Noi
+834,Hedesundefj
+835,Grande de Manacapuru
+836,Lake Salvador
+837,Waterhen
+838,No_Name
+839,No_Name
+840,Yalpug
+841,No_Name
+842,Table Rock Lake
+843,Keret
+844,Chibougamau
+845,Pelly
+846,No_Name
+847,Harry S Truman Reservoir
+848,Rockinghorse
+849,Blackwater
+850,Lake Murray
+851,Saltaim
+852,Imuruk Basin
+853,Opiscoteq
+854,No_Name
+855,No_Name
+856,No_Name
+857,Lake Sharpe
+858,No_Name
+859,No_Name
+860,John H Kerr Reservoir
+861,Lovozero
+862,Watts Bar Lake
+863,No_Name
+864,Lwe Moyne
+865,Old Hickory Lake
+866,Lake Ouachita
+867,Angajurjualuk
+868,No_Name
+869,No_Name
+870,No_Name
+871,Lake Koocanusa
+872,White Lake
+873,No_Name
+874,Lake Cumberland
+875,No_Name
+876,Weishan
+877,Stevenson
+878,No_Name
+879,No_Name
+880,Zhalauly
+881,Burdur
+882,Upper Ugashik Lake
+883,Mono Lake
+884,Lake Nerka
+885,No_Name
+886,Juojarvi
+887,No_Name
+888,No_Name
+889,Amana
+890,No_Name
+891,No_Name
+892,Fuxian
+893,Neuchatel
+894,Molochnoye
+895,No_Name
+896,Mamia
+897,Femunden
+898,Lake Of The Cherokees
+899,No_Name
+900,No_Name
+901,Virmasvesi
+902,No_Name
+903,No_Name
+904,Waswanipi
+905,Oneida Lake
+906,Flaming Gorge Reservoir
+907,Shalkar
+908,Loche
+909,Minnitaki
+910,Canoe
+911,Porttipahta
+912,Chickamauga Lake
+913,Hsu-ju
+914,Windsor
+915,No_Name
+916,Oros
+917,Zimbambo
+918,Salado
+919,No_Name
+920,Telmen
+921,Neyato
+922,No_Name
+923,No_Name
+924,Dorge
+925,Beaver Hill
+926,Calueque
+927,Knee
+928,Konnevesi
+929,Lake George
+930,No_Name
+931,Robert S Kerr Reservoir
+932,No_Name
+933,No_Name
+934,Pukaki
+935,No_Name
+936,Janis Yarvi
+937,Rana Pratap
+938,No_Name
+939,Leksozero
+940,Laberge
+941,No_Name
+942,No_Name
+943,No_Name
+944,Bolshoye Morskoye
+945,Kayrakkumskoye
+946,Araruama
+947,No_Name
+948,Maggiore
+949,No_Name
+950,Chertovo
+951,No_Name
+952,Assinica
+953,No_Name
+954,Inland Lake
+955,No_Name
+956,No_Name
+957,Alaotra
+958,No_Name
+959,No_Name
+960,Malyye Chany
+961,No_Name
+962,Toro
+963,No_Name
+964,Honey Lake
+965,No_Name
+966,Norris Lake
+967,No_Name
+968,Golodnaya Guba
+969,Ondozero
+970,No_Name
+971,No_Name
+972,Teletskoye
+973,Whitehills
+974,Kempt
+975,Guiers
+976,No_Name
+977,Reed
+978,Shagany
+979,Grand
+980,No_Name
+981,No_Name
+982,Sangiyn Dalay
+983,Jen-ching hsiu-pu-tso
+984,Real
+985,Ulakh Ulyung
+986,Pervoye
+987,Grand
+988,Kallsjon
+989,Namru
+990,Ge
+991,No_Name
+992,No_Name
+993,Utik
+994,No_Name
+995,No_Name
+996,Hume
+997,No_Name
+998,MacNaughton
+999,Lake Winnipesaukee
+1000,No_Name
+1001,Red Indian
+1002,Tekapo
+1003,Talbot
+1004,Tatinnai
+1005,No_Name
+1006,No_Name
+1007,Guarico
+1008,Gran Laguna Salada
+1009,No_Name
+1010,Lower Ugashik Lake
+1011,Bolshoy Uvat
+1012,No_Name
+1013,Rossvatnet
+1014,Revue
+1015,No_Name
+1016,Coipasa
+1017,Daryacheh-ye Hamun
+1018,No_Name
+1019,Mahony
+1020,Martin Lake
+1021,No_Name
+1022,No_Name
+1023,Kianta
+1024,Besnard
+1025,Garou
+1026,American Falls Reservoir
+1027,Fletcher
+1028,Bolmen
+1029,Evoron
+1030,Langelmavesi
+1031,Quagan
+1032,Aguas Termales
+1033,Chilko
+1034,No_Name
+1035,No_Name
+1036,Lake Sidney Lanier
+1037,Sid
+1038,No_Name
+1039,Daryacheh-ye Hamun
+1040,No_Name
+1041,Riou
+1042,Asnen
+1043,Chozrayskoye
+1044,Arkatag
+1045,No_Name
+1046,Kabamba
+1047,No_Name
+1048,No_Name
+1049,No_Name
+1050,Kuchukskoye
+1051,Pickwick Lake
+1052,Banda Nwanta
+1053,Athapapuskow
+1054,Chambri
+1055,No_Name
+1056,Kiziliashskiy
+1057,Corrib
+1058,No_Name
+1059,Ukal
+1060,No_Name
+1061,Nilakka
+1062,Wekusko
+1063,No_Name
+1064,No_Name
+1065,Todos los Santos
+1066,Pa-Mu-Tso
+1067,No_Name
+1068,No_Name
+1069,No_Name
+1070,No_Name
+1071,Kesagami
+1072,Linganamakki
+1073,No_Name
+1074,Gove
+1075,Last Mountain
+1076,Dukan
+1077,Arari
+1078,Massinger Barragen
+1079,Na
+1080,Bisina
+1081,Castignon
+1082,No_Name
+1083,Elton
+1084,Poncheville
+1085,Walter F George Reservoir
+1086,Selingue
+1087,No_Name
+1088,Machona
+1089,Marjorie
+1090,Lac La Croix
+1091,Kukaklek Lake
+1092,Agata
+1093,No_Name
+1094,No_Name
+1095,Randijaur
+1096,Aksayquin
+1097,No_Name
+1098,No_Name
+1099,No_Name
+1100,Hawea
+1101,No_Name
+1102,Barrington
+1103,Gordon
+1104,Lake Norman
+1105,No_Name
+1106,Horton
+1107,Junshan
+1108,Koitere
+1109,Villarrica
+1110,Hirfanli
+1111,No_Name
+1112,Weagamow
+1113,Blanca
+1114,Neergaure
+1115,Neusiedl
+1116,Rossignol
+1117,Lake Tawakoni
+1118,Vaso Marte RGomez
+1119,No_Name
+1120,No_Name
+1121,Negra
+1122,Aropuk Lake
+1123,Yambuto
+1124,Mangla
+1125,Victoria
+1126,Vtoroye
+1127,Seneca Lake
+1128,Walker Lake
+1129,Grand Lake
+1130,Toson
+1131,Novillo
+1132,Kivijarvi
+1133,Sen-kyuyel
+1134,Kampolombo
+1135,Lake Saint Lawrence
+1136,No_Name
+1137,Aiapua
+1138,No_Name
+1139,No_Name
+1140,Quunnguq
+1141,No_Name
+1142,Eucumbene
+1143,Danau Matano
+1144,No_Name
+1145,Kus
+1146,Langano
+1147,No_Name
+1148,Lake Mattamuskeet
+1149,Kach
+1150,No_Name
+1151,No_Name
+1152,Bear
+1153,Vermilion Lake
+1154,Lake Abert
+1155,Greers Ferry Lake
+1156,No_Name
+1157,Koka
+1158,Tahoe
+1159,No_Name
+1160,No_Name
+1161,No_Name
+1162,No_Name
+1163,Dog
+1164,Beverly
+1165,Ayame
+1166,No_Name
+1167,No_Name
+1168,Sardis Lake
+1169,Wabigoon
+1170,Great
+1171,No_Name
+1172,No_Name
+1173,Sinoe
+1174,Jili
+1175,No_Name
+1176,Neyto
+1177,Tana
+1178,Staruman
+1179,No_Name
+1180,Dale Hollow Lake
+1181,No_Name
+1182,Cayuga Lake
+1183,Kemijarvi
+1184,Gusinoye
+1185,Nose
+1186,No_Name
+1187,Ozhogino
+1188,Clear Lake
+1189,No_Name
+1190,No_Name
+1191,No_Name
+1192,No_Name
+1193,Canyon Ferry Lake
+1194,No_Name
+1195,Blanc
+1196,Tiberias
+1197,No_Name
+1198,Aishihik
+1199,Devils Lake
+1200,Tahiryuak
+1201,Vanajanselka
+1202,No_Name
+1203,No_Name
+1204,Kasumiga-ura
+1205,Tai
+1206,No_Name
+1207,Puyehue
+1208,No_Name
+1209,Itchen
+1210,No_Name
+1211,Red
+1212,No_Name
+1213,Chatyr-kel
+1214,Pangnikto
+1215,Kokora
+1216,Berre
+1217,Acigol
+1218,Kikuletwa
+1219,Jayakwadi
+1220,Willow
+1221,Pelican
+1222,Beaverhill
+1223,No_Name
+1224,Suonne
+1225,No_Name
+1226,No_Name
+1227,No_Name
+1228,No_Name
+1229,No_Name
+1230,No_Name
+1231,No_Name
+1232,Baralzon
+1233,Boyd
+1234,No_Name
+1235,Tormemtor
+1236,Ulubat
+1237,No_Name
+1238,No_Name
+1239,Tazlina Lake
+1240,Pyhajarvi
+1241,Tefe
+1242,No_Name
+1243,Mary
+1244,Madre
+1245,No_Name
+1246,Lappajarvi
+1247,No_Name
+1248,Baringo
+1249,Walker
+1250,No_Name
+1251,No_Name
+1252,Savant
+1253,Stora Le
+1254,Barragem Passo Pundo
+1255,Meyato
+1256,No_Name
+1257,Danau Paniai
+1258,No_Name
+1259,Strobel
+1260,No_Name
+1261,Namaycush
+1262,No_Name
+1263,No_Name
+1264,Junin
+1265,Harney Lake
+1266,Wellington
+1267,No_Name
+1268,No_Name
+1269,Curtis
+1270,Po
+1271,Enemy lake of the
+1272,Beaver Lake
+1273,Arapa
+1274,No_Name
+1275,Glubokoye
+1276,Hansine
+1277,Baldock
+1278,Djenpang
+1279,No_Name
+1280,No_Name
+1281,Nadudoturku
+1282,No_Name
+1283,Mu-tso-ping-ni
+1284,RKRoux
+1285,No_Name
+1286,Karasor
+1287,Nokoue
+1288,Smith Mountain Lake
+1289,No_Name
+1290,Como
+1291,No_Name
+1292,No_Name
+1293,No_Name
+1294,No_Name
+1295,Llancanelo
+1296,No_Name
+1297,No_Name
+1298,Lake Sinclair
+1299,No_Name
+1300,No_Name
+1301,No_Name
+1302,Morari
+1303,No_Name
+1304,No_Name
+1305,No_Name
+1306,No_Name
+1307,Mainit
+1308,No_Name
+1309,Cedar Creek Reservoir
+1310,No_Name
+1311,Lewis Smith Lake
+1312,No_Name
+1313,No_Name
+1314,No_Name
+1315,Tanda
+1316,No_Name
+1317,No_Name
+1318,No_Name
+1319,No_Name
+1320,Tiligulskiy
+1321,No_Name
+1322,No_Name
+1323,Pa-lung
+1324,Novo
+1325,No_Name
+1326,No_Name
+1327,Kuyumazarskoye
+1328,No_Name
+1329,Manapouri
+1330,Wright Patman Lake
+1331,No_Name
+1332,No_Name
+1333,No_Name
+1334,No_Name
+1335,No_Name
+1336,Bong
+1337,No_Name
+1338,No_Name
+1339,No_Name
+1340,Shuryshkarskiy
+1341,MacDowell
+1342,No_Name
+1343,Cabra Corral
+1344,Oolagahl Lake
+1345,No_Name
+1346,No_Name
+1347,No_Name
+1348,No_Name
+1349,Govind
+1350,Luran
+1351,Delarondo
+1352,Weiss Lake
+1353,Crooked
+1354,Memar
+1355,General Vintter
+1356,No_Name
+1357,Fitri
+1358,Futou
+1359,Wanapitei
+1360,Kamyshlybas
+1361,Caimane
+1362,No_Name
+1363,No_Name
+1364,Barlow
+1365,Nunavakpak Lake
+1366,No_Name
+1367,No_Name
+1368,Lake Kissimmee
+1369,Deep Rose
+1370,Calling
+1371,No_Name
+1372,No_Name
+1373,No_Name
+1374,No_Name
+1375,Candle
+1376,No_Name
+1377,Danau Romberbai
+1378,No_Name
+1379,Otelnuc
+1380,Hatchett
+1381,Soluntakh
+1382,Dogen
+1383,No_Name
+1384,No_Name
+1385,No_Name
+1386,No_Name
+1387,Lake Dardanelle
+1388,High Rock Lake
+1389,No_Name
+1390,No_Name
+1391,Nutarawit
+1392,Tyrifjorden
+1393,No_Name
+1394,No_Name
+1395,Douglas Lake
+1396,No_Name
+1397,Barricaloa
+1398,No_Name
+1399,Do
+1400,No_Name
+1401,No_Name
+1402,Lewis and Clark Lake
+1403,Nonvianuk Lake
+1404,Wabu
+1405,No_Name
+1406,Fairbairn
+1407,No_Name
+1408,No_Name
+1409,No_Name
+1410,No_Name
+1411,No_Name
+1412,Minijarvi
+1413,Quartz
+1414,No_Name
+1415,No_Name
+1416,Muskoka
+1417,Bei Hulsan
+1418,West Point Lake
+1419,Kayigyalik Lake
+1420,Sommen
+1421,Nanyi
+1422,Hindmarsh
+1423,Skagern
+1424,Goose
+1425,Wasekamio
+1426,No_Name
+1427,Fleur de May
+1428,No_Name
+1429,Campbell
+1430,Luoma
+1431,Orog
+1432,Peng-Tso
+1433,Danau Ranau
+1434,Alvara  Obregon
+1435,No_Name
+1436,No_Name
+1437,No_Name
+1438,Randsfjorden
+1439,Bhumphol K K Nam
+1440,No_Name
+1441,Ab-e Istadeh-ye Moqor
+1442,No_Name
+1443,No_Name
+1444,Ingray
+1445,Bairab
+1446,Eber
+1447,No_Name
+1448,No_Name
+1449,Adams
+1450,Komango
+1451,No_Name
+1452,No_Name
+1453,No_Name
+1454,Lake Gaston
+1455,Norfork Lake
+1456,No_Name
+1457,No_Name
+1458,No_Name
+1459,No_Name
+1460,No_Name
+1461,Punta Negra
+1462,Kalri
+1463,No_Name
+1464,No_Name
+1465,Joseph
+1466,No_Name
+1467,Ross R Barnett Reservoir
+1468,No_Name
+1469,No_Name
+1470,Guajaro
+1471,No_Name
+1472,No_Name
+1473,No_Name
+1474,No_Name
+1475,No_Name
+1476,No_Name
+1477,Parent
+1478,No_Name
+1479,Atitla
+1480,No_Name
+1481,No_Name
+1482,No_Name
+1483,No_Name
+1484,No_Name
+1485,No_Name
+1486,No_Name
+1487,No_Name
+1488,Banabuiu
+1489,Winefred
+1490,No_Name
+1491,Pyhajarvi
+1492,No_Name
+1493,Lake Apopka
+1494,No_Name
+1495,No_Name
+1496,No_Name
+1497,Piso
+1498,Sebago Lake
+1499,Cherokee Lake
+1500,Lake Chelan
+1501,Matatila
+1502,No_Name
+1503,Chang
+1504,No_Name
+1505,Sniardwy
+1506,No_Name
+1507,Lake McConaughy
+1508,No_Name
+1509,Summer Lake
+1510,No_Name
+1511,Pelegrini
+1512,Keystone Lake
+1513,No_Name
+1514,No_Name
+1515,No_Name
+1516,Baunt
+1517,No_Name
+1518,Cildir
+1519,Derg
+1520,No_Name
+1521,No_Name
+1522,Richard B Russell Lake
+1523,No_Name
+1524,No_Name
+1525,No_Name
+1526,Erne
+1527,No_Name
+1528,No_Name
+1529,Trasimeno
+1530,No_Name
+1531,No_Name
+1532,No_Name
+1533,No_Name
+1534,No_Name
+1535,No_Name
+1536,No_Name
+1537,Victoria
+1538,Kovitskoye
+1539,No_Name
+1540,No_Name
+1541,No_Name
+1542,No_Name
+1543,No_Name
+1544,No_Name
+1545,No_Name
+1546,Pyhajarvi
+1547,Crean
+1548,No_Name
+1549,Kamuchawie
+1550,Vaccares
+1551,Chukochye
+1552,No_Name
+1553,No_Name
+1554,Stockton Lake
+1555,Indawngy
+1556,Basswood Lake
+1557,Gas Hure
+1558,No_Name
+1559,Huechulafquen
+1560,No_Name
+1561,No_Name
+1562,Almendra
+1563,Jekyll
+1564,No_Name
+1565,Coeur dAlene Lake
+1566,No_Name
+1567,Choke Canyon Reservoir
+1568,No_Name
+1569,Nedzheli
+1570,Itapeva
+1571,No_Name
+1572,No_Name
+1573,No_Name
+1574,No_Name
+1575,Jayko
+1576,Birch
+1577,Snasvatnet
+1578,No_Name
+1579,No_Name
+1580,No_Name
+1581,No_Name
+1582,Nighthawk
+1583,Calafquem
+1584,Afrera yechew
+1585,No_Name
+1586,No_Name
+1587,Bhadra
+1588,No_Name
+1589,No_Name
+1590,Watterson
+1591,No_Name
+1592,Yelcho
+1593,Ilergytgyn
+1594,No_Name
+1595,No_Name
+1596,Bolsena
+1597,Yangcheng
+1598,Kgun Lake
+1599,No_Name
+1600,Fish
+1601,No_Name
+1602,Eloygytgyn
+1603,Lake Mohave
+1604,Sisipuk
+1605,Kiyeng-Kyuyel
+1606,No_Name
+1607,No_Name
+1608,No_Name
+1609,Uyaly
+1610,No_Name
+1611,Qamanialuk
+1612,Peten Itza
+1613,No_Name
+1614,Edmund
+1615,No_Name
+1616,Poelela
+1617,Flasjon
+1618,Miyun Shuiku
+1619,Chem
+1620,No_Name
+1621,No_Name
+1622,No_Name
+1623,William
+1624,No_Name
+1625,Ayan
+1626,No_Name
+1627,Saumatre
+1628,No_Name
+1629,Bulmer
+1630,No_Name
+1631,Daye
+1632,No_Name
+1633,No_Name
+1634,Ranguipulli
+1635,No_Name
+1636,No_Name
+1637,No_Name
+1638,Istokpoga Lake
+1639,Lake Seminole
+1640,Davy
+1641,Magadi
+1642,No_Name
+1643,Gorkoye
+1644,No_Name
+1645,Laj
+1646,No_Name
+1647,Piltanlor
+1648,Lewisville Lake
+1649,Muritz
+1650,Oro
+1651,No_Name
+1652,No_Name
+1653,Xiaoxihaiz Shuiku
+1654,No_Name
+1655,No_Name
+1656,Dos Ouadros
+1657,No_Name
+1658,Dongping
+1659,Naivasha
+1660,No_Name
+1661,No_Name
+1662,No_Name
+1663,Chengdong
+1664,No_Name
+1665,No_Name
+1666,No_Name
+1667,No_Name
+1668,No_Name
+1669,No_Name
+1670,Petenwell Lake
+1671,Danau Singkarak
+1672,No_Name
+1673,Ngami
+1674,No_Name
+1675,Temchi
+1676,Egg
+1677,Jackson Lake
+1678,Nunavakanukakslak Lake
+1679,No_Name
+1680,Daryacheh-ye Howz Soltan
+1681,No_Name
+1682,No_Name
+1683,No_Name
+1684,Suhai
+1685,No_Name
+1686,Chesuncook Lake
+1687,Teaureau
+1688,No_Name
+1689,No_Name
+1690,No_Name
+1691,No_Name
+1692,No_Name
+1693,No_Name
+1694,Ree
+1695,No_Name
+1696,No_Name
+1697,No_Name
+1698,No_Name
+1699,No_Name
+1700,No_Name
+1701,Iro
+1702,Lake Whitney
+1703,Kistigan
+1704,No_Name
+1705,Kagalurpak Lake
+1706,Rocky
+1707,No_Name
+1708,No_Name
+1709,No_Name
+1710,No_Name
+1711,Sobachye
+1712,No_Name
+1713,No_Name
+1714,Lake Poygan
+1715,No_Name
+1716,No_Name
+1717,Vyalozero
+1718,Virihaure
+1719,No_Name
+1720,No_Name
+1721,Lake Louise
+1722,Inder
+1723,No_Name
+1724,No_Name
+1725,No_Name
+1726,Narran
+1727,No_Name
+1728,No_Name
+1729,Tasiataq
+1730,No_Name
+1731,No_Name
+1732,No_Name
+1733,Kitangiri
+1734,No_Name
+1735,Malartic
+1736,Bangdag
+1737,No_Name
+1738,No_Name
+1739,Yambuto
+1740,Baia Grande
+1741,Tonskoye
+1742,No_Name
+1743,No_Name
+1744,No_Name
+1745,Skilak Lake
+1746,Nipishich
+1747,Big Stone
+1748,Lake Almanor
+1749,Pozuelos
+1750,No_Name
+1751,No_Name
+1752,No_Name
+1753,Mark Twain Lake
+1754,No_Name
+1755,Palestine
+1756,Great Sacandaga Lake
+1757,Wuchang
+1758,No_Name
+1759,No_Name
+1760,No_Name
+1761,Cascade Reservoir
+1762,Nina Bang
+1763,No_Name
+1764,No_Name
+1765,Huang-chi
+1766,No_Name
+1767,No_Name
+1768,Poechos
+1769,No_Name
+1770,Ulken-karoy
+1771,Rweru
+1772,No_Name
+1773,No_Name
+1774,Kabele
+1775,No_Name
+1776,Lake George
+1777,Quabbin Reservoir
+1778,No_Name
+1779,No_Name
+1780,Shasta Lake
+1781,Luzern
+1782,Khrishnaraja
+1783,No_Name
+1784,No_Name
+1785,No_Name
+1786,No_Name
+1787,Bolsho Yeravnoye
+1788,No_Name
+1789,Tudakol
+1790,Yaggain Canco
+1791,Nau
+1792,No_Name
+1793,No_Name
+1794,No_Name
+1795,No_Name
+1796,No_Name
+1797,Carlyle Lake
+1798,No_Name
+1799,No_Name
+1800,No_Name
+1801,Kabwe
+1802,No_Name
+1803,Kolmajarvi
+1804,Bangkog
+1805,Danau Sentani
+1806,Aru
+1807,Gyeze Caka
+1808,No_Name
+1809,Fort Gibson Lake
+1810,Khadzhideyskiy
+1811,No_Name
+1812,No_Name
+1813,No_Name
+1814,No_Name
+1815,Little Sachigo
+1816,No_Name
+1817,No_Name
+1818,Manitou
+1819,No_Name
+1820,Vesijarvi
+1821,Sarezskoye
+1822,No_Name
+1823,No_Name
+1824,No_Name
+1825,No_Name
+1826,No_Name
+1827,Lagkor
+1828,No_Name
+1829,No_Name
+1830,No_Name
+1831,Glafsfj
+1832,North Wabasca
+1833,Vileiskoye
+1834,No_Name
+1835,No_Name
+1836,Camatague
+1837,Danau Sentarum
+1838,No_Name
+1839,Rice
+1840,Ercek
+1841,Inawashiro ko
+1842,Lake Ray Hubbard
+1843,No_Name
+1844,Krasnooskolskoye
+1845,No_Name
+1846,No_Name
+1847,No_Name
+1848,No_Name
+1849,No_Name
+1850,No_Name
+1851,No_Name
+1852,No_Name
+1853,Mandiora
+1854,No_Name
+1855,No_Name
+1856,No_Name
+1857,Fort Loudoun Lake
+1858,No_Name
+1859,Julian
+1860,No_Name
+1861,No_Name
+1862,No_Name
+1863,No_Name
+1864,No_Name
+1865,No_Name
+1866,Banks Lake
+1867,Periptaveto
+1868,Ontojarvi
+1869,Ihotry
+1870,No_Name
+1871,Lung Mu
+1872,No_Name
+1873,Wu
+1874,Palyeozero
+1875,Keuruunselka
+1876,No_Name
+1877,No_Name
+1878,No_Name
+1879,No_Name
+1880,No_Name
+1881,Kozhozero
+1882,No_Name
+1883,No_Name
+1884,No_Name
+1885,No_Name
+1886,No_Name
+1887,Kilibek
+1888,No_Name
+1889,Caddo Lake
+1890,Falls Lake Reservoir
+1891,Dogaicoring Quang
+1892,No_Name
+1893,Roxen
+1894,No_Name
+1895,No_Name
+1896,No_Name
+1897,No_Name
+1898,Zhandyshalkar
+1899,No_Name
+1900,No_Name
+1901,No_Name
+1902,Danau Manindjau
+1903,No_Name
+1904,Semajang
+1905,No_Name
+1906,No_Name
+1907,No_Name
+1908,No_Name
+1909,No_Name
+1910,Pigeon
+1911,No_Name
+1912,No_Name
+1913,Trikhonis
+1914,Chikuminuk Lake
+1915,No_Name
+1916,Torrojen
+1917,No_Name
+1918,No_Name
+1919,No_Name
+1920,Kyrosjarvi
+1921,No_Name
+1922,No_Name
+1923,Lake Shelbyville
+1924,Tunnssjoon
+1925,No_Name
+1926,No_Name
+1927,No_Name
+1928,No_Name
+1929,No_Name
+1930,No_Name
+1931,No_Name
+1932,No_Name
+1933,No_Name
+1934,No_Name
+1935,No_Name
+1936,Moyingyi
+1937,Agua Viva
+1938,McIlwaine
+1939,No_Name
+1940,Brown
+1941,Valli di Comacchio
+1942,Wisdom
+1943,Chiuta
+1944,Lake Conroe
+1945,Keeley
+1946,Yojoa
+1947,Lake Havasu
+1948,Lake Washington
+1949,No_Name
+1950,Bataklik
+1951,No_Name
+1952,No_Name
+1953,No_Name
+1954,No_Name
+1955,No_Name
+1956,Har
+1957,Limingen
+1958,Argazinskoye
+1959,No_Name
+1960,Myakshinga
+1961,No_Name
+1962,Rkiz
+1963,Repressa Billings
+1964,No_Name
+1965,No_Name
+1966,No_Name
+1967,No_Name
+1968,No_Name
+1969,Akkol
+1970,Mo-ko-yu
+1971,Kuo-mang
+1972,No_Name
+1973,No_Name
+1974,Pathfinder Reservoir
+1975,Epecuen
+1976,No_Name
+1977,No_Name
+1978,No_Name
+1979,Zhangdu
+1980,No_Name
+1981,No_Name
+1982,No_Name
+1983,Taciula
+1984,Unden
+1985,No_Name
+1986,No_Name
+1987,Lake Aleknagik
+1988,No_Name
+1989,No_Name
+1990,No_Name
+1991,Lake Beverley
+1992,No_Name
+1993,No_Name
+1994,No_Name
+1995,No_Name
+1996,No_Name
+1997,Syrkovoye
+1998,Nakuwa
+1999,No_Name
+2000,No_Name
+2001,No_Name
+2002,Imlor
+2003,Orba
+2004,No_Name
+2005,No_Name
+2006,Arroyos
+2007,No_Name
+2008,No_Name
+2009,No_Name
+2010,No_Name
+2011,Flagstaff Lake
+2012,Pueblo Viejo
+2013,No_Name
+2014,No_Name
+2015,No_Name
+2016,No_Name
+2017,Sagarychye
+2018,Yueliang Pao
+2019,Tursuntskiy Tuman
+2020,Memphremegog
+2021,No_Name
+2022,No_Name
+2023,No_Name
+2024,Ka-Shun No-Erh
+2025,No_Name
+2026,No_Name
+2027,No_Name
+2028,No_Name
+2029,No_Name
+2030,No_Name
+2031,No_Name
+2032,Eagle Lake
+2033,No_Name
+2034,No_Name
+2035,No_Name
+2036,Rinihue
+2037,No_Name
+2038,No_Name
+2039,Senanayake Samudra
+2040,No_Name
+2041,No_Name
+2042,Gimol Skoye
+2043,Maramsilli
+2044,No_Name
+2045,No_Name
+2046,No_Name
+2047,B Everett Jordan Lake
+2048,No_Name
+2049,No_Name
+2050,No_Name
+2051,No_Name
+2052,No_Name
+2053,No_Name
+2054,Visohisarvi
+2055,No_Name
+2056,No_Name
+2057,No_Name
+2058,No_Name
+2059,No_Name
+2060,Vastenjaure
+2061,No_Name
+2062,Preissac
+2063,Buendia
+2064,No_Name
+2065,No_Name
+2066,No_Name
+2067,Grasset
+2068,No_Name
+2069,No_Name
+2070,No_Name
+2071,No_Name
+2072,No_Name
+2073,Sarmiento
+2074,No_Name
+2075,No_Name
+2076,No_Name
+2077,No_Name
+2078,No_Name
+2079,Akhtanizovskiy
+2080,Dong
+2081,No_Name
+2082,No_Name
+2083,Bulshoye Toko
+2084,No_Name
+2085,No_Name
+2086,No_Name
+2087,No_Name
+2088,No_Name
+2089,No_Name
+2090,Vilama
+2091,No_Name
+2092,No_Name
+2093,No_Name
+2094,Wular
+2095,No_Name
+2096,Priest Lake
+2097,No_Name
+2098,No_Name
+2099,Monte
+2100,No_Name
+2101,No_Name
+2102,No_Name
+2103,Aougoundou
+2104,No_Name
+2105,No_Name
+2106,No_Name
+2107,No_Name
+2108,Kyle
+2109,No_Name
+2110,No_Name
+2111,No_Name
+2112,No_Name
+2113,No_Name
+2114,No_Name
+2115,No_Name
+2116,Cha-erh-ku-te
+2117,No_Name
+2118,No_Name
+2119,No_Name
+2120,No_Name
+2121,No_Name
+2122,No_Name
+2123,Hungry Horse Reservoir
+2124,Awasa
+2125,No_Name
+2126,No_Name
+2127,No_Name
+2128,No_Name
+2129,No_Name
+2130,No_Name
+2131,No_Name
+2132,No_Name
+2133,Strawberry Reservoir
+2134,No_Name
+2135,No_Name
+2136,No_Name
+2137,No_Name
+2138,No_Name
+2139,No_Name
+2140,No_Name
+2141,No_Name
+2142,No_Name
+2143,Lake Limestone
+2144,Araros
+2145,No_Name
+2146,No_Name
+2147,No_Name
+2148,Kishikaroy
+2149,No_Name
+2150,No_Name
+2151,No_Name
+2152,Oyeren
+2153,Rend Lake
+2154,No_Name
+2155,Elephant Butte Reservoir
+2156,Chang Dang
+2157,Corte
+2158,No_Name
+2159,Takslesluk Lake
+2160,No_Name
+2161,No_Name
+2162,No_Name
+2163,Sergazero
+2164,No_Name
+2165,Melintang
+2166,No_Name
+2167,No_Name
+2168,Millwood Lake
+2169,Whitefish Lake
+2170,No_Name
+2171,Navajo Reservoir
+2172,No_Name
+2173,No_Name
+2174,No_Name
+2175,No_Name
+2176,No_Name
+2177,No_Name
+2178,Lohjanjarvi
+2179,No_Name
+2180,No_Name
+2181,No_Name
+2182,No_Name
+2183,Karatomarskoye
+2184,No_Name
+2185,No_Name
+2186,Thingvallavain
+2187,No_Name
+2188,No_Name
+2189,No_Name
+2190,Tames
+2191,No_Name
+2192,No_Name
+2193,No_Name
+2194,Dworshak Reservoir
+2195,Voivis
+2196,No_Name
+2197,No_Name
+2198,No_Name
+2199,No_Name
+2200,Waconich
+2201,Biylikol
+2202,Cam
+2203,Tajo-Tzo
+2204,No_Name
+2205,Catahoula Lake
+2206,No_Name
+2207,No_Name
+2208,Nong Han
+2209,No_Name
+2210,No_Name
+2211,Munduyskoye
+2212,No_Name
+2213,No_Name
+2214,No_Name
+2215,No_Name
+2216,No_Name
+2217,No_Name
+2218,No_Name
+2219,No_Name
+2220,No_Name
+2221,Lake Corpus Christi
+2222,No_Name
+2223,No_Name
+2224,No_Name
+2225,No_Name
+2226,Khanskoye
+2227,No_Name
+2228,No_Name
+2229,No_Name
+2230,No_Name
+2231,No_Name
+2232,No_Name
+2233,No_Name
+2234,No_Name
+2235,No_Name
+2236,No_Name
+2237,No_Name
+2238,Barkol
+2239,No_Name
+2240,No_Name
+2241,No_Name
+2242,No_Name
+2243,No_Name
+2244,No_Name
+2245,No_Name
+2246,No_Name
+2247,No_Name
+2248,No_Name
+2249,No_Name
+2250,No_Name
+2251,Allegheny Reservoir
+2252,Nakten
+2253,Clear Lake Reservoir
+2254,Tolbo
+2255,No_Name
+2256,No_Name
+2257,No_Name
+2258,No_Name
+2259,No_Name
+2260,No_Name
+2261,No_Name
+2262,No_Name
+2263,No_Name
+2264,Kurilskoye
+2265,No_Name
+2266,No_Name
+2267,Clair Engle Lake
+2268,Center Hill Lake
+2269,Wabamun
+2270,Har
+2271,Kinkony
+2272,No_Name
+2273,No_Name
+2274,No_Name
+2275,No_Name
+2276,No_Name
+2277,Cha-han no-erh
+2278,No_Name
+2279,No_Name
+2280,No_Name
+2281,Lake Buchanan
+2282,No_Name
+2283,No_Name
+2284,No_Name
+2285,Ebeyty
+2286,Hazar
+2287,No_Name
+2288,J Percy Priest Lake
+2289,No_Name
+2290,No_Name
+2291,No_Name
+2292,No_Name
+2293,No_Name
+2294,Lake Keowee
+2295,No_Name
+2296,No_Name
+2297,No_Name
+2298,No_Name
+2299,No_Name
+2300,Milford Lake
+2301,No_Name
+2302,No_Name
+2303,No_Name
+2304,No_Name
+2305,No_Name
+2306,No_Name
+2307,No_Name
+2308,No_Name
+2309,Nunavaugaluk Lake
+2310,No_Name
+2311,No_Name
+2312,Lake Hudson
+2313,Ihema
+2314,No_Name
+2315,No_Name
+2316,No_Name
+2317,Chiemsee
+2318,Sibayi
+2319,Peschanoye
+2320,No_Name
+2321,No_Name
+2322,Nisser
+2323,No_Name
+2324,No_Name
+2325,No_Name
+2326,No_Name
+2327,Kifukula
+2328,No_Name
+2329,No_Name
+2330,No_Name
+2331,No_Name
+2332,No_Name
+2333,No_Name
+2334,No_Name
+2335,St Therese
+2336,Norra Dellen
+2337,Fontana
+2338,No_Name
+2339,No_Name
+2340,No_Name
+2341,No_Name
+2342,No_Name
+2343,Chakachamna Lake
+2344,No_Name
+2345,Houghton Lake
+2346,No_Name
+2347,No_Name
+2348,No_Name
+2349,Burigi
+2350,No_Name
+2351,No_Name
+2352,No_Name
+2353,No_Name
+2354,No_Name
+2355,Wateree Lake
+2356,No_Name
+2357,No_Name
+2358,Glan
+2359,Ichkeul
+2360,No_Name
+2361,No_Name
+2362,No_Name
+2363,No_Name
+2364,No_Name
+2365,No_Name
+2366,No_Name
+2367,No_Name
+2368,No_Name
+2369,No_Name
+2370,No_Name
+2371,No_Name
+2372,No_Name
+2373,No_Name
+2374,No_Name
+2375,No_Name
+2376,No_Name
+2377,No_Name
+2378,Cheng
+2379,No_Name
+2380,Naujan
+2381,No_Name
+2382,Tohopekaliga Lake
+2383,No_Name
+2384,No_Name
+2385,No_Name
+2386,No_Name
+2387,No_Name
+2388,No_Name
+2389,No_Name
+2390,No_Name
+2391,No_Name
+2392,No_Name
+2393,No_Name
+2394,No_Name
+2395,Yardi
+2396,No_Name
+2397,No_Name
+2398,No_Name
+2399,No_Name
+2400,No_Name
+2401,No_Name
+2402,No_Name
+2403,Lake Brooks
+2404,No_Name
+2405,No_Name
+2406,No_Name
+2407,No_Name
+2408,No_Name
+2409,No_Name
+2410,No_Name
+2411,No_Name
+2412,No_Name
+2413,No_Name
+2414,No_Name
+2415,No_Name
+2416,Possum Kingdom Lake
+2417,Vigorritis
+2418,No_Name
+2419,No_Name
+2420,No_Name
+2421,No_Name
+2422,No_Name
+2423,No_Name
+2424,No_Name
+2425,No_Name
+2426,No_Name
+2427,No_Name
+2428,No_Name
+2429,Cass Lake
+2430,Lake Meredith
+2431,No_Name
+2432,No_Name
+2433,Tenkiller Ferry Lake
+2434,No_Name
+2435,No_Name
+2436,No_Name
+2437,No_Name
+2438,No_Name
+2439,Torch Lake
+2440,No_Name
+2441,No_Name
+2442,No_Name
+2443,No_Name
+2444,No_Name
+2445,Lake O the Pines
+2446,No_Name
+2447,No_Name
+2448,No_Name
+2449,Plata
+2450,No_Name
+2451,No_Name
+2452,No_Name
+2453,No_Name
+2454,No_Name
+2455,No_Name
+2456,No_Name
+2457,Lake Chippewa
+2458,No_Name
+2459,No_Name
+2460,No_Name
+2461,No_Name
+2462,No_Name
+2463,No_Name
+2464,No_Name
+2465,No_Name
+2466,No_Name
+2467,No_Name
+2468,Melkoye
+2469,Lake Grosvenor
+2470,No_Name
+2471,No_Name
+2472,No_Name
+2473,No_Name
+2474,No_Name
+2475,No_Name
+2476,No_Name
+2477,No_Name
+2478,No_Name
+2479,No_Name
+2480,No_Name
+2481,Boysen Reservoir
+2482,No_Name
+2483,No_Name
+2484,Catemaco
+2485,No_Name
+2486,No_Name
+2487,No_Name
+2488,Tavolzhan
+2489,No_Name
+2490,No_Name
+2491,No_Name
+2492,Horgon
+2493,No_Name
+2494,No_Name
+2495,No_Name
+2496,No_Name
+2497,No_Name
+2498,No_Name
+2499,No_Name
+2500,No_Name
+2501,No_Name
+2502,No_Name
+2503,No_Name
+2504,No_Name
+2505,No_Name
+2506,No_Name
+2507,No_Name
+2508,No_Name
+2509,No_Name
+2510,No_Name
+2511,No_Name
+2512,Poco da Cruz
+2513,No_Name
+2514,No_Name
+2515,Lagarfljoi
+2516,Lomond
+2517,Guanting Shuiku
+2518,No_Name
+2519,No_Name
+2520,No_Name
+2521,No_Name
+2522,No_Name
+2523,No_Name
+2524,No_Name
+2525,No_Name
+2526,No_Name
+2527,No_Name
+2528,No_Name
+2529,No_Name
+2530,Lake Anna
+2531,No_Name
+2532,No_Name
+2533,No_Name
+2534,No_Name
+2535,No_Name
+2536,No_Name
+2537,No_Name
+2538,No_Name
+2539,Crescent Lake
+2540,No_Name
+2541,No_Name
+2542,No_Name
+2543,Imuruk Lake
+2544,No_Name
+2545,No_Name
+2546,No_Name
+2547,Dayan
+2548,No_Name
+2549,No_Name
+2550,No_Name
+2551,No_Name
+2552,No_Name
+2553,No_Name
+2554,No_Name
+2555,No_Name
+2556,No_Name
+2557,No_Name
+2558,No_Name
+2559,Gaiba
+2560,No_Name
+2561,No_Name
+2562,No_Name
+2563,No_Name
+2564,No_Name
+2565,No_Name
+2566,No_Name
+2567,No_Name
+2568,No_Name
+2569,No_Name
+2570,No_Name
+2571,Volvi
+2572,No_Name
+2573,No_Name
+2574,No_Name
+2575,No_Name
+2576,No_Name
+2577,No_Name
+2578,Pechenezhkoye
+2579,No_Name
+2580,No_Name
+2581,No_Name
+2582,No_Name
+2583,No_Name
+2584,No_Name
+2585,No_Name
+2586,No_Name
+2587,No_Name
+2588,No_Name
+2589,No_Name
+2590,No_Name
+2591,No_Name
+2592,No_Name
+2593,No_Name
+2594,No_Name
+2595,No_Name
+2596,Kegum Kagati Lake
+2597,Lake Travis
+2598,No_Name
+2599,No_Name
+2600,Concepcion
+2601,No_Name
+2602,No_Name
+2603,No_Name
+2604,No_Name
+2605,No_Name
+2606,No_Name
+2607,No_Name
+2608,No_Name
+2609,No_Name
+2610,No_Name
+2611,No_Name
+2612,No_Name
+2613,No_Name
+2614,No_Name
+2615,No_Name
+2616,Lake Harris
+2617,Storovan
+2618,No_Name
+2619,No_Name
+2620,No_Name
+2621,No_Name
+2622,No_Name
+2623,No_Name
+2624,No_Name
+2625,No_Name
+2626,Lake Oroville
+2627,Ik
+2628,No_Name
+2629,No_Name
+2630,No_Name
+2631,No_Name
+2632,No_Name
+2633,No_Name
+2634,No_Name
+2635,No_Name
+2636,No_Name
+2637,No_Name
+2638,No_Name
+2639,No_Name
+2640,No_Name
+2641,No_Name
+2642,No_Name
+2643,Juparana
+2644,No_Name
+2645,No_Name
+2646,No_Name
+2647,No_Name
+2648,Mooselookmeguntic Lake
+2649,No_Name
+2650,Charlotte
+2651,No_Name
+2652,No_Name
+2653,No_Name
+2654,No_Name
+2655,Tetlin Lake
+2656,No_Name
+2657,No_Name
+2658,No_Name
+2659,No_Name
+2660,No_Name
+2661,No_Name
+2662,No_Name
+2663,No_Name
+2664,No_Name
+2665,No_Name
+2666,Miguel Hidalgo
+2667,No_Name
+2668,No_Name
+2669,Nunavakanuk Lake
+2670,No_Name
+2671,No_Name
+2672,No_Name
+2673,No_Name
+2674,Tuttle Creek Lake
+2675,No_Name
+2676,No_Name
+2677,No_Name
+2678,No_Name
+2679,No_Name
+2680,No_Name
+2681,Seminoe Reservoir
+2682,No_Name
+2683,No_Name
+2684,No_Name
+2685,No_Name
+2686,No_Name
+2687,No_Name
+2688,Lake Kemp
+2689,No_Name
+2690,No_Name
+2691,No_Name
+2692,No_Name
+2693,No_Name
+2694,No_Name
+2695,No_Name
+2696,No_Name
+2697,No_Name
+2698,Arenal
+2699,No_Name
+2700,No_Name
+2701,No_Name
+2702,No_Name
+2703,No_Name
+2704,No_Name
+2705,Blackfoot Reservoir
+2706,No_Name
+2707,No_Name
+2708,No_Name
+2709,No_Name
+2710,No_Name
+2711,No_Name
+2712,No_Name
+2713,No_Name
+2714,No_Name
+2715,No_Name
+2716,No_Name
+2717,No_Name
+2718,Lake Berryessa
+2719,No_Name
+2720,No_Name
+2721,No_Name
+2722,No_Name
+2723,No_Name
+2724,No_Name
+2725,No_Name
+2726,No_Name
+2727,No_Name
+2728,No_Name
+2729,No_Name
+2730,No_Name
+2731,No_Name
+2732,No_Name
+2733,No_Name
+2734,No_Name
+2735,No_Name
+2736,Broken Bow Lake
+2737,No_Name
+2738,No_Name
+2739,No_Name
+2740,No_Name
+2741,No_Name
+2742,No_Name
+2743,Thau
+2744,Almus Baraji
+2745,No_Name
+2746,No_Name
+2747,No_Name
+2748,No_Name
+2749,No_Name
+2750,No_Name
+2751,No_Name
+2752,No_Name
+2753,No_Name
+2754,No_Name
+2755,No_Name
+2756,Deer
+2757,No_Name
+2758,No_Name
+2759,No_Name
+2760,No_Name
+2761,No_Name
+2762,No_Name
+2763,No_Name
+2764,No_Name
+2765,No_Name
+2766,No_Name
+2767,Rathbun Lake
+2768,No_Name
+2769,No_Name
+2770,No_Name
+2771,No_Name
+2772,No_Name
+2773,No_Name
+2774,No_Name
+2775,No_Name
+2776,No_Name
+2777,No_Name
+2778,No_Name
+2779,No_Name
+2780,No_Name
+2781,No_Name
+2782,No_Name
+2783,No_Name
+2784,No_Name
+2785,No_Name
+2786,No_Name
+2787,No_Name
+2788,No_Name
+2789,No_Name
+2790,Hubbard Creek Lake
+2791,No_Name
+2792,No_Name
+2793,No_Name
+2794,No_Name
+2795,No_Name
+2796,No_Name
+2797,No_Name
+2798,No_Name
+2799,Phelps Lake
+2800,West Grand Lake
+2801,No_Name
+2802,No_Name
+2803,No_Name
+2804,No_Name
+2805,No_Name
+2806,No_Name
+2807,Palisades Reservoir
+2808,No_Name
+2809,No_Name
+2810,No_Name
+2811,Lake Charlevoix
+2812,Potholes Reservoir
+2813,No_Name
+2814,No_Name
+2815,No_Name
+2816,No_Name
+2817,No_Name
+2818,No_Name
+2819,No_Name
+2820,No_Name
+2821,No_Name
+2822,No_Name
+2823,No_Name
+2824,Kaw Lake
+2825,William Bill Dannelly Reservoir
+2826,No_Name
+2827,No_Name
+2828,No_Name
+2829,Pymatuning Reservoir
+2830,No_Name
+2831,No_Name
+2832,No_Name
+2833,No_Name
+2834,No_Name
+2835,No_Name
+2836,No_Name
+2837,No_Name
+2838,Klutina Lake
+2839,No_Name
+2840,No_Name
+2841,Theodore Roosevelt Lake
+2842,No_Name
+2843,No_Name
+2844,No_Name
+2845,Logan Martin Lake
+2846,No_Name
+2847,No_Name
+2848,No_Name
+2849,No_Name
+2850,No_Name
+2851,No_Name
+2852,No_Name
+2853,No_Name
+2854,No_Name
+2855,No_Name
+2856,No_Name
+2857,No_Name
+2858,No_Name
+2859,No_Name
+2860,No_Name
+2861,No_Name
+2862,No_Name
+2863,No_Name
+2864,No_Name
+2865,No_Name
+2866,No_Name
+2867,No_Name
+2868,No_Name
+2869,No_Name
+2870,No_Name
+2871,No_Name
+2872,No_Name
+2873,No_Name
+2874,No_Name
+2875,No_Name
+2876,No_Name
+2877,No_Name
+2878,No_Name
+2879,No_Name
+2880,No_Name
+2881,No_Name
+2882,No_Name
+2883,No_Name
+2884,No_Name
+2885,No_Name
+2886,No_Name
+2887,No_Name
+2888,Saryyazin Skoye
+2889,Rough River Lake
+2890,No_Name
+2891,No_Name
+2892,No_Name
+2893,No_Name
+2894,No_Name
+2895,No_Name
+2896,Shchuchye
+2897,No_Name
+2898,Grenada Lake
+2899,No_Name
+2900,No_Name
+2901,Monroe Lake
+2902,No_Name
+2903,No_Name
+2904,No_Name
+2905,No_Name
+2906,Amungen
+2907,Parinacocha
+2908,No_Name
+2909,No_Name
+2910,No_Name
+2911,No_Name
+2912,No_Name
+2913,No_Name
+2914,No_Name
+2915,No_Name
+2916,No_Name
+2917,No_Name
+2918,No_Name
+2919,No_Name
+2920,No_Name
+2921,No_Name
+2922,No_Name
+2923,No_Name
+2924,No_Name
+2925,No_Name
+2926,No_Name
+2927,No_Name
+2928,No_Name
+2929,Mullet Lake
+2930,Tiber Reservoir
+2931,No_Name
+2932,No_Name
+2933,No_Name
+2934,No_Name
+2935,No_Name
+2936,No_Name
+2937,No_Name
+2938,No_Name
+2939,No_Name
+2940,No_Name
+2941,No_Name
+2942,No_Name
+2943,No_Name
+2944,No_Name
+2945,No_Name
+2946,No_Name
+2947,No_Name
+2948,No_Name
+2949,Allatoona Lake
+2950,No_Name
+2951,No_Name
+2952,No_Name
+2953,No_Name
+2954,No_Name
+2955,Uvildy
+2956,No_Name
+2957,No_Name
+2958,No_Name
+2959,No_Name
+2960,No_Name
+2961,No_Name
+2962,No_Name
+2963,No_Name
+2964,No_Name
+2965,No_Name
+2966,No_Name
+2967,No_Name
+2968,No_Name
+2969,No_Name
+2970,No_Name
+2971,No_Name
+2972,No_Name
+2973,No_Name
+2974,No_Name
+2975,No_Name
+2976,No_Name
+2977,No_Name
+2978,Burt Lake
+2979,No_Name
+2980,Proctor
+2981,No_Name
+2982,No_Name
+2983,No_Name
+2984,No_Name
+2985,No_Name
+2986,No_Name
+2987,No_Name
+2988,Lac des Allemands
+2989,No_Name
+2990,No_Name
+2991,No_Name
+2992,Valdecanas
+2993,No_Name
+2994,No_Name
+2995,No_Name
+2996,No_Name
+2997,No_Name
+2998,No_Name
+2999,No_Name
+3000,No_Name
+3001,No_Name
+3002,No_Name
+3003,No_Name
+3004,No_Name
+3005,No_Name
+3006,No_Name
+3007,No_Name
+3008,No_Name
+3009,No_Name
+3010,No_Name
+3011,No_Name
+3012,No_Name
+3013,No_Name
+3014,No_Name
+3015,Turtle Flambeau Flowage
+3016,No_Name
+3017,No_Name
+3018,No_Name
+3019,No_Name
+3020,No_Name
+3021,No_Name
+3022,No_Name
+3023,No_Name
+3024,No_Name
+3025,No_Name
+3026,No_Name
+3027,Fontana Lake
+3028,No_Name
+3029,No_Name
+3030,No_Name
+3031,No_Name
+3032,No_Name
+3033,No_Name
+3034,No_Name
+3035,No_Name
+3036,No_Name
+3037,No_Name
+3038,Agassiz Pool
+3039,No_Name
+3040,No_Name
+3041,No_Name
+3042,No_Name
+3043,No_Name
+3044,No_Name
+3045,No_Name
+3046,No_Name
+3047,No_Name
+3048,Arhymot Lake
+3049,No_Name
+3050,No_Name
+3051,Lake Minchumina
+3052,No_Name
+3053,No_Name
+3054,No_Name
+3055,No_Name
+3056,No_Name
+3057,No_Name
+3058,No_Name
+3059,No_Name
+3060,Kuyalnitskiy
+3061,No_Name
+3062,No_Name
+3063,No_Name
+3064,No_Name
+3065,No_Name
+3066,No_Name
+3067,No_Name
+3068,No_Name
+3069,No_Name
+3070,No_Name
+3071,No_Name
+3072,No_Name
+3073,No_Name
+3074,No_Name
+3075,No_Name
+3076,Wangen Lachen
+3077,No_Name
+3078,No_Name
+3079,No_Name
+3080,No_Name
+3081,No_Name
+3082,No_Name
+3083,No_Name
+3084,No_Name
+3085,No_Name
+3086,No_Name
+3087,No_Name
+3088,No_Name
+3089,No_Name
+3090,No_Name
+3091,No_Name
+3092,No_Name
+3093,No_Name
+3094,No_Name
+3095,No_Name
+3096,No_Name
+3097,No_Name
+3098,No_Name
+3099,No_Name
+3100,No_Name
+3101,No_Name
+3102,No_Name
+3103,No_Name
+3104,No_Name
+3105,No_Name
+3106,No_Name
+3107,No_Name
+3108,No_Name
+3109,No_Name
+3110,No_Name
+3111,No_Name
+3112,No_Name
+3113,No_Name
+3114,Ness
+3115,No_Name
+3116,No_Name
+3117,No_Name
+3118,No_Name
+3119,No_Name
+3120,No_Name
+3121,No_Name
+3122,No_Name
+3123,No_Name
+3124,No_Name
+3125,No_Name
+3126,No_Name
+3127,No_Name
+3128,No_Name
+3129,No_Name
+3130,No_Name
+3131,No_Name
+3132,No_Name
+3133,No_Name
+3134,No_Name
+3135,No_Name
+3136,No_Name
+3137,Waconda Lake
+3138,Agata
+3139,No_Name
+3140,No_Name
+3141,No_Name
+3142,No_Name
+3143,No_Name
+3144,No_Name
+3145,No_Name
+3146,No_Name
+3147,No_Name
+3148,No_Name
+3149,No_Name
+3150,No_Name
+3151,No_Name
+3152,No_Name
+3153,Iseo
+3154,No_Name
+3155,No_Name
+3156,No_Name
+3157,No_Name
+3158,No_Name
+3159,No_Name
+3160,No_Name
+3161,No_Name
+3162,No_Name
+3163,No_Name
+3164,No_Name
+3165,No_Name
+3166,No_Name
+3167,No_Name
+3168,No_Name
+3169,No_Name
+3170,No_Name
+3171,No_Name
+3172,No_Name
+3173,No_Name
+3174,No_Name
+3175,No_Name
+3176,No_Name
+3177,No_Name
+3178,No_Name
+3179,No_Name
+3180,No_Name
+3181,No_Name
+3182,No_Name
+3183,No_Name
+3184,No_Name
+3185,No_Name
+3186,No_Name
+3187,No_Name
+3188,No_Name
+3189,No_Name
+3190,No_Name
+3191,No_Name
+3192,No_Name
+3193,No_Name
+3194,No_Name
+3195,No_Name
+3196,No_Name
+3197,No_Name
+3198,No_Name
+3199,Danau Tawar
+3200,No_Name
+3201,No_Name
+3202,No_Name
+3203,No_Name
+3204,No_Name
+3205,No_Name
+3206,No_Name
+3207,No_Name
+3208,No_Name
+3209,No_Name
+3210,No_Name
+3211,No_Name
+3212,No_Name
+3213,No_Name
+3214,No_Name
+3215,No_Name
+3216,No_Name
+3217,No_Name
+3218,No_Name
+3219,No_Name
+3220,No_Name
+3221,No_Name
+3222,No_Name
+3223,No_Name
+3224,No_Name
+3225,No_Name
+3226,No_Name
+3227,No_Name
+3228,No_Name
+3229,Starnberger See
+3230,No_Name
+3231,No_Name
+3232,No_Name
+3233,No_Name
+3234,No_Name
+3235,No_Name
+3236,Castle Rock Lake
+3237,No_Name
+3238,Lake Verret
+3239,No_Name
+3240,No_Name
+3241,No_Name
+3242,No_Name
+3243,No_Name
+3244,No_Name
+3245,No_Name
+3246,No_Name
+3247,No_Name
+3248,No_Name
+3249,No_Name
+3250,No_Name
+3251,Lake Fork Reservoir
+3252,No_Name
+3253,No_Name
+3254,No_Name
+3255,No_Name
+3256,No_Name
+3257,No_Name
+3258,No_Name
+3259,No_Name
+3260,No_Name
+3261,No_Name
+3262,No_Name
+3263,No_Name
+3264,No_Name
+3265,No_Name
+3266,No_Name
+3267,No_Name
+3268,No_Name
+3269,No_Name
+3270,No_Name
+3271,No_Name
+3272,No_Name
+3273,No_Name
+3274,No_Name
+3275,No_Name
+3276,No_Name
+3277,Bayou DArbonne Lake
+3278,No_Name
+3279,No_Name
+3280,No_Name
+3281,No_Name
+3282,No_Name
+3283,No_Name
+3284,No_Name
+3285,No_Name
+3286,No_Name
+3287,No_Name
+3288,No_Name
+3289,No_Name
+3290,No_Name
+3291,No_Name
+3292,No_Name
+3293,No_Name
+3294,No_Name
+3295,No_Name
+3296,Lake Bistineau
+3297,No_Name
+3298,No_Name
+3299,No_Name
+3300,No_Name
+3301,No_Name
+3302,No_Name
+3303,No_Name
+3304,No_Name
+3305,No_Name
+3306,No_Name
+3307,No_Name
+3308,Nuigalak Lake
+3309,No_Name
+3310,No_Name
+3311,Harlan County Lake
+3312,No_Name
+3313,No_Name
+3314,No_Name
+3315,No_Name
+3316,No_Name
+3317,No_Name
+3318,No_Name
+3319,No_Name
+3320,No_Name
+3321,No_Name
+3322,No_Name
+3323,No_Name
+3324,San Carlos Reservoir
+3325,No_Name
+3326,No_Name
+3327,No_Name
+3328,No_Name
+3329,No_Name
+3330,No_Name
+3331,No_Name
+3332,No_Name
+3333,No_Name
+3334,No_Name
+3335,No_Name
+3336,No_Name
+3337,No_Name
+3338,No_Name
+3339,No_Name
+3340,No_Name
+3341,No_Name
+3342,No_Name
+3343,No_Name
+3344,No_Name
+3345,No_Name
+3346,No_Name
+3347,No_Name
+3348,No_Name
+3349,No_Name
+3350,No_Name
+3351,No_Name
+3352,No_Name
+3353,No_Name
+3354,No_Name
+3355,No_Name
+3356,No_Name
+3357,No_Name
+3358,No_Name
+3359,Mae dAgud
+3360,No_Name
+3361,No_Name
+3362,No_Name
+3363,No_Name
+3364,No_Name
+3365,No_Name
+3366,No_Name
+3367,No_Name
+3368,No_Name
+3369,No_Name
+3370,No_Name
+3371,Barren River Lake
+3372,No_Name
+3373,No_Name
+3374,No_Name
+3375,No_Name
+3376,John Martin Reservoir
+3377,No_Name
+3378,No_Name
+3379,No_Name
+3380,No_Name
+3381,No_Name
+3382,No_Name
+3383,No_Name
+3384,Blue Mesa Reservoir
+3385,No_Name
+3386,No_Name
+3387,No_Name
+3388,No_Name
+3389,No_Name
+3390,No_Name
+3391,No_Name
+3392,No_Name
+3393,No_Name
+3394,No_Name
+3395,No_Name
+3396,No_Name
+3397,No_Name
+3398,No_Name
+3399,No_Name
+3400,No_Name
+3401,No_Name
+3402,No_Name
+3403,No_Name
+3404,No_Name
+3405,No_Name
+3406,No_Name
+3407,No_Name
+3408,No_Name
+3409,Eagle Lake
+3410,No_Name
+3411,No_Name
+3412,No_Name
+3413,No_Name
+3414,No_Name
+3415,No_Name
+3416,No_Name
+3417,No_Name
+3418,No_Name
+3419,No_Name
+3420,No_Name
+3421,No_Name
+3422,No_Name
+3423,No_Name
+3424,No_Name
+3425,No_Name
+3426,No_Name
+3427,No_Name
+3428,No_Name
+3429,No_Name
+3430,No_Name
+3431,No_Name
+3432,No_Name
+3433,No_Name
+3434,No_Name
+3435,No_Name
+3436,No_Name
+3437,No_Name
+3438,No_Name
+3439,No_Name
+3440,No_Name
+3441,No_Name
+3442,No_Name
+3443,No_Name
+3444,No_Name
+3445,No_Name
+3446,No_Name
+3447,No_Name
+3448,No_Name
+3449,No_Name
+3450,No_Name
+3451,Kenai Lake
+3452,No_Name
+3453,No_Name
+3454,No_Name
+3455,No_Name
+3456,No_Name
+3457,No_Name
+3458,No_Name
+3459,No_Name
+3460,No_Name
+3461,No_Name
+3462,No_Name
+3463,No_Name
+3464,No_Name
+3465,No_Name
+3466,No_Name
+3467,No_Name
+3468,No_Name
+3469,No_Name
+3470,No_Name
+3471,No_Name
+3472,No_Name
+3473,No_Name
+3474,No_Name
+3475,No_Name
+3476,No_Name
+3477,No_Name
+3478,No_Name
+3479,No_Name
+3480,No_Name
+3481,No_Name
+3482,No_Name
+3483,No_Name
+3484,Isabella Lake
+3485,No_Name
+3486,No_Name
+3487,No_Name
+3488,No_Name
+3489,No_Name
+3490,Big Stone Lake
+3491,No_Name
+3492,No_Name
+3493,Crater Lake
+3494,No_Name
+3495,No_Name
+3496,No_Name
+3497,No_Name
+3498,No_Name
+3499,No_Name
+3500,No_Name
+3501,No_Name
+3502,No_Name
+3503,No_Name
+3504,No_Name
+3505,No_Name
+3506,No_Name
+3507,No_Name
+3508,No_Name
+3509,No_Name
+3510,No_Name
+3511,No_Name
+3512,No_Name
+3513,No_Name
+3514,No_Name
+3515,Kutubu
+3516,Lahontan Reservoir
+3517,No_Name
+3518,No_Name
+3519,No_Name
+3520,No_Name
+3521,No_Name
+3522,No_Name
+3523,No_Name
+3524,No_Name
+3525,No_Name
+3526,No_Name
+3527,No_Name
+3528,No_Name
+3529,No_Name
+3530,No_Name
+3531,No_Name
+3532,No_Name
+3533,No_Name
+3534,No_Name
+3535,No_Name
+3536,No_Name
+3537,No_Name
+3538,No_Name
+3539,No_Name
+3540,No_Name
+3541,No_Name
+3542,No_Name
+3543,No_Name
+3544,No_Name
+3545,No_Name
+3546,No_Name
+3547,No_Name
+3548,No_Name
+3549,De Gray Reservoir
+3550,No_Name
+3551,No_Name
+3552,No_Name
+3553,No_Name
+3554,No_Name
+3555,No_Name
+3556,No_Name
+3557,No_Name
+3558,No_Name
+3559,No_Name
+3560,No_Name
+3561,No_Name
+3562,No_Name
+3563,No_Name
+3564,No_Name
+3565,No_Name
+3566,No_Name
+3567,No_Name
+3568,No_Name
+3569,No_Name
+3570,No_Name
+3571,No_Name
+3572,No_Name
+3573,No_Name
+3574,No_Name
+3575,No_Name
+3576,No_Name
+3577,No_Name
+3578,No_Name
+3579,No_Name
+3580,No_Name
+3581,No_Name
+3582,No_Name
+3583,No_Name
+3584,No_Name
+3585,No_Name
+3586,No_Name
+3587,No_Name
+3588,No_Name
+3589,No_Name
+3590,No_Name
+3591,No_Name
+3592,No_Name
+3593,No_Name
+3594,No_Name
+3595,No_Name
+3596,No_Name
+3597,No_Name
+3598,No_Name
+3599,No_Name
+3600,San Luis Reservoir
+3601,No_Name
+3602,No_Name
+3603,No_Name
+3604,No_Name
+3605,No_Name
+3606,No_Name
+3607,Bung Boraphet
+3608,No_Name
+3609,No_Name
+3610,No_Name
+3611,No_Name
+3612,No_Name
+3613,No_Name
+3614,No_Name
+3615,No_Name
+3616,Korarou
+3617,Cheney Reservoir
+3618,Caballo Reservoir
+3619,Rye Patch Reservoir
+3620,No_Name
+3621,No_Name
+3622,No_Name
+3623,Hebgen Lake
+3624,No_Name
+3625,No_Name
+3626,No_Name
+3627,No_Name
+3628,Bosumtwi
+3629,Kachira
+3630,Boqueirao
+3631,No_Name
+3632,No_Name
+3633,No_Name
+3634,No_Name
+3635,No_Name
+3636,No_Name
+3637,No_Name
+3638,No_Name
+3639,No_Name
+3640,No_Name
+3641,No_Name
+3642,No_Name
+3643,Pentecoste
+3644,No_Name
+3645,No_Name
+3646,No_Name
+3647,Wickiup Reservoir
+3648,Fresno Reservoir
+3649,No_Name
+3650,No_Name
+3651,No_Name
+3652,No_Name
+3653,No_Name
+3654,No_Name
+3655,No_Name
+3656,No_Name
+3657,No_Name
+3658,No_Name
+3659,No_Name
+3660,No_Name
+3661,Powell River
+3662,No_Name
+3663,No_Name
+3664,Conchas Lake
+3665,Abiquiu Reservoir
+3666,No_Name
+3667,No_Name
+3668,No_Name
+3669,E V Spence Reservoir
+3670,No_Name
+3671,Lake Owyhee
+3672,No_Name
+3673,Clinton Lake
+3674,No_Name
+3675,No_Name
+3676,No_Name
+3677,No_Name
+3678,No_Name
+3679,No_Name
+3680,Twin Buttes Reservoir
+3681,No_Name
+3682,No_Name
+3683,No_Name
+3684,No_Name
+3685,No_Name
+3686,No_Name
+3687,No_Name
+3688,No_Name
+3689,No_Name
+3690,No_Name
+3691,No_Name
+3692,No_Name
+3693,No_Name
+3694,No_Name
+3695,No_Name
+3696,No_Name
+3697,Don Pedro Reservoir
+3698,No_Name
+3699,No_Name
+3700,No_Name
+3701,No_Name
+3702,No_Name
+3703,No_Name
+3704,No_Name
+3705,No_Name
+3706,No_Name
+3707,No_Name
+3708,Pine Flat Reservoir
+3709,No_Name
+3710,No_Name
+3711,No_Name
+3712,No_Name
+3713,No_Name
+3714,No_Name
+3715,No_Name
+3716,No_Name
+3717,No_Name
+3718,No_Name
+3719,No_Name
+3720,No_Name
+3721,No_Name
+4001,Fallen Leaf

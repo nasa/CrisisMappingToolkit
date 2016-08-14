@@ -16,7 +16,10 @@
 # -----------------------------------------------------------------------------
 
 import ee
-from cmt.util.miscUtilities import safe_get_info
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
+from util.miscUtilities import safe_get_info
 
 
 def get_landsat_name(image):
@@ -104,25 +107,31 @@ def detect_clouds(img):
     return score.gt(CLOUD_THRESHOLD)
 
 def getCloudPercentage(image, region):
-    '''Estimates the cloud cover percentage in a Landsat image'''
+    '''Estimates the cloud cover percentage in a Landsat image
+
+    IMPROVED: First masks for shape of the landsat imagery, to base cloud cover percentages based on ONLY
+    the area that the lake is actually in the image
+
+    '''
     
     # The function will attempt the calculation in these ranges
     # - Native Landsat resolution is 30
     MIN_RESOLUTION = 60
     MAX_RESOLUTION = 1000
-    
     resolution = MIN_RESOLUTION
+
     while True:
         try:
-            oneMask     = ee.Image(1.0)
-            cloudScore  = detect_clouds(image)
-            areaCount   = oneMask.reduceRegion(  ee.Reducer.sum(),  region, resolution)
-            cloudCount  = cloudScore.reduceRegion(ee.Reducer.sum(), region, resolution)
-            percentage  = safe_get_info(cloudCount)['constant'] / safe_get_info(areaCount)['constant']
+            cloudScore = detect_clouds(image)
+            reducedimage = image.reduce(ee.Reducer.allNonZero())
+            areaCount = reducedimage.reduceRegion(ee.Reducer.sum(), region, resolution)
+            cloudCount = cloudScore.reduceRegion(ee.Reducer.sum(), region, resolution)
+            percentage = safe_get_info(cloudCount)['constant'] / safe_get_info(areaCount)['all']
             return percentage
         except Exception as e:
             # Keep trying with lower resolution until we succeed
             resolution = 2*resolution
+            #print resolution, MAX_RESOLUTION
             if resolution > MAX_RESOLUTION:
                 raise e
 

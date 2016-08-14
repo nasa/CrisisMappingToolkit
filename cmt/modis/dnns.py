@@ -17,9 +17,11 @@
 
 import ee
 import math
-
-from cmt.mapclient_qt import addToMap
-from cmt.util.miscUtilities import safe_get_info, get_permanent_water_mask
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
+from mapclient_qt import addToMap
+from util.miscUtilities import safe_get_info, get_permanent_water_mask
 import modis_utilities
 import ee_classifiers
 import simple_modis_algorithms

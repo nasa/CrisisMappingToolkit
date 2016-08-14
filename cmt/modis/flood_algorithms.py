@@ -16,14 +16,16 @@
 # -----------------------------------------------------------------------------
 
 import ee
-
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 from adaboost import *
 from dnns import *
 from ee_classifiers import *
 from misc_algorithms import *
 from modis_utilities import *
 from simple_modis_algorithms import *
-import cmt.radar.active_contour
+import radar.active_contour
 
 
 '''
@@ -87,7 +89,7 @@ _ALGORITHMS = {
         ADABOOST_LEARNED   : ('Adaboost Learned',        adaboost_learn, False, 'FF3399'),
         ADABOOST_DEM       : ('Adaboost DEM',            adaboost_dem,   False, '6600CC'),
         ACTIVE_CONTOUR     : ('Active Countour',
-                              cmt.radar.active_contour.active_countour_skybox,  False, '0066CC'),
+                              radar.active_contour.active_countour_skybox,  False, '0066CC'),
 }
 
 
