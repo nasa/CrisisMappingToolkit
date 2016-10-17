@@ -147,7 +147,6 @@ def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
                 'training_region'   : training_domain.bounds
                }
     common_args = {
-                   'image'             : training_image,
                    'subsampling'       : 0.2, # TODO: Reduce this on failure?
                    'max_classification': 2,
                    'classifier_mode' : 'classification',
@@ -155,7 +154,7 @@ def earth_engine_classifier(domain, b, classifier_name, extra_args={}):
                   }
     args.update(common_args)
     args.update(extra_args)
-    classifier = ee.apply("TrainClassifier", args)  # Call the EE classifier
+    classifier = training_image.trainClassifier(**args)  # Call the EE classifier
     classified = _create_learning_image(domain, b).classify(classifier).select(['classification'], ['b1'])
     
     
