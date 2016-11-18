@@ -120,6 +120,7 @@ def main():
           print('Caught exception running algorithm: ' + get_algorithm_name(ALGORITHMS[a]) + '\n' +
                 str(e) + '\n')
 
+# This code needs to be outside the main function for OSX!
 t = threading.Thread(target=main)
 t.start()
 
