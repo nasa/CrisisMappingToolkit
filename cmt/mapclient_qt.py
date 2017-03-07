@@ -61,29 +61,10 @@ import ee
 import os
 import zipfile
 import cPickle as pickle
-
-# check if the Python imaging libraries used by the mapclient module are installed
-try:
-    from PIL import ImageQt                      # pylint: disable=g-import-not-at-top
-    from PIL import Image, ImageChops            # pylint: disable=g-import-not-at-top
-except ImportError:
-    print """
-        ERROR: A Python library (PILLOW) used by the CMT mapclient_qt module
-        was not found. Information on PILLOW can be found at:
-        https://pillow.readthedocs.org/
-        """
-    raise
-
-try:
-    import PyQt4                         # pylint: disable=g-import-not-at-top
-    from PyQt4 import QtCore, QtGui
-except ImportError:
-    print """
-        ERROR: A Python library (PyQt4) used by the CMT mapclient_qt
-        module was not found.
-        """
-    raise
-
+from PIL import ImageQt
+from PIL import Image, ImageChops
+import PyQt4
+from PyQt4 import QtCore, QtGui
 import cmt.util.miscUtilities
 
 # The default URL to fetch tiles from.  We could pull this from the EE library,
@@ -99,8 +80,8 @@ DEFAULT_MAP_URL_PATTERN = ('http://mt1.google.com/vt/lyrs=m@176000000&hl=en&'
                                                      'src=app&z=%d&x=%d&y=%d')
 
 
-# Tiles downloaded from Google Maps are cached here between 
-LOCAL_MAP_CACHE_PATH = '/home/smcmich1/repo/earthEngine/gm_tile_cache.dat'
+# Tiles downloaded from Google Maps are cached here between
+LOCAL_MAP_CACHE_PATH = '/home/smcmich1/repo/earthEngine/gm_tile_cache.dat'  # <-- this is a bad idea!
 
 
 # Text to display in "About" buttons for legal purposes
@@ -147,16 +128,16 @@ class MapViewOverlayInfoWidget(QtGui.QWidget):
         self.x      = x      # Click location
         self.y      = y
         overlay = self.parent.overlays[self.layer] # This is a MapViewOverlay object
-        
+
         # Constants that define the field size
         NAME_WIDTH   = 130
         ITEM_HEIGHT  = 10
         INFO_WIDTH   = 450
         SLIDER_WIDTH = 100
         OPACITY_MAX  = 100
-        
+
         # Set up the visibility checkbox
-        self.check_box = QtGui.QCheckBox(self) 
+        self.check_box = QtGui.QCheckBox(self)
         self.check_box.setChecked(overlay.show)
         self.check_box.stateChanged.connect(self.toggle_visible)
 
@@ -171,7 +152,7 @@ class MapViewOverlayInfoWidget(QtGui.QWidget):
         # Add the overlay name
         self.name = QtGui.QLabel(overlay.name, self)
         self.name.setMinimumSize(NAME_WIDTH, ITEM_HEIGHT)
-        
+
         # Add the pixel value
         self.value = QtGui.QLabel('...', self) # Display this until the real value is ready
         self.value.setMinimumSize(INFO_WIDTH, ITEM_HEIGHT)
@@ -193,44 +174,44 @@ class MapViewOverlayInfoWidget(QtGui.QWidget):
         hbox.addWidget(self.value)
 
         self.setLayout(hbox) # Call QT function derived from parent QWidget class
-    
+
     def set_pixel_value(self, value):
         '''Generate the text description for the pixel we clicked on'''
         # Handle values with not enough data
-        if value == None: 
+        if value == None:
             self.value.setText('')
             return
-        if len(value) <= 1: 
+        if len(value) <= 1:
             self.value.setText('')
             return
 
         headers = value[0] # Extract the two parts of 'value'
-        data    = value[1]       
+        data    = value[1]
         names   = headers[4:] # Skip id, lon, lat, time
         values  = data[4:] # Skip id, lon, lat, time
-        
+
         # Get the object which contains information about the bands to display
         vis_params = self.parent.overlays[self.layer].vis_params
-        
+
         text = ''
         for i in range(len(names)):
             # If bands were defined for this layer, only display the names of the selected bands.
             if vis_params and ('bands' in vis_params):
                 if not (names[i] in vis_params['bands']): # WARNING: This parsing could be more robust!
                     continue
-            
+
             if len(text) > 0: # Add comma after first entry
                 text += ', '
             text += str(names[i]) + ': ' + str(values[i]) # Just keep appending strings
         self.value.setText(text)
-    
-    
+
+
     def toggle_visible(self):
         self.parent.overlays[self.layer].show = not self.parent.overlays[self.layer].show
         self.parent.reload()
-    
+
     def set_transparency(self, value): # This is called whenever the slider bar is changed
-        '''Set the layer transparency with the input value''' 
+        '''Set the layer transparency with the input value'''
         self.parent.overlays[self.layer].opacity = value / 100.0
         self.parent.reload()
 
@@ -249,10 +230,10 @@ class MapViewWidget(QtGui.QWidget):
 
     # Signals are defined here which other widgets can listen in on
     mapClickedSignal = QtCore.pyqtSignal(int, int) # x and y click coordinates.
-    
+
     def __init__(self, inputTileManager=None):
         super(MapViewWidget, self).__init__()
-        
+
         # for adding new layers to map
         self.executing_threads = []
         self.thread_lock = threading.Lock()
@@ -280,7 +261,7 @@ class MapViewWidget(QtGui.QWidget):
         self.overlays = [MapViewOverlay(self.inputTileManager, None, 'Google Maps')]
         #print 'Added base overlay!'
 
-    
+
     def paintEvent(self, event):
         '''Rasterize each of the tiles on to the output image display'''
         painter = QtGui.QPainter()
@@ -317,12 +298,12 @@ class MapViewWidget(QtGui.QWidget):
     def LoadTiles(self):
         """Refresh the entire map."""
         #print 'Refreshing the map...'
-        
+
         # Start with the overlay on top.
         for i, overlay in reversed(list(enumerate(self.overlays))):
             if not overlay.show:
                 continue
-            
+
             #print 'Refreshing layer = ' + str(i)
             tile_list = overlay.tileManager.CalcTiles(self.level, self.GetViewport())
             for key in tile_list:
@@ -337,13 +318,13 @@ class MapViewWidget(QtGui.QWidget):
     def CompositeTiles(self, key):
         """Composite together all the tiles in this cell into a single image."""
         composite = None
-        
+
         numLayers   = len(self.tiles[key])
         numOverlays = len(self.overlays)
         #if numLayers > numOverlays:
         #    print 'numLayers   = ' + str(numLayers)
         #    print 'numOverlays = ' + str(numOverlays)
-        
+
         for layer in sorted(self.tiles[key]):
             image = self.tiles[key][layer]
             if not composite:
@@ -354,8 +335,8 @@ class MapViewWidget(QtGui.QWidget):
                 #    print 'Error coming!'
                 #    print key
                 try:
-                    composite.paste(image, (0, 0), 
-                                    ImageChops.multiply(image.split()[3], 
+                    composite.paste(image, (0, 0),
+                                    ImageChops.multiply(image.split()[3],
                                                         ImageChops.constant(image, int(self.overlays[layer].opacity * 255))))
                 except: # TODO: Why do we get errors here after deleting overlays?
                     pass
@@ -416,7 +397,7 @@ class MapViewWidget(QtGui.QWidget):
 
             self.level += direction
             self.LoadTiles()
-            
+
             # Notes on level/zoom:
             #  : pixels_per_lon_degree = (mercator_range / 360.0) * (2**level)
             #  : Each level of zoom doubles pixels_per_degree
@@ -436,10 +417,10 @@ class MapViewWidget(QtGui.QWidget):
     def __showAboutText(self):
         '''Pop up a little text box to display legal information'''
         QtGui.QMessageBox.about(self, 'about', ABOUT_TEXT)
-    
+
     def __saveCurrentView(self):
         '''Saves the current map view to disk as a GeoTIFF'''
-        
+
         # Get the handle of the currently active overlay
         # - This is what we will save to disk
         overlayToSave = None
@@ -447,23 +428,23 @@ class MapViewWidget(QtGui.QWidget):
             if o.show:
                 overlayToSave = o
         assert(overlayToSave != None) # Should at least be the google base map!
-        
+
         current_view_bbox = self.GetMapBoundingBox()
-        
+
         metersPerPixel = self.getApproxMetersPerPixel()
         scale = metersPerPixel
-        
+
         # Pop open a window to get a file name from the user
         file_path = str(QtGui.QFileDialog.getSaveFileName(self, 'Save image to', DEFAULT_SAVE_DIR))
-        
+
         ## This will be used as a file name so it must be legal
         #saveName = overlayToSave.name.replace(' ', '_').replace('/', '-')
-        
+
         #print overlayToSave.eeobject.getInfo()
         cmt.util.miscUtilities.downloadEeImage(overlayToSave.eeobject, current_view_bbox, scale, file_path, overlayToSave.vis_params)
 
     def contextMenuEvent(self, event):
-    
+
         menu = QtGui.QMenu(self)
 
         TOP_BUTTON_HEIGHT  = 20
@@ -490,7 +471,7 @@ class MapViewWidget(QtGui.QWidget):
         aboutButton.setMaximumSize(TINY_BUTTON_WIDTH, TOP_BUTTON_HEIGHT)
         aboutButton.clicked[bool].connect(self.__showAboutText)
         hbox.addWidget(aboutButton)
-        
+
         # Add the location and button to the pop up menu
         mainWidget = QtGui.QWidget()
         mainWidget.setLayout(hbox)
@@ -503,10 +484,10 @@ class MapViewWidget(QtGui.QWidget):
             item   = MapViewOverlayInfoWidget(self, i, event.x(), event.y())
             action.setDefaultWidget(item)
             menu.addAction(action)
-            
+
         # Now pop up the new window!
         menu.popup(QtGui.QCursor.pos())
-    
+
     def getPixel(self, layer, x, y):
         collection = ee.ImageCollection([self.overlays[layer].eeobject])
         # note: scale likely not correct
@@ -514,12 +495,12 @@ class MapViewWidget(QtGui.QWidget):
         point_extracted = collection.getRegion(ee.Geometry.Point(lon, lat), 1)
 
         return point_extracted
-    
+
     def mousePressEvent(self, event):
         """Records the anchor location and sets drag handler."""
-        
+
         self.mapClickedSignal.emit(event.x(), event.y()) # Send out clicked signal
-        
+
         if event.button() == QtCore.Qt.LeftButton: # Now handle locally
             self.anchor_x = event.x()
             self.anchor_y = event.y()
@@ -559,19 +540,19 @@ class MapViewWidget(QtGui.QWidget):
     def resizeEvent(self, event):
         """Handle resize events."""
         self.LoadTiles()
-    
+
     def getApproxMetersPerPixel(self):
         '''Returns the approximate meters per pixel at the current location/zoom'''
         # The actual value differs in the X and Y direction and across the image
-        
+
         mercator_range = 256.0
         scale = 2 ** self.level
         pixels_per_degree = (mercator_range / 360.0) * scale
-        
+
         # Get the lat/lon of the center pixel
         width, height = self.width(), self.height()
         lon,   lat    = self.pixelCoordToLonLat(width/2, height/2)
-        
+
         # Formula to compute the length of a degree at this latitude
         m1 = 111132.92
         m2 = -559.82
@@ -588,8 +569,8 @@ class MapViewWidget(QtGui.QWidget):
         # Convert to pixel units
         meters_per_pixel  = meters_per_degree / pixels_per_degree
         return meters_per_pixel
-    
-    
+
+
     def pixelCoordToLonLat(self, column, row):
         '''Return the longitude and latitude of a pixel in the map'''
         mercator_range = 256.0
@@ -643,7 +624,7 @@ class MapViewWidget(QtGui.QWidget):
 
     def addToMap(self, eeobject, vis_params=None, name="", show=True):
         '''Ads an EE object to the map'''
-        
+
         # Flatten any lists to comma separated strings - needed for eeobject.getMapId() call below!
         if vis_params:
             vis_params = dict(vis_params)
@@ -781,7 +762,7 @@ class TileManager(object):
         cache_key = (self.url,) + key            # Generate key
         TileManager._images[cache_key] = image   # Store image in cache
         TileManager._lru_keys.append(cache_key)  # Record the key in insertion order
-        
+
         # When the cache gets too big, clear the oldest tile.
         while len(TileManager._lru_keys) > TileManager.MAX_CACHE:
             remove_key = TileManager._lru_keys.pop(0) # The first entry is the oldest
@@ -811,17 +792,17 @@ class TileManager(object):
                 continue
             pickle_images.append(makePickleImage(TileManager._images[key]))
             matched_keys.append(key)
-            
+
         with open(path, 'wb') as f:
             pickle.dump( (pickle_images, matched_keys), f)
         print 'Saved '+str(len(pickle_images))+' tiles from cache to path: ' + path
-        
+
     def LoadCacheFromDisk(self, path):
         '''Read a cache file from disk'''
-        
+
         def readPickleImage(pImage):
           return Image.fromstring(pImage['mode'], pImage['size'], pImage['pixels'])
-        
+
         # Load the pickle formatted data
         with open(path, 'rb') as f:
             (pickle_images, TileManager._lru_keys) = pickle.load(f)
@@ -853,10 +834,10 @@ class TileManager(object):
                     time.sleep(delayTime)
                 # Check one more time that we don't have this yet.
                 if not self.manager.GetCachedTile(key):
-                
+
                     if errorCount403 > MAX_403_ERRORS:
                         continue
-                
+
                     (level, x, y) = key
                     if x >= 0 and y >= 0 and x <= 2 ** level-1 and y <= 2 ** level-1:
                         url = self.manager.url % key
@@ -887,9 +868,9 @@ def MakeTileManager(mapid, baseurl=BASE_URL):
 class QtGuiWrapper(object):
     '''This class is created as a singleton and wraps the QT GUI.
         It offers a few interface functions for manipulating the map.
-        
+
         The class is initalized with the TYPE of GUI class it will wrap.'''
-        
+
     def __init__(self, guiClass):
         '''Initialize the class with the type of QT GUI to run'''
         self.guiClass = guiClass # Record the class type
@@ -901,8 +882,8 @@ class QtGuiWrapper(object):
         self.gui   = self.guiClass()              # Instantiate a GUI class object
         self.ready = True                         # Now we are ready to rock
         sys.exit(app.exec_())
-    
-    
+
+
     def __getattr__(self, attr):
         '''Forward any function call to the GUI class we instantiated'''
         while not self.ready:
@@ -919,22 +900,22 @@ class QtGuiWrapper(object):
 class GenericMapGui(QtGui.QMainWindow):
     '''This sets up the main viewing window in QT, fills it up with a MapViewWidget,
        and then forwards all function calls to it.'''
-    
+
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
-        
+
         self.tileManager = TileManager(DEFAULT_MAP_URL_PATTERN)
         if os.path.exists(LOCAL_MAP_CACHE_PATH):
             self.tileManager.LoadCacheFromDisk(LOCAL_MAP_CACHE_PATH)
         #except:
         #    print 'Unable to load cache information from ' + LOCAL_MAP_CACHE_PATH
-        
+
         self.mapWidget = MapViewWidget(self.tileManager)
 
 
         # Set up all the components in a vertical layout
         vbox = QtGui.QVBoxLayout()
-        
+
         # Add the main map widget
         vbox.addWidget(self.mapWidget)
 
@@ -944,7 +925,7 @@ class GenericMapGui(QtGui.QMainWindow):
         self.setCentralWidget(mainWidget)
 
         # This is the initial window size, but the user can resize it.
-        self.setGeometry(100, 100, 720, 720) 
+        self.setGeometry(100, 100, 720, 720)
         self.setWindowTitle('EE Map View')
         self.show()
 
@@ -1016,7 +997,7 @@ def removeFromMap(eeobject):
 
     Args:
             eeobject: The object to add to the map.
-            
+
     This call uses a global MapInstance to hang on to "the map".   If the MapInstance
     isn't initialized, this creates a new one.
     """
@@ -1028,4 +1009,3 @@ def centerMap(lng, lat, zoom):  # pylint: disable=g-bad-name
     """Center the default map instance at the given lat, lon and zoom values."""
     addEmptyGui()
     map_instance.CenterMap(lng, lat, zoom)
-

@@ -16,41 +16,44 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 # -----------------------------------------------------------------------------
+from __future__ import print_function
 import os
 
 try:
     # if setuptools is available, use it to take advantage of its dependency
     # handling
-    from setuptools import setup                          # pylint: disable=g-import-not-at-top
+    from setuptools import setup          # pylint: disable=g-import-not-at-top
 except ImportError:
     # if setuptools is not available, use distutils (standard library). Users
     # will receive errors for missing packages
-    from distutils.core import setup                      # pylint: disable=g-import-not-at-top
+    from distutils.core import setup      # pylint: disable=g-import-not-at-top
 
 try:
     import PyQt4
 except ImportError:
-    print """
-            WARNING: PyQt4 is required to use the Crisis Mapping Toolkit.
-            Please install PyQt4 on your system.
-          """
+    print('WARNING: PyQt4 is required to use the Crisis Mapping Toolkit.'\
+          'Please install PyQt4 on your system.')
 
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+print("Current directory: ", os.getcwd())
+print("Items found: ", os.listdir('.'))
+
 setup(
     name='crisismappingtoolkit',
-    version=1.0,
+    version='1.0.1',
     description='Crisis Mapping Toolkit',
     license='Apache2',
     url='https://github.com/bcoltin/CrisisMappingToolkit',
-    download_url='',  # package download URL
+    download_url='',
     packages=['cmt', 'cmt.modis', 'cmt.radar', 'cmt.util'],
-    install_requires=[
-        'earthengine-api',
-        'pillow'
-    ],
+    install_requires=['earthengine-api', 'pillow'],
+    package_data = {'': ['config/*/*.xml',
+                         'config/*/*/*.json',
+                         'config/*/*/*.xml',
+                         'config/*/*.json']},
     classifiers=[
         # Get strings from
         # http://pypi.python.org/pypi?%3Aaction=list_classifiers

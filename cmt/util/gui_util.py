@@ -16,29 +16,21 @@
 # -----------------------------------------------------------------------------
 
 import logging
-logging.basicConfig(level=logging.ERROR)
-try:
-    import cmt.ee_authenticate
-except:
-    import sys
-    import os.path
-    sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
-    import cmt.ee_authenticate
+import cmt.ee_authenticate
 import matplotlib
 #matplotlib.use('tkagg')
 
 import sys
 import os
 import ee
-
 import cmt.domain
 import cmt.mapclient_qt
-import cmt.util.gui_util
+#import cmt.util.gui_util
 
+logging.basicConfig(level=logging.ERROR)
 '''
 GUI related utilities too small for their own file
 '''
-
 
 
 def visualizeDomain(domain, show=True):
