@@ -32,9 +32,13 @@ Please contact Brian Coltin (brian.j.coltin at nasa dot gov) with any questions.
 - Follow the instructions for installing [Google Earth Engine for Python](https://developers.google.com/earth-engine/python_install).
 - Download the CMT source code from [Github](https://github.com/bcoltin/CrisisMappingToolkit).
 - Install PyQt4.
-- Install the CMT with 
+- Install the CMT by `cd` to the CrisisMapppingToolkit directory, and execute 
   ```
   python setup.py install
+  ```
+  or 
+  ```
+  pip install .
   ```
 
 ## Documentation
