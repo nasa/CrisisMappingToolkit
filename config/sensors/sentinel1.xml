@@ -26,6 +26,10 @@
             <minimum>0</minimum>
             <maximum>600</maximum>
         </range>
+         <mode><range>
+             <minimum>0</minimum>
+             <maximum>600</maximum>
+         </range></mode>
         <buckets>512</buckets>
     </distribution>
 </sensor>
