@@ -498,7 +498,7 @@ class Domain(object):
     '''A class representing a problem domain. Loads sensor and location
         information from an xml file. Default information may be specified in a
         file specific to a sensor type, which can be overridden.'''
-    def __init__(self):
+    def __init__(self, xml_file=None, is_training=False):
         
         self.name              = 'Unnamed' # The name assigned to the domain.
         self.bbox              = None      # Bounding box of the domain.
@@ -513,6 +513,8 @@ class Domain(object):
         
         # You can also access each sensor as a member variable, e.g. self.uavsar
         #   gives access to the sensor named 'uavsar'
+        if xml_file is not None:
+            self.load_xml(xml_file, is_training)
 
 
     def __str__(self):
