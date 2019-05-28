@@ -54,9 +54,9 @@ def compute_band_statistics(ee_image, classified_image, region):
         #band_statistics.append((2.7, 0.35, ALLOWED_DEVIATIONS))
         band_names.append(km)
 
-    print 'Computed band statistics: '
+    print('Computed band statistics: ')
     for b, s in zip(band_names, band_statistics):
-        print b + ': ' + str(s)
+        print(b + ': ' + str(s))
     
     return (band_names, band_statistics)
 
@@ -96,9 +96,9 @@ def compute_band_statistics_features(ee_image, regionList):
         band_statistics.append((meanSums[km]/len(meanSums), stdSums[ks]/len(stdSums), ALLOWED_DEVIATIONS))
         band_names.append(km)
 
-    print 'Computed band statistics: '
+    print('Computed band statistics: ')
     for b, s in zip(band_names, band_statistics):
-        print b + ': ' + str(s)
+        print(b + ': ' + str(s))
     
     return (band_names, band_statistics)
 
@@ -567,7 +567,7 @@ class Snake(object):
             if not loop.done:
                 self.done = False
         if self.done:
-            print 'Done!'
+            print('Done!')
     
     # insert new nodes if nodes are too far apart
     # remove nodes if too close together

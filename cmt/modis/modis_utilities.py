@@ -164,13 +164,13 @@ def compute_binary_threshold(valueImage, classification, bounds, mixed_threshold
             temp  = lower
             lower = upper
             upper = temp
-        print 'Thresholds (%g, %g) found.' % (lower, upper)
+        print('Thresholds (%g, %g) found.' % (lower, upper))
         return (lower, upper)
     else:
         # Put threshold in the center of the current true histogram bin/bucket
         threshold = histogramTrue['bucketMin'] + i*histogramTrue['bucketWidth'] + histogramTrue['bucketWidth']/2
-        print 'Threshold %g Found. %g%% of water pixels and %g%% of land pixels separated.' % \
-            (threshold, true_sum / true_total * 100.0, false_sum / false_total * 100.0)
+        print('Threshold %g Found. %g%% of water pixels and %g%% of land pixels separated.' % \
+            (threshold, true_sum / true_total * 100.0, false_sum / false_total * 100.0))
         return threshold
 
 

@@ -28,7 +28,7 @@ def get_landsat_name(image):
         return 'landsat7'
     if 'LC8' in text:
         return 'landsat8'
-    print text
+    print(text)
     raise Exception('Unrecognized Landsat image!')
 
 def rename_landsat_bands(collection, collectionName):

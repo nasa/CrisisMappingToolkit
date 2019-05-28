@@ -296,7 +296,7 @@ class SensorObservation(object):
         for thisBandName in self.band_names:
             source       = self._band_sources[thisBandName]
             #print '======================================='
-            print 'Loading band: ' + thisBandName
+            print('Loading band: ' + thisBandName)
             #print source
             if 'mosaic' in source: # A premade collection with an ID
                 ims = ee.ImageCollection(source['eeid'])
@@ -307,7 +307,7 @@ class SensorObservation(object):
                 # Make a single image from an Earth Engine image collection with date boundaries
                 
                 if source['collection'] == 'COPERNICUS/S1_GRD':
-                    print 'SENTINEL 1 BRANCH'
+                    print('SENTINEL 1 BRANCH')
                     # Special handling for Sentinel1 
                     collection = util.imageRetrievalFunctions.get_image_collection_sentinel1(eeBounds, 
                                               source['start_date'], source['end_date'], min_images=1)
@@ -329,7 +329,7 @@ class SensorObservation(object):
                 #     : Add something to specify ascending/descending?
                 
             else: # Not enough information was provided!
-                print 'Warning: Incomplete source information for band: ' + thisBandName
+                print('Warning: Incomplete source information for band: ' + thisBandName)
                 #raise Exception('Incomplete source information for band: ' + thisBandName)
                 missingBands.append(thisBandName)
                 continue # Skip this band
@@ -347,7 +347,7 @@ class SensorObservation(object):
                 #print 'band:'
                 temp = band.getInfo()
             except:
-                print 'Failed to retrieve band, marked as missing.'
+                print('Failed to retrieve band, marked as missing.')
                 missingBands.append(thisBandName)
                 continue
                 
@@ -647,13 +647,13 @@ class Domain(object):
                 # Set sensor as member variable, e.g., self.__dict__['uavsar'] is equivalent to self.uavsar
                 self.__dict__[newSensor.sensor_name] = newSensor
                 
-                print 'Loaded sensor: ' + newSensor.sensor_name
+                print('Loaded sensor: ' + newSensor.sensor_name)
                 
             except:
-                print '###############################################'
-                print 'Caught exception loading sensor:'
-                print traceback.format_exc()
-                print '###############################################'
+                print('###############################################')
+                print('Caught exception loading sensor:')
+                print(traceback.format_exc())
+                print('###############################################')
                 
 
         # Load a ground truth image if one was specified
@@ -687,7 +687,7 @@ class Domain(object):
         
         # Load the input file
         json_file_path = os.path.join(sensor_domain_folder, json_file_name.text + '.json')
-        print 'Loading JSON training data: ' + json_file_path
+        print('Loading JSON training data: ' + json_file_path)
         with open(json_file_path, 'r') as f:
             feature_dict = json.load(f)
         if not feature_dict:

@@ -90,7 +90,7 @@ def divideUpBounds(bounds, boxSizeMeters, maxBoxesPerSide):
     if numBoxesY > maxBoxesPerSide:
         numBoxesY = maxBoxesPerSide
     boxSizeMeters = ((width/numBoxesX) + (height/numBoxesY)) / 2
-    print 'Using ' + str(numBoxesX*numBoxesY) + ' boxes of size ' + str(boxSizeMeters)
+    print('Using ' + str(numBoxesX*numBoxesY) + ' boxes of size ' + str(boxSizeMeters))
     
     # Now compute the box boundaries in degrees
     boxWidthLon  = (maxLon - minLon) / numBoxesX
@@ -215,7 +215,7 @@ def sar_martinis(domain, cr_method=False):
     # SENTINEL = 12m/pixel
     KERNEL_SIZE = 13 # Each box will be covered by a 13x13 pixel kernel
     metersPerPixel = boxSizeMeters / KERNEL_SIZE
-    print 'Using metersPerPixel: ' + str(metersPerPixel)
+    print('Using metersPerPixel: ' + str(metersPerPixel))
     
     avgKernel   = ee.Kernel.square(KERNEL_SIZE, 'pixels', True); # <-- EE fails if this is in meters!
 
@@ -235,7 +235,7 @@ def sar_martinis(domain, cr_method=False):
     globalMean      = grayLayer.reduceRegion(ee.Reducer.mean(), domain.bounds, metersPerPixel)
     globalMeanImage = ee.Image.constant(globalMean.getInfo()[channelName])
     
-    print 'global mean = ' + str(globalMean.getInfo()[channelName])
+    print('global mean = ' + str(globalMean.getInfo()[channelName]))
     
     
     # Compute mean and standard deviation across the entire image
@@ -347,15 +347,15 @@ def sar_martinis(domain, cr_method=False):
             
             # Compute a split on the histogram
             splitVal = histogram.splitHistogramKittlerIllingworth(hist, binCenters)
-            print "Computed local threshold = " + str(splitVal)
+            print("Computed local threshold = " + str(splitVal))
             localThresholdList.append(splitVal)
             usedPointList.append(thisLoc)
             
             #plt.bar(binCenters, hist)
             #plt.show()
         except Exception,e:
-            print 'Failed to compute a location:'
-            print str(e)
+            print('Failed to compute a location:')
+            print(str(e))
        
     numUsedPoints   = len(usedPointList)
     numUnusedPoints = len(rejectedPointList)
@@ -383,7 +383,7 @@ def sar_martinis(domain, cr_method=False):
     
     computedThreshold = numpy.median(localThresholdList) # Nothing fancy going on here!
     
-    print 'Computed global threshold = ' + str(computedThreshold)
+    print('Computed global threshold = ' + str(computedThreshold))
     
     finalWaterClass = grayLayer.lte(computedThreshold)
 
@@ -501,7 +501,7 @@ def sar_martinis2(domain):
     if not p:
         raise Exception('Failed to find high STD tiles!')
     thresh = ee.Number(p.getInfo().values()[0]);
-    print 'Computed 95% std threshold: ' + str(thresh.getInfo())
+    print('Computed 95% std threshold: ' + str(thresh.getInfo()))
     kept = s1StdDev.gt(ee.Image(thresh));
     #addToMap(kept, {'min': 0, 'max': 1, 'opacity': 0.5, 'palette': GREEN_PALETTE}, 'top_std_dev',  False)
 
@@ -511,7 +511,7 @@ def sar_martinis2(domain):
     stdDevInfo = augStdDev.reduceRegion(ee.Reducer.toList(3), domain.bounds);
     stdDevList = ee.List(stdDevInfo.get('list')); # A necessary bit of casting
 
-    print 'Selected ' + str(len(stdDevList.getInfo())) + ' tiles to compute thresholds from.'
+    print('Selected ' + str(len(stdDevList.getInfo())) + ' tiles to compute thresholds from.')
 
 
     # Define a function to get a S+ tile bounding box from the tile center in stdDevList.
@@ -572,8 +572,8 @@ def sar_martinis2(domain):
 
     #print 'Mean of tile thresholds: ' + str(threshMean)
     #print 'STD  of tile thresholds: ' + str(threshStd)
-    print 'Mean of tile thresholds (DB): ' + str(threshMeanDb)
-    print 'STD  of tile thresholds (DB): ' + str(threshStdDb)
+    print('Mean of tile thresholds (DB): ' + str(threshMeanDb))
+    print('STD  of tile thresholds (DB): ' + str(threshStdDb))
 
     # TODO: Use an alternate method of computing the threshold like they do in the paper!
     if threshStdDb > MAX_STD_DB:
@@ -581,7 +581,7 @@ def sar_martinis2(domain):
 
     if threshMeanDb > MAX_THRESHOLD_DB:
         threshMean = rescaleNumber(MAX_THRESHOLD_DB, minVal, maxVal, PROC_MIN_VAL, PROC_MAX_VAL)
-        print 'Saturating the computed threshold at 10 DB!'
+        print('Saturating the computed threshold at 10 DB!')
     
     initialThresh = threshMean
 

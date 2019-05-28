@@ -67,14 +67,14 @@ class LocalEEImage(object):
         tempFile = '%s_%g,%g_%g,%g_%g.zip' % (image_name, bbox[0], bbox[1], bbox[2], bbox[3], scale)
         filename = os.path.join(TEMP_FILE_DIR, tempFile) 
         if (image_name != None) and (not os.path.isfile(filename)):
-            print 'Downloading image...'
+            print('Downloading image...')
             data = urllib2.urlopen(url)
             with open(filename, 'wb') as fp:
                 while True:
                     chunk = data.read(16 * 1024)
                     if not chunk: break
                     fp.write(chunk)
-            print 'Download complete!'
+            print('Download complete!')
 
         # extract the zip file
         z = zipfile.ZipFile(filename, 'r')

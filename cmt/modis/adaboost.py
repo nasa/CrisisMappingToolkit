@@ -59,7 +59,7 @@ def _create_adaboost_learning_image(domain, b):
         landsat_sensor = domain.get_landsat()
         added = ['blue', 'green', 'red', 'nir', 'swir1', 'temp', 'swir2']
         a = a.addBands(landsat_sensor.image.select(added))
-        print 'Added Landsat to Adaboost!'
+        print('Added Landsat to Adaboost!')
     except: # No Landsat data is present
         pass
     
@@ -69,7 +69,7 @@ def _create_adaboost_learning_image(domain, b):
         # - All of the input training images need to have the same bands available!
         radar_sensor = domain.get_radar()
         a = a.addBands(radar_sensor.image) 
-        print 'Added Radar to Adaboost!'
+        print('Added Radar to Adaboost!')
     except: # No radar data is present
         pass
 
@@ -206,7 +206,7 @@ def __compute_threshold_ranges(training_domains, training_images, water_masks, b
     band_splits = dict()
     for band_name in bands: # Loop through each band (weak classifier input)
         split = None
-        print 'Computing threshold ranges for: ' + band_name
+        print('Computing threshold ranges for: ' + band_name)
       
         mean = 0
         for i in range(len(training_domains)): # Loop through all input domains
@@ -314,7 +314,7 @@ def adaboost_learn(ignored=None, ignored2=None):
     transformed_masks = [water_mask.multiply(2).subtract(1) for water_mask in water_masks]
 
     bands             = safe_get_info(training_images[0].bandNames())
-    print 'Computing threshold ranges.'
+    print('Computing threshold ranges.')
     band_splits = __compute_threshold_ranges(training_domains, training_images, water_masks, bands)
     counts = [safe_get_info(training_images[i].select('b1').reduceRegion(ee.Reducer.count(), training_domains[i].bounds, 250))['b1'] for i in range(len(training_images))]
     count = sum(counts)
@@ -345,7 +345,7 @@ def adaboost_learn(ignored=None, ignored2=None):
             # Compute the sum of weighted classification errors across all of the training domains using this threshold
             #errors = [safe_get_info(weights[i].multiply(training_images[i].select(band_name).lte(threshold).neq(water_masks[i])).reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, EVAL_RESOLUTION))['constant'] for i in range(len(training_images))]
             #error  = sum(errors)
-            print '%s found threshold %g with error %g' % (band_name, threshold, error)
+            print('%s found threshold %g with error %g' % (band_name, threshold, error))
             
             # Record the band/threshold combination with the highest abs(error)
             if (best == None) or (abs(0.5 - error) > abs(0.5 - best[0])): # Classifiers that are always wrong are also good with negative alpha
@@ -354,18 +354,18 @@ def adaboost_learn(ignored=None, ignored2=None):
         # add an additional split point to search between for thresholds
         band_splits[best[1]].insert(best[3], best[2])
       
-        print '---> Using %s < %g. Error %g.' % (best[1], best[2], best[0])
+        print('---> Using %s < %g. Error %g.' % (best[1], best[2], best[0]))
         alpha      = 0.5 * math.log((1 - best[0]) / best[0])
         classifier = (best[1], best[2], alpha)
         full_classifier.append(classifier)
-        print '---> Now have %d out of %d classifiers.' % (len(full_classifier), NUM_CLASSIFIERS_TO_TRAIN)
+        print('---> Now have %d out of %d classifiers.' % (len(full_classifier), NUM_CLASSIFIERS_TO_TRAIN))
         
         # update the weights
         weights = [weights[i].multiply(apply_classifier(training_images[i], classifier[0], classifier[1]).multiply(transformed_masks[i]).multiply(-alpha).exp()) for i in range(len(training_images))]
         totals  = [safe_get_info(weights[i].reduceRegion(ee.Reducer.sum(), training_domains[i].bounds, EVAL_RESOLUTION))['constant'] for i in range(len(training_images))]
         total   = sum(totals)
         weights = [w.divide(total) for w in weights]
-        print full_classifier
+        print(full_classifier)
 
 #
 #import modis_utilities

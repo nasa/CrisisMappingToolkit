@@ -112,13 +112,13 @@ def get_image_collection_sentinel1(bounds, start_date, end_date, min_images=1):
     ee_points  = ee.List(bounds.bounds().coordinates().get(0))
     points     = ee_points.getInfo()
     points     = map(functools.partial(apply, ee.Geometry.Point), points)
-    print 'Searching for S1 centroid: ' + str(bounds.centroid().getInfo())
+    print('Searching for S1 centroid: ' + str(bounds.centroid().getInfo()))
     
     # Loop through the variable combinations
     for resolution in resolutionList:
-        print 'Searching S1 resolution: ' + str(resolution)
+        print('Searching S1 resolution: ' + str(resolution))
         for angle in angleList:
-            print 'Searching S1 angle: ' + str(angle)
+            print('Searching S1 angle: ' + str(angle))
             collection = ee.ImageCollection('COPERNICUS/S1_GRD').filterDate(start_date, end_date) \
                           .filterBounds(bounds.centroid()) \
                           .filter(ee.Filter.eq('resolution_meters',    resolution)) \
@@ -128,7 +128,7 @@ def get_image_collection_sentinel1(bounds, start_date, end_date, min_images=1):
 
             # Accept the result if we got as many images as the user requested.
             numFound = collection.size().getInfo()
-            print 'Found ' + str(numFound) + ' images'
+            print('Found ' + str(numFound) + ' images')
             if numFound >= min_images:
                 # Switch band names to lower case to be consistent with domain notation               
                 temp = cmt.util.miscUtilities.safeRename(collection, ['VV', 'VH'], ['vv', 'vh'])
@@ -190,7 +190,7 @@ def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.
     #print 'Modis dates:'
     #print dateStart.format().getInfo()
     #print dateEnd.format().getInfo()
-    print 'Found ' + str(numFound) + ' candidate MODIS images.'   
+    print('Found ' + str(numFound) + ' candidate MODIS images.')   
 
     # Find the first image that meets the requirements
     if searchMethod == 'nearest':
@@ -205,11 +205,11 @@ def getCloudFreeModis(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=0.
         COVERAGE_RES = 250
         thisImage       = ee.Image(imageList.get(i)).resample('bicubic')
         percentCoverage = thisImage.mask().reduceRegion(ee.Reducer.mean(), bounds, COVERAGE_RES).getInfo().values()[0]
-        print 'percentCoverage = ' + str(percentCoverage)
+        print('percentCoverage = ' + str(percentCoverage))
         if percentCoverage < minCoverage: # MODIS has high coverage, but there are gaps.
             continue
         cloudPercentage = cmt.modis.modis_utilities.getCloudPercentage(thisImage, bounds)
-        print 'Detected MODIS cloud percentage: ' + str(cloudPercentage)
+        print('Detected MODIS cloud percentage: ' + str(cloudPercentage))
         if cloudPercentage < maxCloudPercentage:
             return thisImage
 
@@ -256,7 +256,7 @@ def getCloudFreeLandsat(bounds, targetDate, maxRangeDays=10, maxCloudPercentage=
             if percentCoverage < minCoverage:
                 continue
             cloudPercentage = cmt.util.landsat_functions.getCloudPercentage(thisImage, bounds)
-            print 'Detected Landsat cloud percentage: ' + str(cloudPercentage)
+            print('Detected Landsat cloud percentage: ' + str(cloudPercentage))
             if cloudPercentage < maxCloudPercentage:
                 return thisImage
         # If we got here this satellite did not produce a good image, try the next satellite.
@@ -302,7 +302,7 @@ def getNearestSentinel1(bounds, targetDate, maxRangeDays=10, minCoverage=0.8, se
         COVERAGE_RES = 30
         thisImage       = ee.Image(imageList.get(i)).resample('bicubic')
         percentCoverage = thisImage.mask().reduceRegion(ee.Reducer.mean(), bounds, COVERAGE_RES).getInfo().values()[0]
-        print 'S1 Coverage = ' + str(percentCoverage)
+        print('S1 Coverage = ' + str(percentCoverage))
         if percentCoverage >= minCoverage: # MODIS has high coverage, but there are gaps.
             return thisImage
 

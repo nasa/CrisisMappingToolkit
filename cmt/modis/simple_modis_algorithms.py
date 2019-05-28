@@ -66,7 +66,7 @@ def get_diff(b):
 def diff_learned(domain, b):
     '''modis_diff but with the threshold calculation included (training image required)'''
     if domain.unflooded_domain == None:
-        print 'No unflooded training domain provided.'
+        print('No unflooded training domain provided.')
         return None
     unflooded_b = modis_utilities.compute_modis_indices(domain.unflooded_domain)
     water_mask  = modis_utilities.get_permanent_water_mask()
@@ -93,7 +93,7 @@ def get_dartmouth(b):
 def dart_learned(domain, b):
     '''The dartmouth method but with threshold calculation included (training image required)'''
     if domain.unflooded_domain == None:
-        print 'No unflooded training domain provided.'
+        print('No unflooded training domain provided.')
         return None
     unflooded_b = modis_utilities.compute_modis_indices(domain.unflooded_domain)
     water_mask  = modis_utilities.get_permanent_water_mask()
@@ -116,7 +116,7 @@ def get_mod_ndwi(b):
 
 def mod_ndwi_learned(domain, b):
     if domain.unflooded_domain == None:
-        print 'No unflooded training domain provided.'
+        print('No unflooded training domain provided.')
         return None
     unflooded_b = modis_utilities.compute_modis_indices(domain.unflooded_domain)
     water_mask  = modis_utilities.get_permanent_water_mask()
@@ -136,7 +136,7 @@ def get_fai(b):
 
 def fai_learned(domain, b):
     if domain.unflooded_domain == None:
-        print 'No unflooded training domain provided.'
+        print('No unflooded training domain provided.')
         return None
     unflooded_b = modis_utilities.compute_modis_indices(domain.unflooded_domain)
     water_mask  = modis_utilities.get_permanent_water_mask()

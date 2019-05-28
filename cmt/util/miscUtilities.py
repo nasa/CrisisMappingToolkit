@@ -95,7 +95,7 @@ def safe_get_info(ee_object, max_num_attempts=5):
                 if message in str(e):
                     raise e
                     
-            print 'Earth Engine Error: %s. Waiting 10s and then retrying.' % (e)
+            print('Earth Engine Error: %s. Waiting 10s and then retrying.' % (e))
             time.sleep(10)
             num_attempts += 1
         if max_num_attempts and (num_attempts >= max_num_attempts):
@@ -300,7 +300,7 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
 
     # For now we require a GDAL installation in order to save images
     if not(which('gdalbuildvrt') and which('gdal_translate')):
-        print 'ERROR: Must have GDAL installed in order to save images!'
+        print('ERROR: Must have GDAL installed in order to save images!')
         return False
 
     # Get a list of all the band names in the object
@@ -311,7 +311,7 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
             band_names = band_names.replace(' ', '').split(',')
     else: # Grab the first three band names
         if len(eeObject.getInfo()['bands']) > 3:
-            print 'Warning: Limiting recorded file to first three band names!'
+            print('Warning: Limiting recorded file to first three band names!')
         for b in eeObject.getInfo()['bands']:
             band_names.append(b['id'])
             if len(band_names) == 3:
@@ -350,7 +350,7 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
     zip_path    = os.path.join(TEMP_FILE_DIR, zip_name) 
     
     # Download the packed file
-    print 'Downloading image...'
+    print('Downloading image...')
     data = urllib2.urlopen(url)
     with open(zip_path, 'wb') as fp:
         while True:
@@ -358,7 +358,7 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
             if not chunk:
                 break
             fp.write(chunk)
-    print 'Download complete!'
+    print('Download complete!')
     
     # Each band get packed seperately in the zip file.
     z = zipfile.ZipFile(zip_path, 'r')
@@ -389,14 +389,14 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
     # Generate an intermediate vrt file
     vrt_path = os.path.join(TEMP_FILE_DIR, temp_prefix + '.vrt')
     cmd = 'gdalbuildvrt -separate -resolution highest ' + vrt_path +' '+ band_files_string
-    print cmd
+    print(cmd)
     os.system(cmd)
     if not os.path.exists(vrt_path):
         raise Exception('Failed to create VRT file!')
     
     # Convert to the output file
     cmd = 'gdal_translate -ot byte '+ vrt_path + ' ' +file_path
-    print cmd
+    print(cmd)
     os.system(cmd)
     
     ### Clean up vrt file
@@ -411,7 +411,7 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
     ##    os.remove(b)
     ##os.remove(zip_path)
     
-    print 'Finished saving ' + file_path
+    print('Finished saving ' + file_path)
     return True
 
 

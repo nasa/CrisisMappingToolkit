@@ -41,10 +41,10 @@ try:
     import PyQt4                         # pylint: disable=g-import-not-at-top
     from PyQt4 import QtCore, QtGui
 except ImportError:
-    print """
+    print("""
         ERROR: A Python library (PyQt4) used by the Earth Engine API mapclient
         module was not found.
-        """
+        """)
     raise
 
 from cmt.mapclient_qt import MapViewWidget, TileManager, ABOUT_TEXT, DEFAULT_MAP_URL_PATTERN, LOCAL_MAP_CACHE_PATH
@@ -176,7 +176,7 @@ class FeatureTrainerWindow(QtGui.QWidget):
         '''Add a new class to the list'''
         className = str(self.classNameLine.text())
         if className in self.classDict: # Ensure that the class name is unique
-            print 'A class with this name already exists!'
+            print('A class with this name already exists!')
             return
         self.classDict[className] = []
         self.classListBox.addItem(className)
@@ -184,7 +184,7 @@ class FeatureTrainerWindow(QtGui.QWidget):
     def _deleteClass(self):
         '''Remove class from the list'''
         if not self.selectedClass:
-            print 'No class selected!'
+            print('No class selected!')
         className = self.selectedClass
         for item in self.classListBox.selectedItems():
             self.classListBox.takeItem(self.classListBox.row(item))
@@ -196,10 +196,10 @@ class FeatureTrainerWindow(QtGui.QWidget):
         '''Write the class list to a JSON formatted text file'''
         path = str(QtGui.QFileDialog.getSaveFileName(self, 'Save File', '', '*.json'))
         #self.lastFilePath = path
-        print str(self.classDict)
+        print(str(self.classDict))
         with open(path, 'w') as f:
             json.dump(self.classDict, f)
-        print 'Saved file ' + path
+        print('Saved file ' + path)
     
     def _loadFromFile(self):
         '''Load a class list from a JSON formatted text file'''
@@ -207,8 +207,8 @@ class FeatureTrainerWindow(QtGui.QWidget):
         #self.lastFilePath = path
         with open(path, 'r') as f:
             self.classDict = json.load(f)
-        print 'Loaded file ' + path
-        print self.classDict
+        print('Loaded file ' + path)
+        print(self.classDict)
         self._repopulateList()
         self._updateMap()
         
@@ -235,9 +235,9 @@ class FloodDetectParams:
         self.statisticsRegion      = None # TODO: How to set this?
     
     def toString(self):
-        print 'Change threshold  = ' + str(self.changeDetectThreshold)
-        print 'Mask threshold    = ' + str(self.waterMaskThreshold)
-        print 'Statistics region = ' + str(self.statisticsRegion.getInfo()['coordinates'])
+        print('Change threshold  = ' + str(self.changeDetectThreshold))
+        print('Mask threshold    = ' + str(self.waterMaskThreshold))
+        print('Statistics region = ' + str(self.statisticsRegion.getInfo()['coordinates']))
 
 
 class ProductionGui(QtGui.QMainWindow):
@@ -388,7 +388,7 @@ class ProductionGui(QtGui.QMainWindow):
             self.classWindow.close()
 
         #try:
-        print 'Attempting to save tile cache...'
+        print('Attempting to save tile cache...')
         self.tileManager.SaveCacheToDisk(LOCAL_MAP_CACHE_PATH)
         #except:
         #    print 'Unable to load cache information from ' + LOCAL_MAP_CACHE_PATH
@@ -531,7 +531,7 @@ class ProductionGui(QtGui.QMainWindow):
         # - The Earth Engine ID looks like this: GME/images/18108519531116889794-15007110928626476628
         pt = eeID.rfind('/')
         if not pt:
-            print 'Invalid Earth Engine ID entered!'
+            print('Invalid Earth Engine ID entered!')
         assetID = eeID[pt+1:]
         
         # Clear any existing guest image from the map
@@ -541,7 +541,7 @@ class ProductionGui(QtGui.QMainWindow):
 
         # Retrieve the sensor information for this image from the XML file
         sensorXmlPath = os.path.join(SENSOR_FILE_DIR, sensorName + ".xml")
-        print 'Reading file: ' + sensorXmlPath
+        print('Reading file: ' + sensorXmlPath)
         sensorInfo = cmt.domain.SensorObservation(xml_source=sensorXmlPath, manual_ee_ID=assetID)
         
         # Add the new guest image to the map
@@ -602,7 +602,7 @@ class ProductionGui(QtGui.QMainWindow):
         # Check that we have all the information we need
         bounds = self.detectParams.statisticsRegion
         if (not self.floodDate) or (not bounds):
-            print "Can't load any images until the date and bounds are set!"
+            print("Can't load any images until the date and bounds are set!")
             return
  
         # Unload all the current images, including any flood detection results.
@@ -624,21 +624,21 @@ class ProductionGui(QtGui.QMainWindow):
             self.landsatPrior = getCloudFreeLandsat(bounds, priorStartDate, PRIOR_SEARCH_RANGE_DAYS, 
                                                     maxCloudPercentage=0.05, searchMethod='decreasing')
             priorLsDate = cmt.util.miscUtilities.getDateFromLandsatInfo(self.landsatPrior.getInfo())
-            print 'Found prior Landsat date: ' + priorLsDate
+            print('Found prior Landsat date: ' + priorLsDate)
         except Exception as e:
-            print 'Failed to find prior Landsat image!'
-            print str(e)
-            print(sys.exc_info()[0])
+            print('Failed to find prior Landsat image!')
+            print(str(e))
+            print((sys.exc_info()[0]))
             self.landsatPrior = None
         try:
             self.landsatPost  = getCloudFreeLandsat(bounds, postStartDate,  POST_SEARCH_RANGE_DAYS,  
                                                     maxCloudPercentage=0.25, searchMethod='increasing')
             postLsDate = cmt.util.miscUtilities.getDateFromLandsatInfo(self.landsatPost.getInfo())
-            print 'Found post Landsat date: ' +postLsDate
+            print('Found post Landsat date: ' +postLsDate)
         except Exception as e:
-            print 'Failed to find post Landsat image!' 
-            print str(e)
-            print(sys.exc_info()[0])
+            print('Failed to find post Landsat image!') 
+            print(str(e))
+            print((sys.exc_info()[0]))
             self.landsatPost = None
 
 
@@ -647,21 +647,21 @@ class ProductionGui(QtGui.QMainWindow):
             self.sentinel1Prior = getNearestSentinel1(bounds, priorStartDate, PRIOR_SEARCH_RANGE_DAYS, 
                                                      searchMethod='decreasing')
             priorS1Date = cmt.util.miscUtilities.getDateFromSentinel1Info(self.sentinel1Prior.getInfo())
-            print 'Found prior Sentinel-1 date: ' + priorS1Date
+            print('Found prior Sentinel-1 date: ' + priorS1Date)
         except Exception as e:
-            print 'Failed to find prior Sentinel-1 image!'
-            print str(e)
-            print(sys.exc_info()[0])
+            print('Failed to find prior Sentinel-1 image!')
+            print(str(e))
+            print((sys.exc_info()[0]))
             self.sentinel1Prior = None
         try:
             self.sentinel1Post  = getNearestSentinel1(bounds, postStartDate,  POST_SEARCH_RANGE_DAYS,  
                                                      searchMethod='increasing')
             postS1Date = cmt.util.miscUtilities.getDateFromSentinel1Info(self.sentinel1Post.getInfo())
-            print 'Found post Sentinel-1 date: ' + postS1Date
+            print('Found post Sentinel-1 date: ' + postS1Date)
         except Exception as e:
-            print 'Failed to find post Sentinel-1 image!' 
-            print str(e)
-            print(sys.exc_info()[0])
+            print('Failed to find post Sentinel-1 image!') 
+            print(str(e))
+            print((sys.exc_info()[0]))
             self.sentinel1Post = None
             
         
@@ -671,21 +671,21 @@ class ProductionGui(QtGui.QMainWindow):
             self.modisPrior = getCloudFreeModis(bounds, priorStartDate, PRIOR_SEARCH_RANGE_DAYS, 
                                                 maxCloudPercentage=0.05, searchMethod='decreasing')
             priorModisDate = cmt.util.miscUtilities.getDateFromModisInfo(self.modisPrior.getInfo())
-            print 'Found prior MODIS date: ' + priorModisDate
+            print('Found prior MODIS date: ' + priorModisDate)
         except Exception as e:
-            print 'Failed to find prior MODIS image!'
-            print str(e)
-            print(sys.exc_info()[0])
+            print('Failed to find prior MODIS image!')
+            print(str(e))
+            print((sys.exc_info()[0]))
             self.modisPrior = None
         try:
             self.modisPost  = getCloudFreeModis(bounds, postStartDate,  POST_SEARCH_RANGE_DAYS,  
                                                 maxCloudPercentage=0.25, searchMethod='increasing')
             postModisDate = cmt.util.miscUtilities.getDateFromModisInfo(self.modisPost.getInfo())
-            print 'Found post MODIS date: ' + postModisDate
+            print('Found post MODIS date: ' + postModisDate)
         except Exception as e:
-            print 'Failed to find post MODIS image!'
-            print str(e)
-            print(sys.exc_info()[0])
+            print('Failed to find post MODIS image!')
+            print(str(e))
+            print((sys.exc_info()[0]))
             self.modisPost = None
 
         if self.modisPost:
@@ -709,16 +709,16 @@ class ProductionGui(QtGui.QMainWindow):
         
         # Check prerequisites
         if (not self.modisPost) or (not self.floodDate) or (not self.detectParams.statisticsRegion):
-            print "Can't detect floods without image data and flood date!"
+            print("Can't detect floods without image data and flood date!")
             return
         
         # Remove the last EE function from the map
         if self.eeFunction:
             self.mapWidget.removeFromMap(self.eeFunction)
         
-        print 'Starting flood detection with the following parameters:'
-        print '--> Water mask threshold       = ' + str(self.detectParams.waterMaskThreshold)
-        print '--> Change detection threshold = ' + str(self.detectParams.changeDetectThreshold)
+        print('Starting flood detection with the following parameters:')
+        print('--> Water mask threshold       = ' + str(self.detectParams.waterMaskThreshold))
+        print('--> Change detection threshold = ' + str(self.detectParams.changeDetectThreshold))
         
         # Generate a new EE function
         self.eeFunction = cmt.modis.misc_algorithms.history_diff_core(self.modisPost,
@@ -740,7 +740,7 @@ class ProductionGui(QtGui.QMainWindow):
         if parameterName == 'Water Mask Threshold':
             self.detectParams.waterMaskThreshold = value
             return
-        print 'WARNING: Parameter ' + parameterName + ' is set to: ' + str(value)
+        print('WARNING: Parameter ' + parameterName + ' is set to: ' + str(value))
         
     def _setDate(self, date):
         '''Sets the current date'''
@@ -752,7 +752,7 @@ class ProductionGui(QtGui.QMainWindow):
         '''Sets the processing region to the current viewable area'''
         # Extract the current viewing bounds as [minLon, minLat, maxLon, maxLat]
         lonLatBounds = self.mapWidget.GetMapBoundingBox() # TODO: This function does not work!!!!
-        print 'Setting region to: ' + str(lonLatBounds)
+        print('Setting region to: ' + str(lonLatBounds))
         self.detectParams.statisticsRegion = apply(ee.geometry.Geometry.Rectangle, lonLatBounds)
 
     def _showCalendar(self):
@@ -778,7 +778,7 @@ class ProductionGui(QtGui.QMainWindow):
         try:
             return getattr(self.mapWidget, attr) # Forward the call to the MapViewWidget class
         except:
-            print str(attr)
+            print(str(attr))
             raise AttributeError(attr) # This happens if the MapViewWidget class does not support the call
 
 

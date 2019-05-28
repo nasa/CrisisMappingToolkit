@@ -131,8 +131,8 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
             truth_sum   = ee.data.getValue({'image': ground_truth.stats(eval_points, region, 'EPSG:4326').serialize(), 'fields': 'b1'})['properties']['b1']['values']['sum']
             
             break # Quit the loop if the calculations were successful
-        except Exception,e: # On failure coursen the resolution and try again
-            print str(e)
+        except Exception as e: # On failure coursen the resolution and try again
+            print(str(e))
             eval_points /= 2
             if eval_points < MIN_EVAL_POINTS:
                 raise Exception('Unable to evaluate results at resolution ' + str(eval_points*2))
@@ -142,10 +142,10 @@ def evaluate_approach(result, ground_truth, region, fractional=False):
     recall      = 1.0 if (truth_sum  == 0.0) else (correct_sum / truth_sum)
     
     if (precision > 1.0) or (recall > 1.0):
-        print 'EVALUATION_ERROR'
-        print 'correct_sum = ' + str(correct_sum)
-        print 'result_sum  = ' + str(result_sum)
-        print 'truth_sum   = ' + str(truth_sum)
+        print('EVALUATION_ERROR')
+        print('correct_sum = ' + str(correct_sum))
+        print('result_sum  = ' + str(result_sum))
+        print('truth_sum   = ' + str(truth_sum))
         #cmt.mapclient_qt.addToMap(correct, {}, 'CORRECT')
  
     ## A test of our result evaluation that does not depend on the ground truth!

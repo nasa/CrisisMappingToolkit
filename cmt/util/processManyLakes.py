@@ -135,13 +135,13 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
         name = lake['properties']['LAKE_NAME']
         name = name.replace("'","").replace(".","").replace(",","").replace(" ","_") # Strip out weird characters
         if name == '': # Can't proceed without the name!
-            print 'Skipping lake with no name!'
-            print lake['properties']
+            print('Skipping lake with no name!')
+            print(lake['properties'])
             return False
     
         # Check if the lake is in the bad lake list
         if isLakeInBadList(name, output_directory):
-            print 'Skipping known bad lake ' + name
+            print('Skipping known bad lake ' + name)
             return False
     
         boundsInfo = ee_lake.geometry().bounds().getInfo()
@@ -151,7 +151,7 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
         #    Earth Engine's memory usage will explode!
         ee_bounds = ee_lake.geometry().bounds().buffer(1000).bounds()
         
-        print 'Processing lake: ' + name
+        print('Processing lake: ' + name)
         
         # Set up logging object for this lake
         logger = logging_class(output_directory, ee_lake, name)
@@ -162,7 +162,7 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
         ee_image_list = collection.toList(1000000)
         
         num_images_found = len(ee_image_list.getInfo())
-        print 'Found ' + str(num_images_found) + ' images for this lake.'
+        print('Found ' + str(num_images_found) + ' images for this lake.')
     
         # Iterate through all the images we retrieved
         results = []
@@ -173,10 +173,10 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
             this_date = get_image_date(all_image_info[i])
             
             if isLakeInBadList(name, output_directory, this_date):
-                print 'Skipping known bad instance: ' + name +' - '+ this_date
+                print('Skipping known bad instance: ' + name +' - '+ this_date)
                 continue
             
-            print 'Processing date ' + str(this_date)
+            print('Processing date ' + str(this_date))
             
             # Retrieve the image data and fetch the sun elevation (suggests the amount of light present)
             this_ee_image = ee.Image(ee_image_list.get(i))
@@ -186,7 +186,7 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
             try:
                 result = processing_function(ee_bounds, this_ee_image, this_date, logger)
             except Exception as e:
-                print 'Processing failed, skipping this date --> ' + str(e)
+                print('Processing failed, skipping this date --> ' + str(e))
                 traceback.print_exc(file=sys.stdout)
                 continue
             
@@ -196,11 +196,11 @@ def process_lake(lake, ee_lake, start_date, end_date, output_directory,
             logger.addDataRecord(result)
 
     except Exception as e:
-        print 'Caught exception processing the lake!'
-        print str(e)
+        print('Caught exception processing the lake!')
+        print(str(e))
         traceback.print_exc(file=sys.stdout)
 
-    print 'Finished processing lake: ' + name
+    print('Finished processing lake: ' + name)
 
 #======================================================================================================
 def main(processing_function, logging_class, image_fetching_function=get_image_collection_landsat5):
@@ -241,7 +241,7 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
     # Fetch ee information for all of the lakes we loaded from the database
     all_lakes_local = all_lakes.getInfo()
     num_lakes       = len(all_lakes_local)
-    print 'Found ' + str(num_lakes) + ' lakes.'
+    print('Found ' + str(num_lakes) + ' lakes.')
 
     # Create output directory
     if not os.path.exists(args.results_dir):
@@ -252,7 +252,7 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
     num_threads = args.num_threads
     if num_lakes < num_threads:
         num_threads = num_lakes
-    print 'Spawning ' + str(num_threads) + ' worker thread(s)'
+    print('Spawning ' + str(num_threads) + ' worker thread(s)')
     pool    = multiprocessing.Pool(processes=num_threads)
     manager = multiprocessing.Manager()
     
@@ -271,12 +271,12 @@ def main(processing_function, logging_class, image_fetching_function=get_image_c
                                                                  processing_function, logging_class, image_fetching_function)))
         
     # Wait until all threads have finished
-    print 'Waiting for all threads to complete...'
+    print('Waiting for all threads to complete...')
     for r in lake_results:
         r.get()
     
     # Stop the queue and all the threads
-    print 'Cleaning up...'
+    print('Cleaning up...')
     pool.close()
     pool.join()
 

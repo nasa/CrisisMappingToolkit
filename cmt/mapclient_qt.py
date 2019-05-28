@@ -67,21 +67,21 @@ try:
     from PIL import ImageQt                      # pylint: disable=g-import-not-at-top
     from PIL import Image, ImageChops            # pylint: disable=g-import-not-at-top
 except ImportError:
-    print """
+    print("""
         ERROR: A Python library (PILLOW) used by the CMT mapclient_qt module
         was not found. Information on PILLOW can be found at:
         https://pillow.readthedocs.org/
-        """
+        """)
     raise
 
 try:
     import PyQt4                         # pylint: disable=g-import-not-at-top
     from PyQt4 import QtCore, QtGui
 except ImportError:
-    print """
+    print("""
         ERROR: A Python library (PyQt4) used by the CMT mapclient_qt
         module was not found.
-        """
+        """)
     raise
 
 import cmt.util.miscUtilities
@@ -697,7 +697,7 @@ class TileManager(object):
         self.delay = False
         # Google's map tile server thinks we are automating queries and blocks us, so we forcibly slow down
         if self.url == DEFAULT_MAP_URL_PATTERN:
-            print 'Throttling tile download'
+            print('Throttling tile download')
             NUM_WORKERS = 1
             self.delay = True
         # Make 10 workers, each an instance of the TileFetcher helper class.
@@ -807,14 +807,14 @@ class TileManager(object):
         matched_keys  = []
         for key in TileManager._lru_keys:
             if not (key in TileManager._images):
-                print 'Warning: Key not found in _images: ' + str(key)
+                print('Warning: Key not found in _images: ' + str(key))
                 continue
             pickle_images.append(makePickleImage(TileManager._images[key]))
             matched_keys.append(key)
             
         with open(path, 'wb') as f:
             pickle.dump( (pickle_images, matched_keys), f)
-        print 'Saved '+str(len(pickle_images))+' tiles from cache to path: ' + path
+        print('Saved '+str(len(pickle_images))+' tiles from cache to path: ' + path)
         
     def LoadCacheFromDisk(self, path):
         '''Read a cache file from disk'''
@@ -829,7 +829,7 @@ class TileManager(object):
         TileManager._images = {}
         for (pImage, key) in zip(pickle_images, TileManager._lru_keys):
            TileManager._images[key] = readPickleImage(pImage)
-        print 'Loaded '+str(len(TileManager._lru_keys))+' tiles to cache from path: ' + path
+        print('Loaded '+str(len(TileManager._lru_keys))+' tiles to cache from path: ' + path)
 
     class TileFetcher(threading.Thread):
         """A threaded URL fetcher used to retrieve tiles."""
@@ -863,12 +863,12 @@ class TileManager(object):
                         try:
                             data = urllib2.urlopen(url).read()
                         except urllib2.HTTPError as e:
-                            print >> sys.stderr, e
-                            print e
+                            print(e, file=sys.stderr)
+                            print(e)
                             if 'HTTP Error 403' in e:
                                 errorCount403 += 1
                                 if errorCount403 > MAX_403_ERRORS:
-                                    print 'Maximum HTTP Error 403 count exceeded, tile fetching disabled.'
+                                    print('Maximum HTTP Error 403 count exceeded, tile fetching disabled.')
                         else:
                             # PhotoImage can't handle alpha on LA images.
                             # - The convert command forces the image to be loaded into memory.
@@ -951,7 +951,7 @@ class GenericMapGui(QtGui.QMainWindow):
     def closeEvent(self,event):
         '''Dump the cache to disk'''
         #try:
-        print 'Attempting to save tile cache...'
+        print('Attempting to save tile cache...')
         self.tileManager.SaveCacheToDisk(LOCAL_MAP_CACHE_PATH)
         #except:
         #    print 'Unable to load cache information from ' + LOCAL_MAP_CACHE_PATH
