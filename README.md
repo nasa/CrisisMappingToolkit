@@ -81,3 +81,8 @@ accessible without any special effort.  Unfortunately some datasets, such as
 TerraSAR-X, cannot be uploaded.  If you find any missing data sets, contact the
 project maintainers to see if we can get it uploaded.
 
+## Licensing
+
+The Crisis Mapping Toolkit is released under the Apache 2 license.
+
+Opyright (c) 2014, United States Government, as represented by the Administrator of the National Aeronautics and Space Administration. All rights reserved.
