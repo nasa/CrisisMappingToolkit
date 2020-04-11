@@ -85,4 +85,4 @@ project maintainers to see if we can get it uploaded.
 
 The Crisis Mapping Toolkit is released under the Apache 2 license.
 
-Opyright (c) 2014, United States Government, as represented by the Administrator of the National Aeronautics and Space Administration. All rights reserved.
+Copyright (c) 2014, United States Government, as represented by the Administrator of the National Aeronautics and Space Administration. All rights reserved.
