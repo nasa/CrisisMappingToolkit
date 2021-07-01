@@ -42,7 +42,7 @@ Terminology guide:
  - layer   = Short for Layer Number, used for indexing a list of overlays.
 
 This file contains the core GUI implementation.  Customized GUI instances are
-located in seperate files.
+located in separate files.
 """
 
 
@@ -887,8 +887,8 @@ def MakeTileManager(mapid, baseurl=BASE_URL):
 class QtGuiWrapper(object):
     '''This class is created as a singleton and wraps the QT GUI.
         It offers a few interface functions for manipulating the map.
-        
-        The class is initalized with the TYPE of GUI class it will wrap.'''
+
+        The class is initialized with the TYPE of GUI class it will wrap.'''
         
     def __init__(self, guiClass):
         '''Initialize the class with the type of QT GUI to run'''

@@ -143,11 +143,11 @@ class TestEntitySubstitution(unittest.TestCase):
         self.sub = EntitySubstitution
 
     def test_simple_html_substitution(self):
-        # Unicode characters corresponding to named HTML entites
+        # Unicode characters corresponding to named HTML entities
         # are substituted, and no others.
         s = u"foo\u2200\N{SNOWMAN}\u00f5bar"
         self.assertEqual(self.sub.substitute_html(s),
-                          u"foo&forall;\N{SNOWMAN}&otilde;bar")
+                         u"foo&forall;\N{SNOWMAN}&otilde;bar")
 
     def test_smart_quote_substitution(self):
         # MS smart quotes are a common source of frustration, so we

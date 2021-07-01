@@ -240,7 +240,7 @@ def parse_lake_data(filename):
     f = open(filename, 'r')
     # take values with low cloud cover
     f.readline() # Skip first header line
-    f.readline() # Skip nation infor
+    f.readline() # Skip nation info
     f.readline() # Skip second header line
     results = dict()
     for l in f:   # Loop through each line of the file
@@ -364,7 +364,7 @@ def process_lake(thread, lake, ee_lake, start_date, end_date, output_directory, 
                 URL      = fai_imager(im, name, date, ee_bounds)
                 testfile = urllib.URLopener()
                 testfile.retrieve(URL, fai_directory + '\\' + zip_name)
-                print 'Downloaded algae raster on an already-counted date.'
+                print('Downloaded algae raster on an already-counted date.')
 
             if (ndti == True) and (all_images[i]['properties']['DATE_ACQUIRED'] in ndti_redownload):
                 date     = all_images[i]['properties']['DATE_ACQUIRED']
@@ -373,7 +373,7 @@ def process_lake(thread, lake, ee_lake, start_date, end_date, output_directory, 
                 URL      = ndti_imager(im, name, date, ee_bounds)
                 testfile = urllib.URLopener()
                 testfile.retrieve(URL, ndti_directory + '\\' + zip_name)
-                print 'Downloaded turbidity raster on an already-counted date.'
+                print('Downloaded turbidity raster on an already-counted date.')
             update_function(name, all_images[i]['properties']['DATE_ACQUIRED'], i, len(all_images))
             continue
 
@@ -393,14 +393,14 @@ def process_lake(thread, lake, ee_lake, start_date, end_date, output_directory, 
 
         # Write the processing results to a new line in the file
         output = '%s, %10s, %10d, %10d, %.5g'% (r['date'], r['spacecraft'], r['cloud'], r['water'], sun_elevation)
-        print '%15s %s' % (name, output)
+        print('%15s %s' % (name, output))
         f.write(output + '\n')
         results.append(r)
 
         # Make sure image is mostly cloud-free, check if the raster has already been downloaded, and , if not, download
         # the FAI raster.
         if (fai == True) and (r['cloud'] < cloud_pix_threshold and r['water'] > 0):
-            print 'Cloud-free image found. Downloading algal raster...'
+            print('Cloud-free image found. Downloading algal raster...')
             zip_name = name + '_' + r['date'] + '_Algae.zip'
 
             if zip_name not in fai_contents:
@@ -408,12 +408,12 @@ def process_lake(thread, lake, ee_lake, start_date, end_date, output_directory, 
                 testfile = urllib.URLopener()
                 testfile.retrieve(URL, fai_directory + '\\' + zip_name)
             else:
-                print 'Image already downloaded. Moving on...'
+                print('Image already downloaded. Moving on...')
 
         # Make sure image is mostly cloud-free, check if the raster has already been downloaded, and , if not, download
         # the NDTI raster.
         if (ndti == True) and (r['cloud'] < cloud_pix_threshold and r['water'] > 0):
-            print 'Cloud-free image found. Downloading turbidity raster...'
+            print('Cloud-free image found. Downloading turbidity raster...')
             zip_name = name + '_' + r['date'] + '_Turbidity.zip'
 
             if zip_name not in ndti_contents:
@@ -421,7 +421,7 @@ def process_lake(thread, lake, ee_lake, start_date, end_date, output_directory, 
                 testfile = urllib.URLopener()
                 testfile.retrieve(URL, ndti_directory + '\\' + zip_name)
             else:
-                print 'Image already downloaded. Moving on...'
+                print('Image already downloaded. Moving on...')
 
         update_function(name, r['date'], i, len(all_images))
 
@@ -482,10 +482,10 @@ def Lake_Level_Run(lake, date = None, enddate = None, results_dir = None, fai=Fa
         start_date = ee.Date(date)
         end_date   = ee.Date(enddate)
         if dt.strptime(date,'%Y-%m-%d') > dt.strptime(enddate,'%Y-%m-%d'):
-            print "Date range invalid: Start date is after end date. Please adjust date range and retry."
+            print("Date range invalid: Start date is after end date. Please adjust date range and retry.")
             return
         elif dt.strptime(date,'%Y-%m-%d') == dt.strptime(enddate,'%Y-%m-%d'):
-            print "Date range invalid: Start date is same as end date. Please adjust date range and retry."
+            print("Date range invalid: Start date is same as end date. Please adjust date range and retry.")
             return
     else:
         start_date = ee.Date(date)
@@ -501,7 +501,7 @@ def Lake_Level_Run(lake, date = None, enddate = None, results_dir = None, fai=Fa
     if lake is not None:
         all_lakes = ee.FeatureCollection('ft:1igNpJRGtsq2RtJuieuV0DwMg5b7nU8ZHGgLbC7iq', "geometry").filterMetadata(u'LAKE_NAME', u'equals', lake).toList(1000000)
         if all_lakes.size() == 0:
-            print 'Lake not found in database. Ending process...'
+            print('Lake not found in database. Ending process...')
     else:
         # bounds = ee.Geometry.Rectangle(-125.29, 32.55, -114.04, 42.02)
         # all_lakes = ee.FeatureCollection('ft:13s-6qZDKWXsLOWyN7Dap5o6Xuh2sehkirzze29o3', "geometry").filterBounds(bounds).toList(1000000)
@@ -575,6 +575,6 @@ def Lake_Level_Run(lake, date = None, enddate = None, results_dir = None, fai=Fa
                 break
             thread_lock.release()
             time.sleep(0.1)
-    if complete_function != None:
+    if complete_function is not None:
         complete_function()
-        print "Operation completed."
+        print("Operation completed.")

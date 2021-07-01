@@ -381,7 +381,7 @@ def main(argsIn):
 
         pairs = [('modis', 'M'), ('landsat', 'L'), ('sentinel-1', 'S')]
         sensorCode = '' # Will be something like "MLS"
-        # Look for fields in floodInfo indicating the precense of each sensor.
+        # Look for fields in floodInfo indicating the presence of each sensor.
         for pair in pairs:
             for s in floodInfo.keys():
                 if pair[0] in s:

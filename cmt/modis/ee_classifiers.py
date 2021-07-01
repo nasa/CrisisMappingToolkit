@@ -46,7 +46,7 @@ def _create_learning_image(domain, b):
     except AttributeError:
         pass # Suppress error if there is no DEM data
     
-    # Try to add Skybox RGB info (NIR is handled seperately because not all Skybox images have it)
+    # Try to add Skybox RGB info (NIR is handled separately because not all Skybox images have it)
     # - Use all the base bands plus a grayscale texture measure
     try:
         try: # The Skybox data can be in one of two names

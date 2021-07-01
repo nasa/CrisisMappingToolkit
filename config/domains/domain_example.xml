@@ -7,7 +7,7 @@
       <sensor> <!-- Start a single sensor definition. -->
           <name>SRTM90</name> <!-- The sensor name, it must match the name of a sensor config file. -->
           
-          <range> <!-- The numeric range of the sensor, and any othere sensor information, can be overwritten here. -->
+          <range> <!-- The numeric range of the sensor, and any other sensor information, can be overwritten here. -->
               <minimum>430</minimum>
               <maximum>600</maximum>
           </range>
