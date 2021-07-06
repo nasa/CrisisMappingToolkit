@@ -598,7 +598,7 @@ class PageElement(object):
         """Force an attribute value into a string representation.
 
         A multi-valued attribute will be converted into a
-        space-separated stirng.
+        space-separated string.
         """
         value = self.get(value, default)
         if isinstance(value, list) or isinstance(value, tuple):
@@ -637,7 +637,7 @@ class PageElement(object):
             return lambda el: el._attr_value_as_string(
                 attribute, '').startswith(value)
         elif operator == '$':
-            # string represenation of `attribute` ends with `value`
+            # string representation of `attribute` ends with `value`
             return lambda el: el._attr_value_as_string(
                 attribute, '').endswith(value)
         elif operator == '*':

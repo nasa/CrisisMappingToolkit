@@ -1187,7 +1187,6 @@ class TestElementObjects(SoupTest):
         self.assertTrue(soup.foo.has_attr('attr'))
         self.assertFalse(soup.foo.has_attr('attr2'))
 
-
     def test_attributes_come_out_in_alphabetical_order(self):
         markup = '<b a="1" z="5" m="3" f="2" y="4"></b>'
         self.assertSoupEquals(markup, '<b a="1" f="2" m="3" y="4" z="5"></b>')
@@ -1199,7 +1198,7 @@ class TestElementObjects(SoupTest):
         self.assertEqual(soup.b.string, 'foo')
 
     def test_empty_tag_has_no_string(self):
-        # A tag with no children has no .stirng.
+        # A tag with no children has no .string.
         soup = self.soup("<b></b>")
         self.assertEqual(soup.b.string, None)
 

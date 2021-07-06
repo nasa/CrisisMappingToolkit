@@ -200,8 +200,8 @@ def sar_martinis(domain, cr_method=False):
     sensor     = domain.get_radar()
     radarImage = sensor.image
 
-    # Many papers reccomend a median type filter to remove speckle noise.
-    
+    # Many papers recommend a median type filter to remove speckle noise.
+
     # 1: Divide up the image into a grid of tiles, X
     
     # Divide up the region into a grid of subregions
@@ -353,7 +353,7 @@ def sar_martinis(domain, cr_method=False):
             
             #plt.bar(binCenters, hist)
             #plt.show()
-        except Exception,e:
+        except Exception as e:
             print('Failed to compute a location:')
             print(str(e))
        

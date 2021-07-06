@@ -49,7 +49,7 @@ def dnns(domain, b, use_modis_diff=False):
     '''
     
     # This algorithm has some differences from the original paper implementation.
-    #  The most signficant of these is that it does not make use of land/water/partial
+    #  The most significant of these is that it does not make use of land/water/partial
     #  preclassifications like the original paper does.  The search range is also
     #  much smaller in order to make the algorithm run faster in Earth Engine.
     # - Running this with a tiny kernel (effectively treating the entire region
@@ -173,7 +173,7 @@ def dnns_dem(domain, b, use_modis_diff=False):
    
 #=====================================================================================
 
-# This function is for testing modifications to the DNNS algorithmm
+# This function is for testing modifications to the DNNS algorithm
 def dnns_revised(domain, b):
     '''Dynamic Nearest Neighbor Search with revisions to improve performance on our test data'''
     

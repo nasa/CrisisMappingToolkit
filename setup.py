@@ -30,10 +30,10 @@ except ImportError:
 try:
     import PyQt4
 except ImportError:
-    print """
+    print("""
             WARNING: PyQt4 is required to use the Crisis Mapping Toolkit.
             Please install PyQt4 on your system.
-          """
+          """)
 
 
 def read(fname):

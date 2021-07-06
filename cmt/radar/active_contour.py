@@ -265,8 +265,8 @@ class Loop(object):
         mean_count = 0
         mean_good  = 0
         for i in range(0,num_bands):
-            
-            # Extract paremeters for this band
+
+            # Extract parameters for this band
             mean   = band_means[i]
             mean_2 = band_means_2[i]
             n      = band_counts[i]
@@ -637,7 +637,7 @@ def initialize_active_contour(domain, ee_image, band_statistics, image_is_log_10
     
     # Initialize the algorithm with a grid of small loops that cover the region of interest
     B              = min(w / scale_meters, h / scale_meters)
-    CELL_SIZE      = 20 # This is the inital loop size
+    CELL_SIZE      = 20 # This is the initial loop size
     loops = []
     for i in range(B, w - B, CELL_SIZE):
         for j in range(B, h - B, CELL_SIZE):

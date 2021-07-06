@@ -195,7 +195,7 @@ def unComputeRectangle(eeRect):
     LON = 0 # Helper constants
     LAT = 1    
     rectCoords  = eeRect.getInfo()['coordinates']    # EE object -> dictionary -> string
-    minLon      = rectCoords[0][0][LON]           # Exctract the numbers from the string
+    minLon      = rectCoords[0][0][LON]           # Extract the numbers from the string
     minLat      = rectCoords[0][0][LAT]
     maxLon      = rectCoords[0][2][LON]
     maxLat      = rectCoords[0][2][LAT]
@@ -359,8 +359,8 @@ def downloadEeImage(eeObject, bbox, scale, file_path, vis_params=None):
                 break
             fp.write(chunk)
     print('Download complete!')
-    
-    # Each band get packed seperately in the zip file.
+
+    # Each band get packed separately in the zip file.
     z = zipfile.ZipFile(zip_path, 'r')
     
     ## All the transforms should be the same so we only read the first one.

@@ -197,7 +197,7 @@ class SensorObservation(object):
         # Look for display bands at the top band level
         display_bands = bands.find('display_bands')
         if display_bands != None:
-            display_band_list = display_bands.text.replace(' ','').split(',') # The band names are comma seperated
+            display_band_list = display_bands.text.replace(' ','').split(',') # The band names are comma separated
             if len(display_band_list) > 3:
                 raise Exception('Cannot have more than three display bands!')
             self._display_bands = display_band_list
@@ -205,7 +205,7 @@ class SensorObservation(object):
         # Looks for display band gains at the top level
         display_gains = bands.find('display_gains')
         if display_gains != None:
-            display_gain_list = display_gains.text.split(',') # The band names are comma seperated
+            display_gain_list = display_gains.text.split(',') # The band names are comma separated
             if len(display_gain_list) > 3:
                 raise Exception('Cannot have more than three display band gains!')
             self._display_gains = display_gain_list
@@ -638,7 +638,7 @@ class Domain(object):
         if sensors == None:
             raise Exception('Must have at least one sensor for the domain!')
         
-        # Load each <sensor> tag seperately
+        # Load each <sensor> tag separately
         for sensor_node in sensors.findall('sensor'):
             try:
                 # Send the sensor node of the domain file for parsing
@@ -660,7 +660,7 @@ class Domain(object):
 
         # Load a ground truth image if one was specified
         # - These are always binary and are either loaded from an asset ID in Maps Engine
-        #   or use the modis permament water mask.
+        #   or use the modis permanent water mask.
         truth_section = root.find('truth')
         if truth_section != None:
             if (truth_section.text.lower() == 'permanent_water_mask'):
@@ -672,7 +672,7 @@ class Domain(object):
     def _load_bbox(self, root):
         '''read a bbox, <bbox>'''
         b = None
-        if root != None:
+        if root is not None:
             try:
                 bl = root.find('bottomleft')
                 tr = root.find('topright')
