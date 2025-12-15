@@ -22,6 +22,8 @@ from bs4 import BeautifulSoup
 STORAGE_URL = 'http://byss.arc.nasa.gov/smcmich1/cmt_detections/'    
 
 feed_url = STORAGE_URL + 'daily_flood_detect_feed.kml'
+API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', default=None)
+assert API_KEY != None, "Please defined the GOOGLE_MAPS_API_KEY environment variable."
 
 # Go ahead and load the HTML files for later use.
 
@@ -329,7 +331,7 @@ class MapPage(webapp2.RequestHandler):
 
         # Insert the options section
         self._htmlText = renderHtml(PAGE_HTML, [('[OPTION_SECTION]', optionText),
-                          ('[API_KEY]', 'AIzaSyAlcB6oaJeUdTz3I97cL47tFLIQfSu4j58'),
+                          ('[API_KEY]', API_KEY),
                           ('[FEED_URL]', feed_url)])
 
         # Fetch user selection    
@@ -364,7 +366,7 @@ class MapPage(webapp2.RequestHandler):
             #raise Exception(json.dumps(detailedInfo))
             newText = renderHtml(MAP_HTML, [#('[EE_MAPID]',    mapid['mapid']),
                                             #('[EE_TOKEN]',    mapid['token']),
-                                            ('[API_KEY]', 'AIzaSyAlcB6oaJeUdTz3I97cL47tFLIQfSu4j58'),
+                                            ('[API_KEY]', API_KEY),
                                             ('[MAP_TITLE]',   dateLocString),
                                             ('[KML_URL]',     kmlUrl), 
                                             #('[MODIS_ID]',    detailedInfo['modis_id']),
